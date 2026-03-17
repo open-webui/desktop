@@ -1,4 +1,5 @@
 _old
+.vscode
 node_modules
 dist
 out
