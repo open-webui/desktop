@@ -477,6 +477,8 @@ export const startServer = async (
   port = null
 ): Promise<{ url: string; pid: number }> => {
   await stopAllServers()
+  const config = await getConfig()
+  const configEnvVars = config.envVars ?? {}
   const host = expose ? '0.0.0.0' : '127.0.0.1'
   if (!isPythonInstalled()) throw new Error('Python is not installed')
   if (!isPackageInstalled('open-webui')) throw new Error('open-webui package is not installed')
@@ -515,6 +517,7 @@ export const startServer = async (
       rows: 50,
       env: {
         ...process.env,
+        ...(configEnvVars ?? {}),
         DATA_DIR: dataDir,
         WEBUI_SECRET_KEY: secretKey,
         PYTHONUNBUFFERED: '1',
@@ -736,6 +739,7 @@ export interface AppConfig {
     enabled: boolean
     port: number
   }
+  envVars: Record<string, string>
 }
 
 const DEFAULT_CONFIG: AppConfig = {
@@ -750,7 +754,8 @@ const DEFAULT_CONFIG: AppConfig = {
   openTerminal: {
     enabled: false,
     port: 8000
-  }
+  },
+  envVars: {}
 }
 
 export const getConfig = async (): Promise<AppConfig> => {

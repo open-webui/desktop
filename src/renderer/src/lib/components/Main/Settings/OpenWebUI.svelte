@@ -23,6 +23,7 @@
   )
 
   let uninstalling = $state(false)
+  let installing = $state(false)
 
   const updateConfig = async (key: string, value: any) => {
     const current = $config ?? {}
@@ -74,9 +75,32 @@
 {#if !loaded}
   <div class="py-6 text-[12px] opacity-20 text-center">Loading…</div>
 {:else if !installed}
-  <div class="py-6 text-center">
-    <div class="text-[13px] opacity-40 mb-1">Not installed</div>
-    <div class="text-[11px] opacity-20">Set up a local server from the main screen to get started</div>
+  <div class="py-4 flex items-center justify-between">
+    <div>
+      <div class="text-[13px] opacity-40">Not installed</div>
+      <div class="text-[11px] opacity-20 mt-0.5">Set up a local Open WebUI server</div>
+    </div>
+    <button
+      class="text-[12px] opacity-40 hover:opacity-70 px-3 py-1.5 bg-white/[0.06] transition border-none text-[#fafafa] rounded-xl flex items-center gap-1.5 {installing ? 'pointer-events-none opacity-20' : ''}"
+      disabled={installing}
+      onclick={async () => {
+        installing = true
+        try {
+          await window.electronAPI.installPackage()
+          version = await window.electronAPI.getPackageVersion('open-webui')
+        } catch (e) {
+          console.error('Failed to install:', e)
+        }
+        installing = false
+      }}
+    >
+      {#if installing}
+        <div class="w-2.5 h-2.5 rounded-full border-[1.5px] border-white/30 border-t-transparent animate-spin"></div>
+        Installing…
+      {:else}
+        Install
+      {/if}
+    </button>
   </div>
 {:else}
 <div class="flex flex-col divide-y divide-white/[0.04]">

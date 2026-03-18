@@ -5,6 +5,7 @@ import log from 'electron-log'
 import * as pty from 'node-pty'
 import {
   getPythonPath,
+  getConfig,
   installPackage,
   isPackageInstalled,
   isPythonInstalled,
@@ -46,6 +47,8 @@ export const startOpenTerminal = async (
 
   const pythonPath = getPythonPath()
   const host = '127.0.0.1'
+  const config = await getConfig()
+  const configEnvVars = config.envVars ?? {}
 
   // Auto-generate API key
   const generatedKey = crypto.randomBytes(24).toString('base64url')
@@ -77,6 +80,7 @@ export const startOpenTerminal = async (
       rows: 50,
       env: {
         ...process.env,
+        ...(configEnvVars ?? {}),
         PYTHONUNBUFFERED: '1',
         ...(process.platform === 'win32' ? { PYTHONIOENCODING: 'utf-8' } : {})
       }
