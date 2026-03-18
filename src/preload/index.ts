@@ -89,6 +89,7 @@ const api = {
   getVersion: () => ipcRenderer.invoke('get:version'),
   resetApp: () => ipcRenderer.invoke('app:reset'),
   getDefaultDataPath: () => ipcRenderer.invoke('app:defaultDataPath'),
+  getDiskSpace: () => ipcRenderer.invoke('system:diskSpace'),
   getLaunchAtLogin: () => ipcRenderer.invoke('app:launchAtLogin:get'),
   setLaunchAtLogin: (enabled: boolean) => ipcRenderer.invoke('app:launchAtLogin:set', enabled),
   openInBrowser: (url: string) => ipcRenderer.invoke('open:browser', { url }),

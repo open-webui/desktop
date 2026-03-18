@@ -17,7 +17,7 @@ import {
   dialog
 } from 'electron'
 import path, { join } from 'path'
-import { readFile } from 'fs/promises'
+import { readFile, statfs } from 'fs/promises'
 import { electronApp, optimizer, is } from '@electron-toolkit/utils'
 
 import {
@@ -590,6 +590,16 @@ if (!gotTheLock) {
 
     ipcMain.handle('app:defaultDataPath', () => {
       return join(getUserDataPath(), 'data')
+    })
+
+    ipcMain.handle('system:diskSpace', async () => {
+      try {
+        const stats = await statfs(getUserDataPath())
+        return { free: stats.bavail * stats.bsize }
+      } catch (error) {
+        log.error('Failed to check disk space:', error)
+        return { free: -1 }
+      }
     })
 
     ipcMain.handle('get:config', () => getConfig())

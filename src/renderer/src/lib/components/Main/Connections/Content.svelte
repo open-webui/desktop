@@ -1,6 +1,7 @@
 <script lang="ts">
   import { fade, fly } from 'svelte/transition'
   import { connections, config, serverInfo, appState } from '../../../stores'
+  import i18n from '../../../i18n'
   import LocalInstall from '../../Setup/LocalInstall.svelte'
   import landingVideo from '../../../../assets/landing.mp4'
 
@@ -55,6 +56,11 @@
   }: Props = $props()
 
   const isInitializing = $derived($appState === 'initializing')
+  const insufficientStorage = $derived(
+    $appState?.startsWith('insufficient-storage:')
+      ? $appState.split(':')[1]
+      : null
+  )
   let copied = $state(false)
 </script>
 
@@ -91,7 +97,7 @@
             setTimeout(() => { copied = false }, 1500)
           }
         }}
-        title="Copy logs"
+        title={$i18n.t('logs.copyLogs')}
       >
         <svg class="w-3.5 h-3.5" fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="1.5">
           {#if copied}
@@ -106,12 +112,12 @@
     <!-- Open Terminal Logs -->
     <div class="flex-1 min-h-0 flex flex-col bg-[#0a0a0a]">
       <div class="flex items-center justify-between px-3 py-1.5 border-b border-black/[0.06] dark:border-white/[0.06]">
-        <span class="text-[11px] opacity-40">Open Terminal Logs</span>
+        <span class="text-[11px] opacity-40">{$i18n.t('logs.openTerminalLogs')}</span>
         <button
           class="text-[11px] opacity-30 hover:opacity-60 transition bg-transparent border-none text-[#1d1d1f] dark:text-[#fafafa]"
           onclick={() => { onSetView(activeConnectionId ? 'connected' : 'welcome') }}
         >
-          Close
+          {$i18n.t('common.close')}
         </button>
       </div>
       <div class="flex-1 min-h-0 overflow-hidden relative">
@@ -129,7 +135,7 @@
               setTimeout(() => { copied = false }, 1500)
             }
           }}
-          title="Copy logs"
+          title={$i18n.t('logs.copyLogs')}
         >
           <svg class="w-3.5 h-3.5" fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="1.5">
             {#if copied}
@@ -145,12 +151,12 @@
     <!-- Llama Server Logs -->
     <div class="flex-1 min-h-0 flex flex-col bg-[#0a0a0a]">
       <div class="flex items-center justify-between px-3 py-1.5 border-b border-black/[0.06] dark:border-white/[0.06]">
-        <span class="text-[11px] opacity-40">llama.cpp Logs</span>
+        <span class="text-[11px] opacity-40">{$i18n.t('logs.llamaCppLogs')}</span>
         <button
           class="text-[11px] opacity-30 hover:opacity-60 transition bg-transparent border-none text-[#1d1d1f] dark:text-[#fafafa]"
           onclick={() => { onSetView(activeConnectionId ? 'connected' : 'welcome') }}
         >
-          Close
+          {$i18n.t('common.close')}
         </button>
       </div>
       <div class="flex-1 min-h-0 overflow-hidden relative">
@@ -168,7 +174,7 @@
               setTimeout(() => { copied = false }, 1500)
             }
           }}
-          title="Copy logs"
+          title={$i18n.t('logs.copyLogs')}
         >
           <svg class="w-3.5 h-3.5" fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="1.5">
             {#if copied}
@@ -181,9 +187,34 @@
       </div>
     </div>
   {:else if view !== 'connected'}
-    {#if isInitializing}
+    {#if insufficientStorage}
+      <div class="px-5 py-2.5 flex items-center gap-3 bg-red-500/[0.06] border-b border-red-500/10">
+        <div class="flex-1">
+          <div class="text-[12px] text-red-400 font-medium">Not enough disk space</div>
+          <div class="text-[11px] opacity-40 mt-0.5">
+            At least 5 GB is required. Only {insufficientStorage} GB available.
+          </div>
+        </div>
+        <button
+          class="shrink-0 text-[11px] px-3 py-1 rounded-lg bg-black/[0.04] dark:bg-white/[0.06] opacity-60 hover:opacity-90 transition border-none text-[#1d1d1f] dark:text-[#fafafa] cursor-pointer"
+          onclick={async () => {
+            const MINIMUM_DISK_BYTES = 5 * 1024 * 1024 * 1024
+            const disk = await window.electronAPI.getDiskSpace()
+            if (disk?.free >= 0 && disk.free < MINIMUM_DISK_BYTES) {
+              const gb = (disk.free / (1024 * 1024 * 1024)).toFixed(1)
+              appState.set(`insufficient-storage:${gb}`)
+              return
+            }
+            appState.set('initializing')
+            window.electronAPI.installPython().then(() => appState.set('ready'))
+          }}
+        >
+          Retry
+        </button>
+      </div>
+    {:else if isInitializing}
       <div class="px-5 py-1.5 text-[11px] opacity-25">
-        Setting up…{$serverInfo?.status ? ` ${$serverInfo.status}` : ''}
+        {$i18n.t('setup.settingUp')}{$serverInfo?.status ? ` ${$serverInfo.status}` : ''}
       </div>
     {/if}
 
@@ -191,9 +222,9 @@
       {#if view === 'welcome'}
         {#if remoteConnections.length > 0 || (localConn && localInstalled)}
           <div class="text-center max-w-[320px]" in:fade={{ duration: 200 }}>
-            <div class="text-lg opacity-80 mb-1.5">Open WebUI</div>
+            <div class="text-lg opacity-80 mb-1.5">{$i18n.t('app.name')}</div>
             <div class="text-[12px] opacity-30 mb-6">
-              Select a connection to get started
+              {$i18n.t('main.selectConnection')}
             </div>
           </div>
         {:else}
@@ -216,9 +247,9 @@
             <!-- Content positioned bottom-left -->
             <div class="absolute bottom-0 left-0 right-0 p-10" in:fade={{ duration: 300 }}>
               <div class="max-w-sm">
-                <div class="text-3xl font-medium mb-3 tracking-tight text-[#1d1d1f] dark:text-[#fafafa]">Open WebUI</div>
+                <div class="text-3xl font-medium mb-3 tracking-tight text-[#1d1d1f] dark:text-[#fafafa]">{$i18n.t('app.name')}</div>
                 <div class="text-base opacity-50 mb-8 leading-relaxed text-[#1d1d1f] dark:text-[#fafafa]">
-                  Connect to an Open WebUI server, or set one up on this machine.
+                  {$i18n.t('main.heroDescription')}
                 </div>
 
                 {#if !localInstalled}
@@ -229,14 +260,14 @@
                   >
                     {#if installPhase === 'working'}
                       <div class="w-3.5 h-3.5 rounded-full border-2 border-white/30 dark:border-black/30 border-t-white dark:border-t-black animate-spin"></div>
-                      Installing…
+                      {$i18n.t('common.installing')}
                     {:else if installPhase === 'error'}
-                      Retry
+                      {$i18n.t('common.retry')}
                       <svg class="h-3.5 w-3.5" fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="1.5">
                         <path stroke-linecap="round" stroke-linejoin="round" d="M16.023 9.348h4.992v-.001M2.985 19.644v-4.992m0 0h4.992m-4.993 0l3.181 3.183a8.25 8.25 0 0013.803-3.7M20.015 4.356v4.992m0 0h-4.992m4.993 0l-3.181-3.183a8.25 8.25 0 00-13.803 3.7" />
                       </svg>
                     {:else}
-                      Get Started
+                      {$i18n.t('main.getStarted')}
                       <svg class="h-3.5 w-3.5" fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="1.5">
                         <path stroke-linecap="round" stroke-linejoin="round" d="M17 8l4 4m0 0l-4 4m4-4H3" />
                       </svg>
@@ -255,7 +286,7 @@
                     class="text-sm opacity-40 hover:opacity-70 transition bg-transparent border-none text-[#1d1d1f] dark:text-[#fafafa]"
                     onclick={() => onSetView('add')}
                   >
-                    Connect to existing server →
+                    {$i18n.t('setup.connectToServer')}
                   </button>
                 </div>
               </div>
@@ -275,13 +306,13 @@
         {/if}
       {:else if view === 'add'}
         <div class="w-full max-w-[260px]" in:fade={{ duration: 150 }}>
-          <div class="text-base opacity-70 mb-4">New Connection</div>
+          <div class="text-base opacity-70 mb-4">{$i18n.t('setup.newConnection')}</div>
 
           <div class="flex flex-col gap-2.5">
             <input
               type="text"
               bind:value={url}
-              placeholder="e.g. https://your-server.com"
+              placeholder={$i18n.t('setup.urlPlaceholder')}
               class="w-full px-4 py-2.5 rounded-xl bg-black/[0.04] dark:bg-white/[0.06] text-[13px] text-[#1d1d1f] dark:text-[#fafafa] placeholder:opacity-20 outline-none focus:bg-black/[0.06] dark:focus:bg-white/[0.1] transition no-drag border-none"
               onkeydown={(e) => e.key === 'Enter' && onAddConnection()}
             />
@@ -296,7 +327,7 @@
                 onclick={onAddConnection}
                 disabled={connecting || !url.trim()}
               >
-                {connecting ? 'Connecting…' : 'Connect'}
+                {connecting ? $i18n.t('common.connecting') : $i18n.t('common.connect')}
               </button>
 
               <button
@@ -306,7 +337,7 @@
                   error = ''
                 }}
               >
-                Cancel
+                {$i18n.t('common.cancel')}
               </button>
             </div>
           </div>

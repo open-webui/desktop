@@ -2,6 +2,7 @@
   import { fly, fade } from 'svelte/transition'
   import { onMount } from 'svelte'
   import { connections, config, appState, appInfo } from '../../stores'
+  import i18n from '../../i18n'
 
   import logoImage from '../../assets/images/splash.png'
 
@@ -26,7 +27,7 @@
     connecting = true
     try {
       const valid = await window.electronAPI.validateUrl(u)
-      if (!valid) { error = 'Unreachable'; connecting = false; return }
+      if (!valid) { error = $i18n.t('setup.connectionManager.unreachable'); connecting = false; return }
       await window.electronAPI.addConnection({
         id: crypto.randomUUID(),
         name: name.trim() || new URL(u).hostname,
@@ -36,7 +37,7 @@
       connections.set(await window.electronAPI.getConnections())
       config.set(await window.electronAPI.getConfig())
       url = ''; name = ''; view = 'list'
-    } catch { error = 'Failed' }
+    } catch { error = $i18n.t('setup.connectionManager.failed') }
     finally { connecting = false }
   }
 
@@ -58,7 +59,7 @@
   <div class="h-full flex flex-col bg-[#f5f5f7] dark:bg-[#0a0a0a] text-[#1d1d1f] dark:text-[#fafafa]" in:fade={{ duration: 250 }}>
     <!-- Header -->
     <div class="flex items-center justify-between {$appInfo?.platform === 'darwin' ? 'pl-[76px]' : 'pl-5'} pr-5 pt-3 pb-2 drag-region">
-      <div class="text-[13px] opacity-50">Connections</div>
+      <div class="text-[13px] opacity-50">{$i18n.t('setup.connectionManager.connections')}</div>
       <img src={logoImage} class="w-5 h-5 rounded-full dark:invert opacity-40" alt="logo" />
     </div>
 
@@ -83,7 +84,7 @@
                 <div class="flex items-center gap-2">
                   <span class="text-[13px] truncate">{conn.name}</span>
                   {#if $config?.defaultConnectionId === conn.id}
-                    <span class="text-[10px] opacity-30">default</span>
+                    <span class="text-[10px] opacity-30">{$i18n.t('common.default')}</span>
                   {/if}
                 </div>
                 <span class="text-[11px] opacity-20 truncate block mt-px">{conn.url}</span>
@@ -104,7 +105,7 @@
             </div>
           {:else}
             <div class="flex-1 flex items-center justify-center py-16">
-              <span class="text-[13px] opacity-15">No connections</span>
+              <span class="text-[13px] opacity-15">{$i18n.t('setup.connectionManager.noConnections')}</span>
             </div>
           {/each}
         </div>
@@ -114,7 +115,7 @@
           class="mt-4 inline-flex items-center gap-2 text-[13px] opacity-40 hover:opacity-70 transition bg-transparent border-none text-[#1d1d1f] dark:text-[#fafafa]"
           onclick={() => (view = 'add')}
         >
-          + Add connection
+          {$i18n.t('setup.connectionManager.addConnection')}
         </button>
 
       {:else if view === 'add'}
@@ -123,23 +124,23 @@
             class="text-[12px] opacity-40 hover:opacity-70 transition mb-6 bg-transparent border-none text-[#1d1d1f] dark:text-[#fafafa]"
             onclick={() => { view = 'list'; error = '' }}
           >
-            ← Back
+            {$i18n.t('common.back')}
           </button>
 
-          <div class="text-2xl font-light tracking-tight mb-5">Add connection.</div>
+          <div class="text-2xl font-light tracking-tight mb-5">{$i18n.t('setup.connectionManager.addConnectionTitle')}</div>
 
           <div class="flex flex-col gap-2.5">
             <input
               type="text"
               bind:value={url}
-              placeholder="Server URL"
+              placeholder={$i18n.t('setup.connectionManager.serverUrl')}
               class="w-full px-4 py-2.5 bg-black/[0.04] dark:bg-white/[0.06] text-[13px] text-[#1d1d1f] dark:text-[#fafafa] placeholder:opacity-20 outline-none focus:bg-white/[0.1] transition no-drag border-none"
               onkeydown={(e) => e.key === 'Enter' && add()}
             />
             <input
               type="text"
               bind:value={name}
-              placeholder="Label (optional)"
+              placeholder={$i18n.t('setup.connectionManager.labelOptional')}
               class="w-full px-4 py-2.5 bg-black/[0.04] dark:bg-white/[0.06] text-[13px] text-[#1d1d1f] dark:text-[#fafafa] placeholder:opacity-20 outline-none focus:bg-white/[0.1] transition no-drag border-none"
             />
             {#if error}
@@ -150,7 +151,7 @@
               onclick={add}
               disabled={connecting}
             >
-              {connecting ? 'Adding…' : 'Add'}
+              {connecting ? $i18n.t('setup.connectionManager.adding') : $i18n.t('setup.connectionManager.add')}
               {#if !connecting}
                 <svg class="h-3.5 w-3.5" fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="1.5">
                   <path stroke-linecap="round" stroke-linejoin="round" d="M17 8l4 4m0 0l-4 4m4-4H3" />

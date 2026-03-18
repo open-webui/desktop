@@ -1,5 +1,6 @@
 <script lang="ts">
   import { connections, config } from '../../../stores'
+  import i18n from '../../../i18n'
 
   const remove = async (id: string) => {
     await window.electronAPI.removeConnection(id)
@@ -42,12 +43,12 @@
         class="text-[11px] opacity-30 hover:opacity-60 px-2 py-1 bg-transparent transition border-none text-[#1d1d1f] dark:text-[#fafafa] shrink-0"
         onclick={() => remove(conn.id)}
       >
-        Remove
+        {$i18n.t('common.remove')}
       </button>
     </div>
   {/each}
 
   {#if ($connections ?? []).length === 0}
-    <div class="py-6 text-[12px] opacity-20 text-center">No connections</div>
+    <div class="py-6 text-[12px] opacity-20 text-center">{$i18n.t('settings.connections.noConnections')}</div>
   {/if}
 </div>

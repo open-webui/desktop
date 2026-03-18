@@ -33,6 +33,15 @@
     // Install python in the background — don't block UI
     const pythonReady = await api.getPythonStatus()
     if (!pythonReady) {
+      // Check disk space before installing
+      const MINIMUM_DISK_BYTES = 5 * 1024 * 1024 * 1024 // 5 GB
+      const disk = await api.getDiskSpace()
+      if (disk?.free >= 0 && disk.free < MINIMUM_DISK_BYTES) {
+        const availableGB = (disk.free / (1024 * 1024 * 1024)).toFixed(1)
+        appState.set(`insufficient-storage:${availableGB}`)
+        return
+      }
+
       appState.set('initializing')
       api.installPython().then(async () => {
         appState.set('ready')

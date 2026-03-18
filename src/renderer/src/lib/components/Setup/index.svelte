@@ -2,6 +2,7 @@
   import { onMount } from 'svelte'
   import { fly, fade } from 'svelte/transition'
   import { appState, connections, config } from '../../stores'
+  import i18n from '../../i18n'
   import LocalInstall from './LocalInstall.svelte'
 
   import logoImage from '../../assets/images/splash.png'
@@ -28,7 +29,7 @@
     connecting = true
     try {
       const valid = await window.electronAPI.validateUrl(u)
-      if (!valid) { error = 'Could not reach this server'; connecting = false; return }
+      if (!valid) { error = $i18n.t('setup.couldNotReachServer'); connecting = false; return }
       await window.electronAPI.addConnection({
         id: crypto.randomUUID(),
         name: new URL(u).hostname,
@@ -41,7 +42,7 @@
       await window.electronAPI.connectTo(conns[conns.length - 1].id)
       appState.set('ready')
     } catch {
-      error = 'Connection failed'
+      error = $i18n.t('setup.connectionFailed')
     } finally {
       connecting = false
     }
@@ -71,10 +72,10 @@
     <div class="relative z-10 h-full flex flex-col justify-end px-8 pb-10">
       {#if view === 'main'}
         <div class="max-w-sm" in:fly={{ duration: 500, y: 10 }}>
-          <div class="mb-2 text-sm font-normal opacity-50">Open WebUI</div>
+          <div class="mb-2 text-sm font-normal opacity-50">{$i18n.t('app.name')}</div>
 
           <h1 class="text-3xl leading-tight font-light tracking-tight mb-6">
-            New Connection
+            {$i18n.t('setup.newConnection')}
           </h1>
 
           <div class="flex flex-col gap-2.5">
@@ -82,7 +83,7 @@
               <input
                 type="text"
                 bind:value={url}
-                placeholder="e.g. https://your-server.com"
+                placeholder={$i18n.t('setup.urlPlaceholder')}
                 class="flex-1 px-4 py-2.5 bg-black/[0.04] dark:bg-white/[0.06] text-[13px] text-[#1d1d1f] dark:text-[#fafafa] placeholder:opacity-20 outline-none focus:bg-white/[0.1] transition no-drag border-none"
                 onkeydown={(e) => e.key === 'Enter' && connect()}
               />
@@ -92,7 +93,7 @@
                 onclick={connect}
                 disabled={connecting || !url.trim()}
               >
-                {connecting ? 'Connecting…' : 'Connect'}
+                {connecting ? $i18n.t('common.connecting') : $i18n.t('common.connect')}
                 {#if !connecting}
                   <svg class="h-3.5 w-3.5" fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="1.5">
                     <path stroke-linecap="round" stroke-linejoin="round" d="M17 8l4 4m0 0l-4 4m4-4H3" />
@@ -111,7 +112,7 @@
               class="text-sm opacity-40 hover:opacity-70 transition bg-transparent border-none text-[#1d1d1f] dark:text-[#fafafa]"
               onclick={() => (view = 'install')}
             >
-              Or install locally →
+              {$i18n.t('setup.orInstallLocally')}
             </button>
           </div>
         </div>

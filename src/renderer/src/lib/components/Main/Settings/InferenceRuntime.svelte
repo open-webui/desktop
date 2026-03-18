@@ -1,6 +1,7 @@
 <script lang="ts">
   import { onMount } from 'svelte'
   import { config } from '../../../stores'
+  import i18n from '../../../i18n'
   import Switch from '../../common/Switch.svelte'
 
   let lsInfo = $state<{ url?: string; status?: string; pid?: number; binaryPath?: string } | null>(null)
@@ -141,7 +142,7 @@
 </script>
 
 {#if !loaded}
-  <div class="py-6 text-[12px] opacity-20 text-center">Loading…</div>
+  <div class="py-6 text-[12px] opacity-20 text-center">{$i18n.t('common.loading')}</div>
 {:else}
 <div class="flex flex-col divide-y divide-white/[0.04]">
   <!-- Server status & controls -->
@@ -156,16 +157,16 @@
       <div class="flex items-center gap-1.5">
         {#if isRunning}
           <div class="w-1.5 h-1.5 rounded-full bg-emerald-400"></div>
-          <span class="text-[12px] opacity-50">Running</span>
+          <span class="text-[12px] opacity-50">{$i18n.t('common.running')}</span>
         {:else if lsInfo?.status === 'starting' || lsInfo?.status === 'setting-up'}
           <div class="w-1.5 h-1.5 rounded-full bg-amber-400/60 animate-pulse"></div>
-          <span class="text-[12px] opacity-30 capitalize">{lsInfo?.status === 'setting-up' ? 'Setting up' : 'Starting'}</span>
+          <span class="text-[12px] opacity-30 capitalize">{lsInfo?.status === 'setting-up' ? $i18n.t('settings.inference.settingUp') : $i18n.t('common.starting')}</span>
         {:else if lsInfo?.status === 'failed'}
           <div class="w-1.5 h-1.5 rounded-full bg-red-400/70"></div>
-          <span class="text-[12px] opacity-30">Failed</span>
+          <span class="text-[12px] opacity-30">{$i18n.t('common.failed')}</span>
         {:else}
           <div class="w-1.5 h-1.5 rounded-full bg-black/15 dark:bg-white/20"></div>
-          <span class="text-[12px] opacity-30">Stopped</span>
+          <span class="text-[12px] opacity-30">{$i18n.t('common.stopped')}</span>
         {/if}
       </div>
     </div>
@@ -183,12 +184,12 @@
         >
           {#if stopping}
             <div class="w-2.5 h-2.5 rounded-full border-[1.5px] border-black/20 dark:border-white/30 border-t-transparent animate-spin"></div>
-            Stopping…
+            {$i18n.t('common.stopping')}
           {:else}
             <svg class="w-3 h-3" fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="1.5">
               <path stroke-linecap="round" stroke-linejoin="round" d="M5.636 5.636a9 9 0 1012.728 0M12 3v9" />
             </svg>
-            Stop
+            {$i18n.t('common.stop')}
           {/if}
         </button>
         <button
@@ -198,12 +199,12 @@
         >
           {#if restarting}
             <div class="w-2.5 h-2.5 rounded-full border-[1.5px] border-black/20 dark:border-white/30 border-t-transparent animate-spin"></div>
-            Restarting…
+            {$i18n.t('common.restarting')}
           {:else}
             <svg class="w-3 h-3" fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="1.5">
               <path stroke-linecap="round" stroke-linejoin="round" d="M16.023 9.348h4.992v-.001M2.985 19.644v-4.992m0 0h4.992m-4.993 0l3.181 3.183a8.25 8.25 0 0013.803-3.7M20.015 4.356v4.992m0 0h-4.992m4.993 0l-3.181-3.183a8.25 8.25 0 00-13.803 3.7" />
             </svg>
-            Restart
+            {$i18n.t('common.restart')}
           {/if}
         </button>
       {:else}
@@ -214,12 +215,12 @@
         >
           {#if starting}
             <div class="w-2.5 h-2.5 rounded-full border-[1.5px] border-black/20 dark:border-white/30 border-t-transparent animate-spin"></div>
-            Starting…
+            {$i18n.t('common.starting')}
           {:else}
             <svg class="w-3 h-3" fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="1.5">
               <path stroke-linecap="round" stroke-linejoin="round" d="M5.25 5.653c0-.856.917-1.398 1.667-.986l11.54 6.347a1.125 1.125 0 010 1.972l-11.54 6.347a1.125 1.125 0 01-1.667-.986V5.653z" />
             </svg>
-            Start
+            {$i18n.t('common.start')}
           {/if}
         </button>
       {/if}
@@ -231,12 +232,12 @@
       >
         {#if settingUp}
           <div class="w-2.5 h-2.5 rounded-full border-[1.5px] border-black/20 dark:border-white/30 border-t-transparent animate-spin"></div>
-          Downloading…
+          {$i18n.t('common.downloading')}
         {:else}
           <svg class="w-3 h-3" fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="1.5">
             <path stroke-linecap="round" stroke-linejoin="round" d="M3 16.5v2.25A2.25 2.25 0 005.25 21h13.5A2.25 2.25 0 0021 18.75V16.5M16.5 12L12 16.5m0 0L7.5 12m4.5 4.5V3" />
           </svg>
-          {lsInfo?.binaryPath ? 'Re-download' : 'Download'}
+          {lsInfo?.binaryPath ? $i18n.t('settings.inference.redownload') : $i18n.t('common.download')}
         {/if}
       </button>
     </div>
@@ -245,7 +246,7 @@
   <!-- Running Instance Info -->
   {#if isRunning && lsInfo}
     <div class="py-4">
-      <div class="text-[13px] opacity-70 mb-3">Running Instance</div>
+      <div class="text-[13px] opacity-70 mb-3">{$i18n.t('settings.inference.runningInstance')}</div>
       <div class="flex flex-col gap-2">
         <div class="flex items-center justify-between">
           <span class="text-[11px] opacity-30">URL</span>
@@ -257,7 +258,7 @@
         </div>
         {#if lsInfo.version}
         <div class="flex items-center justify-between">
-          <span class="text-[11px] opacity-30">Build</span>
+          <span class="text-[11px] opacity-30">{$i18n.t('settings.inference.build')}</span>
           <span class="text-[12px] opacity-50 font-mono">{lsInfo.version}</span>
         </div>
         {/if}
@@ -268,8 +269,8 @@
   <!-- Start on Launch -->
   <div class="py-4 flex items-center justify-between">
     <div>
-      <div class="text-[13px] opacity-70">Start on Launch</div>
-      <div class="text-[11px] opacity-25 mt-0.5">Automatically start llama.cpp when the app opens</div>
+      <div class="text-[13px] opacity-70">{$i18n.t('settings.inference.startOnLaunch')}</div>
+      <div class="text-[11px] opacity-25 mt-0.5">{$i18n.t('settings.inference.startOnLaunchDesc')}</div>
     </div>
     <Switch
       checked={$config?.llamaCpp?.enabled ?? false}
@@ -280,8 +281,8 @@
   <!-- Version -->
   <div class="py-4 flex items-center justify-between">
     <div>
-      <div class="text-[13px] opacity-70">Version</div>
-      <div class="text-[11px] opacity-25 mt-0.5">Release tag (e.g. latest, b8412)</div>
+      <div class="text-[13px] opacity-70">{$i18n.t('settings.inference.version')}</div>
+      <div class="text-[11px] opacity-25 mt-0.5">{$i18n.t('settings.inference.versionDesc')}</div>
     </div>
     <input
       type="text"
@@ -294,8 +295,8 @@
   <!-- Variant -->
   <div class="py-4 flex items-center justify-between">
     <div>
-      <div class="text-[13px] opacity-70">Variant</div>
-      <div class="text-[11px] opacity-25 mt-0.5">Hardware acceleration backend</div>
+      <div class="text-[13px] opacity-70">{$i18n.t('settings.inference.variant')}</div>
+      <div class="text-[11px] opacity-25 mt-0.5">{$i18n.t('settings.inference.variantDesc')}</div>
     </div>
     <select
       class="bg-black/[0.04] dark:bg-white/[0.06] text-[12px] text-[#1d1d1f] dark:text-[#fafafa] px-3 py-1.5 border-none outline-none rounded-xl opacity-60"
@@ -310,8 +311,8 @@
   <!-- Port -->
   <div class="py-4 flex items-center justify-between">
     <div>
-      <div class="text-[13px] opacity-70">Port</div>
-      <div class="text-[11px] opacity-25 mt-0.5">Server port for llama-server</div>
+      <div class="text-[13px] opacity-70">{$i18n.t('settings.inference.port')}</div>
+      <div class="text-[11px] opacity-25 mt-0.5">{$i18n.t('settings.inference.portDesc')}</div>
     </div>
     <input
       type="number"
@@ -324,13 +325,13 @@
   <!-- Extra Arguments -->
   <div class="py-4 flex items-center justify-between gap-4">
     <div class="shrink-0">
-      <div class="text-[13px] opacity-70">Extra Arguments</div>
-      <div class="text-[11px] opacity-25 mt-0.5">Additional CLI flags for llama-server</div>
+      <div class="text-[13px] opacity-70">{$i18n.t('settings.inference.extraArguments')}</div>
+      <div class="text-[11px] opacity-25 mt-0.5">{$i18n.t('settings.inference.extraArgumentsDesc')}</div>
     </div>
     <input
       type="text"
       class="bg-black/[0.04] dark:bg-white/[0.06] text-[12px] text-[#1d1d1f] dark:text-[#fafafa] px-3 py-1.5 border-none outline-none rounded-xl opacity-60 min-w-0 flex-1 max-w-[280px] text-right font-mono"
-      placeholder="e.g. --model /path/to/model.gguf -ngl 99"
+      placeholder={$i18n.t('settings.inference.extraArgumentsPlaceholder')}
       value={($config?.llamaCpp?.extraArgs ?? []).join(' ')}
       onchange={(e) => {
         const val = (e.target as HTMLInputElement).value.trim()

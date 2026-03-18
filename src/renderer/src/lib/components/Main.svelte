@@ -3,6 +3,7 @@
   import { fade } from 'svelte/transition'
   import { connections, config, appInfo } from '../stores'
   import { tooltip } from '../actions/tooltip'
+  import i18n from '../i18n'
   import Connections from './Main/Connections.svelte'
   import Settings from './Main/Settings.svelte'
 
@@ -41,7 +42,7 @@
         <button
           class="opacity-70 hover:opacity-100 transition bg-transparent border-none text-[#1d1d1f] dark:text-[#fafafa] no-drag"
           onclick={() => (sidebarOpen = !sidebarOpen)}
-          use:tooltip={sidebarOpen ? 'Close sidebar' : 'Open sidebar'}
+          use:tooltip={sidebarOpen ? $i18n.t('sidebar.tooltip.closeSidebar') : $i18n.t('sidebar.tooltip.openSidebar')}
         >
           <svg
             class="w-[15px] h-[15px]"
@@ -59,14 +60,14 @@
         </button>
       </div>
       <div class="flex-1 flex items-center justify-center">
-        <span class="text-[11px] opacity-80">{activeConnectionName || 'Open WebUI'}</span>
+        <span class="text-[11px] opacity-80">{activeConnectionName || $i18n.t('app.name')}</span>
       </div>
       {#if isLocalConnection}
         <div class="pr-3 shrink-0 flex items-center">
           <button
             class="opacity-20 hover:opacity-50 transition bg-transparent border-none text-[#1d1d1f] dark:text-[#fafafa] no-drag"
             onclick={() => (showingLogs = !showingLogs)}
-            use:tooltip={showingLogs ? 'Back to Open WebUI' : 'Show logs'}
+            use:tooltip={showingLogs ? $i18n.t('sidebar.tooltip.backToOpenWebUI') : $i18n.t('sidebar.tooltip.showLogs')}
           >
             <svg
               class="w-[14px] h-[14px]"

@@ -1,6 +1,7 @@
 <script lang="ts">
   import { onMount } from 'svelte'
   import { appInfo } from '../../../stores'
+  import i18n from '../../../i18n'
 
   let openWebuiVersion = $state<string | null>(null)
   let openTerminalVersion = $state<string | null>(null)
@@ -130,8 +131,8 @@
 
 <div class="flex flex-col divide-y divide-white/[0.04]">
   <div class="py-4 flex items-center justify-between">
-    <div class="text-[13px] opacity-70">Desktop Version</div>
-    <div class="text-[12px] opacity-30">{$appInfo?.version ?? 'Unknown'}</div>
+    <div class="text-[13px] opacity-70">{$i18n.t('settings.about.desktopVersion')}</div>
+    <div class="text-[12px] opacity-30">{$appInfo?.version ?? $i18n.t('common.unknown')}</div>
   </div>
 
   {#if openWebuiVersion}
@@ -139,7 +140,7 @@
       class="w-full py-4 flex items-center justify-between bg-transparent border-none cursor-pointer group"
       onclick={() => openRelease('open-webui/open-webui', openWebuiVersion!)}
     >
-      <div class="text-[13px] opacity-70">Open WebUI Version</div>
+      <div class="text-[13px] opacity-70">{$i18n.t('settings.about.openWebuiVersion')}</div>
       <div class="text-[12px] opacity-30 group-hover:opacity-50 transition">{openWebuiVersion}</div>
     </button>
   {/if}
@@ -149,7 +150,7 @@
       class="w-full py-4 flex items-center justify-between bg-transparent border-none cursor-pointer group"
       onclick={() => openRelease('open-webui/open-terminal', openTerminalVersion!)}
     >
-      <div class="text-[13px] opacity-70">Open Terminal Version</div>
+      <div class="text-[13px] opacity-70">{$i18n.t('settings.about.openTerminalVersion')}</div>
       <div class="text-[12px] opacity-30 group-hover:opacity-50 transition">{openTerminalVersion}</div>
     </button>
   {/if}
@@ -159,29 +160,29 @@
       class="w-full py-4 flex items-center justify-between bg-transparent border-none cursor-pointer group"
       onclick={() => openRelease('ggml-org/llama.cpp', llamaCppVersion!, '')}
     >
-      <div class="text-[13px] opacity-70">llama.cpp Version</div>
+      <div class="text-[13px] opacity-70">{$i18n.t('settings.about.llamaCppVersion')}</div>
       <div class="text-[12px] opacity-30 group-hover:opacity-50 transition">{llamaCppVersion}</div>
     </button>
   {/if}
 
   <div class="py-4 flex items-center justify-between">
-    <div class="text-[13px] opacity-70">Platform</div>
-    <div class="text-[12px] opacity-30">{$appInfo?.platform ?? 'Unknown'}</div>
+    <div class="text-[13px] opacity-70">{$i18n.t('settings.about.platform')}</div>
+    <div class="text-[12px] opacity-30">{$appInfo?.platform ?? $i18n.t('common.unknown')}</div>
   </div>
 
   <!-- Update section -->
   <div class="py-4">
     <div class="flex items-center justify-between">
       <div>
-        <div class="text-[13px] opacity-70">Software Update</div>
+        <div class="text-[13px] opacity-70">{$i18n.t('settings.about.softwareUpdate')}</div>
         {#if updateStatus === 'up-to-date'}
-          <div class="text-[11px] opacity-25 mt-0.5">You're on the latest version</div>
+          <div class="text-[11px] opacity-25 mt-0.5">{$i18n.t('settings.about.upToDate')}</div>
         {:else if updateStatus === 'available' && updateVersion}
-          <div class="text-[11px] opacity-40 mt-0.5">Version {updateVersion} is available</div>
+          <div class="text-[11px] opacity-40 mt-0.5">{$i18n.t('settings.about.versionAvailable', { version: updateVersion })}</div>
         {:else if updateStatus === 'downloading'}
-          <div class="text-[11px] opacity-25 mt-0.5">Downloading… {downloadPercent}%</div>
+          <div class="text-[11px] opacity-25 mt-0.5">{$i18n.t('settings.about.downloadingPercent', { percent: downloadPercent })}</div>
         {:else if updateStatus === 'downloaded'}
-          <div class="text-[11px] opacity-40 mt-0.5">Update ready — restart to apply</div>
+          <div class="text-[11px] opacity-40 mt-0.5">{$i18n.t('settings.about.updateReady')}</div>
         {:else if updateStatus === 'error'}
           <div class="text-[11px] text-red-400/60 mt-0.5">{updateError}</div>
         {/if}
@@ -193,7 +194,7 @@
             class="text-[12px] opacity-40 hover:opacity-70 px-3 py-1.5 bg-black/[0.04] dark:bg-white/[0.06] transition border-none text-[#1d1d1f] dark:text-[#fafafa] rounded-xl"
             onclick={handleCheck}
           >
-            Check for Updates
+            {$i18n.t('settings.about.checkForUpdates')}
           </button>
         {:else if updateStatus === 'checking'}
           <button
@@ -203,14 +204,14 @@
             <svg class="w-3 h-3 animate-spin" viewBox="0 0 24 24" fill="none">
               <circle cx="12" cy="12" r="10" stroke="currentColor" stroke-width="3" stroke-dasharray="31.4 31.4" stroke-linecap="round" />
             </svg>
-            Checking…
+            {$i18n.t('settings.about.checking')}
           </button>
         {:else if updateStatus === 'available'}
           <button
             class="text-[12px] opacity-50 hover:opacity-80 px-3 py-1.5 bg-black/[0.06] dark:bg-white/[0.08] transition border-none text-[#1d1d1f] dark:text-[#fafafa] rounded-xl"
             onclick={handleDownload}
           >
-            Download Update
+            {$i18n.t('settings.about.downloadUpdate')}
           </button>
         {:else if updateStatus === 'downloading'}
           <div class="flex items-center gap-2">
@@ -227,7 +228,7 @@
             class="text-[12px] opacity-50 hover:opacity-80 px-3 py-1.5 bg-black/[0.06] dark:bg-white/[0.08] transition border-none text-[#1d1d1f] dark:text-[#fafafa] rounded-xl"
             onclick={handleInstall}
           >
-            Restart to Update
+            {$i18n.t('settings.about.restartToUpdate')}
           </button>
         {/if}
       </div>
@@ -246,15 +247,15 @@
       >
         <path stroke-linecap="round" stroke-linejoin="round" d="M9 5l7 7-7 7" />
       </svg>
-      What's New
+       {$i18n.t('settings.about.whatsNew')}
     </button>
 
     {#if changelogOpen}
       <div class="mt-3 max-h-64 overflow-y-auto pr-1">
         {#if changelogLoading}
-          <div class="text-[11px] opacity-25">Loading…</div>
+          <div class="text-[11px] opacity-25">{$i18n.t('common.loading')}</div>
         {:else if changelogEntries.length === 0}
-          <div class="text-[11px] opacity-25">No changelog entries yet.</div>
+          <div class="text-[11px] opacity-25">{$i18n.t('settings.about.noChangelog')}</div>
         {:else}
           {#each changelogEntries as entry, i}
             {#if i > 0}
@@ -284,9 +285,9 @@
       class="text-[12px] opacity-40 hover:opacity-70 transition bg-transparent border-none text-[#1d1d1f] dark:text-[#fafafa]"
       onclick={openGithub}
     >
-      View on GitHub →
+      {$i18n.t('settings.about.viewOnGithub')}
     </button>
   </div>
 </div>
 
-<div class="text-[10px] opacity-15 mt-4 leading-relaxed">Copyright (c) 2026 Open WebUI Inc. All rights reserved.<br />Created by Timothy J. Baek</div>
+<div class="text-[10px] opacity-15 mt-4 leading-relaxed">{$i18n.t('settings.about.copyright')}<br />{$i18n.t('settings.about.createdBy')}</div>

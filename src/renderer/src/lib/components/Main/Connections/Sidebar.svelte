@@ -1,6 +1,7 @@
 <script lang="ts">
   import { fly, fade } from 'svelte/transition'
   import { connections, config, appInfo, serverInfo } from '../../../stores'
+  import i18n from '../../../i18n'
   import { tooltip } from '../../../actions/tooltip'
 
   interface Props {
@@ -81,14 +82,14 @@
 >
   <!-- Connections header -->
   <div class="flex items-center justify-between px-4 pt-2 pb-1.5">
-    <span class="text-[10px] tracking-wider uppercase opacity-60">Connections</span>
+    <span class="text-[10px] tracking-wider uppercase opacity-60">{$i18n.t('sidebar.connections')}</span>
     <button
       class="opacity-25 hover:opacity-60 transition bg-transparent border-none text-[#1d1d1f] dark:text-[#fafafa] leading-none"
       onclick={() => {
         onDisconnect()
         onAddView()
       }}
-      title="Add connection"
+      title={$i18n.t('sidebar.addConnection')}
     >
       <svg
         class="w-[14px] h-[14px]"
@@ -212,7 +213,7 @@
                       d="M16.862 4.487l1.687-1.688a1.875 1.875 0 112.652 2.652L6.832 19.82a4.5 4.5 0 01-1.897 1.13l-2.685.8.8-2.685a4.5 4.5 0 011.13-1.897L16.863 4.487z"
                     />
                   </svg>
-                  Rename
+                  {$i18n.t('common.rename')}
                 </button>
                 <button
                   class="w-full flex items-center gap-2.5 px-3 py-1.5 text-left text-[12px] opacity-50 hover:opacity-90 hover:bg-black/[0.04] dark:bg-white/[0.06] transition bg-transparent border-none text-[#1d1d1f] dark:text-[#fafafa] rounded-xl"
@@ -235,7 +236,7 @@
                       d="M13.5 6H5.25A2.25 2.25 0 003 8.25v10.5A2.25 2.25 0 005.25 21h10.5A2.25 2.25 0 0018 18.75V10.5m-10.5 6L21 3m0 0h-5.25M21 3v5.25"
                     />
                   </svg>
-                  Open in Browser
+                  {$i18n.t('sidebar.openInBrowser')}
                 </button>
               </div>
             </div>
@@ -397,7 +398,7 @@
                       d="M14.74 9l-.346 9m-4.788 0L9.26 9m9.968-3.21c.342.052.682.107 1.022.166m-1.022-.165L18.16 19.673a2.25 2.25 0 01-2.244 2.077H8.084a2.25 2.25 0 01-2.244-2.077L4.772 5.79m14.456 0a48.108 48.108 0 00-3.478-.397m-12 .562c.34-.059.68-.114 1.022-.165m0 0a48.11 48.11 0 013.478-.397m7.5 0v-.916c0-1.18-.91-2.164-2.09-2.201a51.964 51.964 0 00-3.32 0c-1.18.037-2.09 1.022-2.09 2.201v.916m7.5 0a48.667 48.667 0 00-7.5 0"
                     />
                   </svg>
-                  Delete
+                  {$i18n.t('common.delete')}
                 </button>
               </div>
             </div>
@@ -410,7 +411,7 @@
   <!-- Open Terminal toggle -->
   <div class="px-2 pb-1">
     <div class="border-t border-black/[0.06] dark:border-white/[0.06] pt-2 pb-1">
-      <span class="text-[10px] tracking-wider uppercase opacity-25 px-2">Services</span>
+      <span class="text-[10px] tracking-wider uppercase opacity-25 px-2">{$i18n.t('sidebar.services')}</span>
     </div>
     <button
       class="w-full flex items-center gap-2 px-2 py-[6px] rounded-xl text-[12px] transition bg-transparent border-none text-[#1d1d1f] dark:text-[#fafafa] text-left group {openTerminalStatus ===
@@ -429,13 +430,13 @@
       }}
       use:tooltip={openTerminalStatus === 'started'
         ? view === 'open-terminal-logs'
-          ? 'Hide logs'
-          : `Running · Click to view logs`
+          ? $i18n.t('sidebar.tooltip.hideLogs')
+          : $i18n.t('sidebar.tooltip.viewLogs')
         : openTerminalStatus === 'starting'
-          ? 'Starting…'
+          ? $i18n.t('common.starting')
           : openTerminalStatus === 'failed'
-            ? 'Click to retry'
-            : 'Start terminal server'}
+            ? $i18n.t('sidebar.tooltip.clickToRetry')
+            : $i18n.t('sidebar.tooltip.startTerminalServer')}
     >
       <!-- Status indicator -->
       <div class="w-[14px] h-[14px] shrink-0 flex items-center justify-center">
@@ -465,7 +466,7 @@
           </svg>
         {/if}
       </div>
-      <span class="truncate">Open Terminal</span>
+      <span class="truncate">{$i18n.t('sidebar.openTerminal')}</span>
       <!-- Stop button (when running) -->
       {#if openTerminalStatus === 'started'}
         <button
@@ -474,7 +475,7 @@
             e.stopPropagation()
             onToggleOpenTerminal()
           }}
-          use:tooltip={'Stop Open Terminal'}
+          use:tooltip={$i18n.t('sidebar.tooltip.stopOpenTerminal')}
         >
           <svg
             class="w-3 h-3"
@@ -509,13 +510,13 @@
       }}
       use:tooltip={llamaCppStatus === 'started'
         ? view === 'llamacpp-logs'
-          ? 'Hide logs'
-          : 'Running · Click to view logs'
+          ? $i18n.t('sidebar.tooltip.hideLogs')
+          : $i18n.t('sidebar.tooltip.viewLogs')
         : llamaCppStatus === 'starting' || llamaCppStatus === 'setting-up'
-          ? 'Starting…'
+          ? $i18n.t('common.starting')
           : llamaCppStatus === 'failed'
-            ? 'Click to retry'
-            : 'Start llama-server'}
+            ? $i18n.t('sidebar.tooltip.clickToRetry')
+            : $i18n.t('sidebar.tooltip.startLlamaServer')}
     >
       <!-- Status indicator -->
       <div class="w-[14px] h-[14px] shrink-0 flex items-center justify-center">
@@ -531,7 +532,7 @@
           </svg>
         {/if}
       </div>
-      <span class="truncate">llama.cpp</span>
+      <span class="truncate">{$i18n.t('sidebar.llamaCpp')}</span>
       <!-- Stop button (when running) -->
       {#if llamaCppStatus === 'started'}
         <button
@@ -540,7 +541,7 @@
             e.stopPropagation()
             onToggleLlamaCpp()
           }}
-          use:tooltip={'Stop llama-server'}
+          use:tooltip={$i18n.t('sidebar.tooltip.stopLlamaServer')}
         >
           <svg class="w-3 h-3" fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="1.5">
             <path stroke-linecap="round" stroke-linejoin="round" d="M5.636 5.636a9 9 0 1012.728 0M12 3v9" />
@@ -560,7 +561,7 @@
       out:fade={{ duration: 100 }}
     >
       <div class="px-3.5 py-2.5 border-b border-black/[0.06] dark:border-white/[0.06]">
-        <div class="text-[11px] opacity-40">Open WebUI Desktop</div>
+        <div class="text-[11px] opacity-40">{$i18n.t('app.desktop')}</div>
         <div class="text-[10px] opacity-20 mt-0.5">{$appInfo?.version ?? ''}</div>
       </div>
 
@@ -590,7 +591,7 @@
               d="M15 12a3 3 0 11-6 0 3 3 0 016 0z"
             />
           </svg>
-          Settings
+          {$i18n.t('sidebar.settings')}
         </button>
 
         <button
@@ -610,7 +611,7 @@
               d="M13.5 6H5.25A2.25 2.25 0 003 8.25v10.5A2.25 2.25 0 005.25 21h10.5A2.25 2.25 0 0018 18.75V10.5m-10.5 6L21 3m0 0h-5.25M21 3v5.25"
             />
           </svg>
-          GitHub
+          {$i18n.t('sidebar.github')}
         </button>
       </div>
     </div>
@@ -636,7 +637,7 @@
         />
         <path stroke-linecap="round" stroke-linejoin="round" d="M15 12a3 3 0 11-6 0 3 3 0 016 0z" />
       </svg>
-      Settings
+      {$i18n.t('sidebar.settings')}
     </button>
   </div>
 </div>

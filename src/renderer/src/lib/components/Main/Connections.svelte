@@ -2,6 +2,7 @@
   import { onMount, onDestroy } from 'svelte'
   import { fade } from 'svelte/transition'
   import { connections, config, serverInfo, appState } from '../../stores'
+  import i18n from '../../i18n'
   import { Terminal } from '@xterm/xterm'
   import { FitAddon } from '@xterm/addon-fit'
   import '@xterm/xterm/css/xterm.css'
@@ -81,14 +82,22 @@
     installStatus = ''
     toastVisible = false
     try {
+      // Check disk space before installing (minimum 5 GB)
+      const MINIMUM_DISK_BYTES = 5 * 1024 * 1024 * 1024
+      const disk = await window.electronAPI.getDiskSpace()
+      if (disk?.free >= 0 && disk.free < MINIMUM_DISK_BYTES) {
+        const availableGB = (disk.free / (1024 * 1024 * 1024)).toFixed(1)
+        throw new Error(`Not enough disk space. At least 5 GB is required (${availableGB} GB available).`)
+      }
+
       const ok = await window.electronAPI.installPackage()
       if (!ok) throw new Error('Install failed')
 
-      installStatus = 'Starting server…'
+      installStatus = $i18n.t('main.install.startingServer')
       await window.electronAPI.startServer()
       const info = await window.electronAPI.getServerInfo()
 
-      installStatus = 'Setting up connection…'
+      installStatus = $i18n.t('main.install.settingUpConnection')
       await window.electronAPI.addConnection({
         id: 'local',
         name: 'Local',
@@ -100,7 +109,7 @@
       config.set(await window.electronAPI.getConfig())
 
       // Wait for server to actually be reachable before showing connected view
-      installStatus = 'Launching Open WebUI…'
+      installStatus = $i18n.t('main.install.launchingOpenWebUI')
       const maxWait = 120000
       const pollInterval = 2000
       const startTime = Date.now()
@@ -133,7 +142,7 @@
     try {
       const valid = await window.electronAPI.validateUrl(u)
       if (!valid) {
-        error = 'Could not reach this server'
+        error = $i18n.t('setup.couldNotReachServer')
         connecting = false
         return
       }
@@ -149,7 +158,7 @@
       error = ''
       view = 'welcome'
     } catch {
-      error = 'Connection failed'
+      error = $i18n.t('setup.connectionFailed')
     } finally {
       connecting = false
     }

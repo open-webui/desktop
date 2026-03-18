@@ -1,6 +1,7 @@
 <script lang="ts">
   import { onMount } from 'svelte'
   import { connections, config } from '../../../stores'
+  import i18n, { getLanguages, changeLanguage } from '../../../i18n'
   import Switch from '../../common/Switch.svelte'
 
   let launchAtLogin = $state(false)
@@ -11,6 +12,10 @@
   // Env vars editor state
   let envEntries = $state<{ key: string; value: string }[]>([])
 
+  // Language state
+  let languages = $state<{ code: string; title: string }[]>([])
+  let selectedLanguage = $state('en-US')
+
   onMount(async () => {
     launchAtLogin = await window.electronAPI.getLaunchAtLogin()
     const cfg = await window.electronAPI.getConfig()
@@ -19,6 +24,10 @@
     envEntries = Object.entries(vars).map(([key, value]) => ({ key, value: value as string }))
     theme = cfg?.theme ?? 'system'
     applyThemeClass(theme)
+
+    // Load languages
+    languages = await getLanguages()
+    selectedLanguage = cfg?.language ?? localStorage.getItem('locale') ?? 'en-US'
   })
 
   const applyThemeClass = (t: string) => {
@@ -137,14 +146,36 @@
 <div class="flex flex-col divide-y divide-white/[0.04]">
   <div class="py-4 flex items-center justify-between">
     <div>
-      <div class="text-[13px] opacity-70">Default connection</div>
-      <div class="text-[11px] opacity-25 mt-0.5">Connection used on launch</div>
+      <div class="text-[13px] opacity-70">{$i18n.t('settings.general.language')}</div>
+      <div class="text-[11px] opacity-25 mt-0.5">{$i18n.t('settings.general.languageDesc')}</div>
+    </div>
+    <select
+      class="bg-black/[0.04] dark:bg-white/[0.06] text-[12px] text-[#1d1d1f] dark:text-[#fafafa] px-3 py-1.5 border-none outline-none rounded-xl opacity-60"
+      onchange={async (e) => {
+        const lang = (e.target as HTMLSelectElement).value
+        selectedLanguage = lang
+        localStorage.setItem('locale', lang)
+        changeLanguage(lang)
+        await window.electronAPI.setConfig({ language: lang })
+        config.set(await window.electronAPI.getConfig())
+      }}
+    >
+      {#each languages as lang}
+        <option value={lang.code} selected={selectedLanguage === lang.code}>{lang.title}</option>
+      {/each}
+    </select>
+  </div>
+
+  <div class="py-4 flex items-center justify-between">
+    <div>
+      <div class="text-[13px] opacity-70">{$i18n.t('settings.general.defaultConnection')}</div>
+      <div class="text-[11px] opacity-25 mt-0.5">{$i18n.t('settings.general.defaultConnectionDesc')}</div>
     </div>
     <select
       class="bg-black/[0.04] dark:bg-white/[0.06] text-[12px] text-[#1d1d1f] dark:text-[#fafafa] px-3 py-1.5 border-none outline-none rounded-xl opacity-60"
       onchange={(e) => setDefault((e.target as HTMLSelectElement).value)}
     >
-      <option value="">None</option>
+      <option value="">{$i18n.t('common.none')}</option>
       {#each $connections as conn}
         <option value={conn.id} selected={$config?.defaultConnectionId === conn.id}
           >{conn.name}</option
@@ -155,8 +186,8 @@
 
   <div class="py-4 flex items-center justify-between">
     <div>
-      <div class="text-[13px] opacity-70">Launch at login</div>
-      <div class="text-[11px] opacity-25 mt-0.5">Open app when you log in</div>
+      <div class="text-[13px] opacity-70">{$i18n.t('settings.general.launchAtLogin')}</div>
+      <div class="text-[11px] opacity-25 mt-0.5">{$i18n.t('settings.general.launchAtLoginDesc')}</div>
     </div>
     <Switch
       checked={launchAtLogin}
@@ -170,8 +201,8 @@
 
   <div class="py-4 flex items-center justify-between">
     <div>
-      <div class="text-[13px] opacity-70">Run in background</div>
-      <div class="text-[11px] opacity-25 mt-0.5">Keep running in the system tray when closed</div>
+      <div class="text-[13px] opacity-70">{$i18n.t('settings.general.runInBackground')}</div>
+      <div class="text-[11px] opacity-25 mt-0.5">{$i18n.t('settings.general.runInBackgroundDesc')}</div>
     </div>
     <Switch
       checked={runInBackground}
@@ -186,12 +217,12 @@
 
   <div class="py-4 flex items-center justify-between">
     <div>
-      <div class="text-[13px] opacity-70">Global shortcut</div>
+      <div class="text-[13px] opacity-70">{$i18n.t('settings.general.globalShortcut')}</div>
       <div class="text-[11px] opacity-25 mt-0.5">
         {#if recording}
-          Press a key combination… (Esc to cancel, Del to clear)
+          {$i18n.t('settings.general.globalShortcutRecording')}
         {:else}
-          Bring the app to the foreground from anywhere
+          {$i18n.t('settings.general.globalShortcutDesc')}
         {/if}
       </div>
     </div>
@@ -214,11 +245,11 @@
         }}
       >
         {#if recording}
-          <span class="text-[11px]">Press shortcut…</span>
+          <span class="text-[11px]">{$i18n.t('settings.general.pressShortcut')}</span>
         {:else if shortcutValue}
           {displayShortcut(shortcutValue)}
         {:else}
-          <span class="opacity-40">Disabled</span>
+          <span class="opacity-40">{$i18n.t('common.disabled')}</span>
         {/if}
       </button>
       {#if shortcutValue && !recording}
@@ -240,15 +271,15 @@
 
   <div class="py-4 flex items-center justify-between">
     <div>
-      <div class="text-[13px] opacity-70">Appearance</div>
-      <div class="text-[11px] opacity-25 mt-0.5">Choose light, dark, or system default</div>
+      <div class="text-[13px] opacity-70">{$i18n.t('settings.general.appearance')}</div>
+      <div class="text-[11px] opacity-25 mt-0.5">{$i18n.t('settings.general.appearanceDesc')}</div>
     </div>
     <div class="grid grid-cols-3 items-center gap-0.5 rounded-2xl bg-black/[0.04] dark:bg-white/[0.06] p-1 text-[11px]">
       <button
         class="flex h-6 w-16 items-center justify-center rounded-xl border-none transition {theme === 'system' ? 'bg-black/[0.08] dark:bg-white/[0.12] text-[#1d1d1f] dark:text-[#fafafa]' : 'bg-transparent text-[#1d1d1f] dark:text-[#fafafa] opacity-40 hover:opacity-70'}"
         onclick={() => applyTheme('system')}
       >
-        Auto
+        {$i18n.t('common.auto')}
       </button>
       <button
         class="flex h-6 w-16 items-center justify-center rounded-xl border-none transition {theme === 'light' ? 'bg-black/[0.08] dark:bg-white/[0.12] text-[#1d1d1f] dark:text-[#fafafa]' : 'bg-transparent text-[#1d1d1f] dark:text-[#fafafa] opacity-40 hover:opacity-70'}"
@@ -275,14 +306,14 @@
   <div class="py-4">
     <div class="flex items-center justify-between mb-3">
       <div>
-        <div class="text-[13px] opacity-70">Environment variables</div>
-        <div class="text-[11px] opacity-25 mt-0.5">Applied to all server processes</div>
+        <div class="text-[13px] opacity-70">{$i18n.t('settings.general.environmentVariables')}</div>
+        <div class="text-[11px] opacity-25 mt-0.5">{$i18n.t('settings.general.environmentVariablesDesc')}</div>
       </div>
       <button
         class="text-[11px] opacity-30 hover:opacity-60 transition bg-transparent border-none text-[#1d1d1f] dark:text-[#fafafa]"
         onclick={addEnvVar}
       >
-        + Add
+        {$i18n.t('common.add')}
       </button>
     </div>
 
@@ -319,15 +350,15 @@
         {/each}
       </div>
     {:else}
-      <div class="text-[11px] opacity-15">No environment variables configured</div>
+      <div class="text-[11px] opacity-15">{$i18n.t('settings.general.noEnvVars')}</div>
     {/if}
   </div>
 
   <div class="py-4 flex items-center justify-between">
     <div>
-      <div class="text-[13px] opacity-70">Factory reset</div>
+      <div class="text-[13px] opacity-70">{$i18n.t('settings.general.factoryReset')}</div>
       <div class="text-[11px] opacity-25 mt-0.5">
-        Remove Python, packages, data &amp; connections
+        {$i18n.t('settings.general.factoryResetDesc')}
       </div>
     </div>
     <button
@@ -336,7 +367,7 @@
       onclick={async () => {
         if (
           confirm(
-            'This will remove all installed components, data, and connections. The app will restart. Continue?'
+            $i18n.t('settings.general.factoryResetConfirm')
           )
         ) {
           resetting = true
@@ -349,9 +380,9 @@
         <svg class="w-3 h-3 animate-spin" viewBox="0 0 24 24" fill="none">
           <circle cx="12" cy="12" r="10" stroke="currentColor" stroke-width="3" stroke-dasharray="31.4 31.4" stroke-linecap="round" />
         </svg>
-        Resetting…
+        {$i18n.t('common.resetting')}
       {:else}
-        Reset
+        {$i18n.t('common.reset')}
       {/if}
     </button>
   </div>

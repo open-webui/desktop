@@ -1,5 +1,6 @@
 <script lang="ts">
   import { onMount } from 'svelte'
+  import i18n from '../../../i18n'
 
   interface HfModel {
     repo: string
@@ -159,13 +160,13 @@
 </script>
 
 {#if !loaded}
-  <div class="py-6 text-[12px] opacity-20 text-center">Loading…</div>
+  <div class="py-6 text-[12px] opacity-20 text-center">{$i18n.t('common.loading')}</div>
 {:else}
 <div class="flex flex-col divide-y divide-white/[0.04]">
 
   <!-- Downloaded models + active download -->
   <div class="py-4">
-    <div class="text-[12px] opacity-50 mb-2">Downloaded Models</div>
+    <div class="text-[12px] opacity-50 mb-2">{$i18n.t('settings.models.downloadedModels')}</div>
 
     {#if models.length > 0 || activeDownload}
       <div class="flex flex-col gap-1.5">
@@ -176,12 +177,12 @@
             <div class="flex items-center justify-between gap-2 mb-1.5">
               <div class="min-w-0 flex-1">
                 <div class="text-[12px] opacity-60 truncate font-mono">{activeDownload.filename}</div>
-                <div class="text-[10px] opacity-25 truncate">{activeDownload.repo} · Downloading…</div>
+                <div class="text-[10px] opacity-25 truncate">{activeDownload.repo} · {$i18n.t('common.downloading')}</div>
               </div>
               <button
                 class="opacity-30 hover:opacity-70 transition bg-transparent border-none text-[#1d1d1f] dark:text-[#fafafa] p-1 shrink-0"
                 onclick={cancelDownload}
-                title="Cancel download"
+                title={$i18n.t('settings.models.cancelDownload')}
               >
                 <svg class="w-3 h-3" fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="2">
                   <path stroke-linecap="round" stroke-linejoin="round" d="M6 18L18 6M6 6l12 12" />
@@ -208,7 +209,7 @@
             <button
               class="opacity-20 hover:opacity-60 transition bg-transparent border-none text-[#1d1d1f] dark:text-[#fafafa] p-1 shrink-0 {deleting === `${model.repo}/${model.filename}` ? 'pointer-events-none' : ''}"
               onclick={() => removeModel(model.repo, model.filename)}
-              title="Delete model"
+              title={$i18n.t('settings.models.deleteModel')}
             >
               {#if deleting === `${model.repo}/${model.filename}`}
                 <div class="w-3 h-3 rounded-full border-[1.5px] border-black/20 dark:border-white/30 border-t-transparent animate-spin"></div>
@@ -222,7 +223,7 @@
         {/each}
       </div>
     {:else}
-      <div class="text-[11px] opacity-20 text-center py-3">No models downloaded yet</div>
+      <div class="text-[11px] opacity-20 text-center py-3">{$i18n.t('settings.models.noModels')}</div>
     {/if}
   </div>
 
@@ -237,10 +238,10 @@
           <svg class="w-3 h-3" fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="2">
             <path stroke-linecap="round" stroke-linejoin="round" d="M15.75 19.5L8.25 12l7.5-7.5" />
           </svg>
-          Back
+          {$i18n.t('common.back')}
         </button>
       {:else}
-        Download from Hugging Face
+        {$i18n.t('settings.models.downloadFromHF')}
       {/if}
     </div>
 
@@ -253,10 +254,10 @@
       {#if loadingFiles}
         <div class="flex items-center gap-2 py-3 justify-center">
           <div class="w-3 h-3 rounded-full border-[1.5px] border-black/20 dark:border-white/30 border-t-transparent animate-spin"></div>
-          <span class="text-[11px] opacity-30">Loading files…</span>
+          <span class="text-[11px] opacity-30">{$i18n.t('settings.models.loadingFiles')}</span>
         </div>
       {:else if repoFiles.length === 0}
-        <div class="text-[11px] opacity-20 text-center py-3">No GGUF files found in this repo</div>
+        <div class="text-[11px] opacity-20 text-center py-3">{$i18n.t('settings.models.noGgufFiles')}</div>
       {:else}
         <div class="flex flex-col gap-1">
           {#each repoFiles as file}
@@ -268,7 +269,7 @@
                 <div class="text-[10px] opacity-25">{formatSize(file.size)}</div>
               </div>
               {#if downloaded}
-                <span class="text-[10px] opacity-30 shrink-0 px-2">Downloaded</span>
+                <span class="text-[10px] opacity-30 shrink-0 px-2">{$i18n.t('settings.models.downloaded')}</span>
               {:else if dlActive}
                 <div class="flex items-center gap-1.5 shrink-0">
                   <div class="w-2.5 h-2.5 rounded-full border-[1.5px] border-black/20 dark:border-white/30 border-t-transparent animate-spin"></div>
@@ -300,7 +301,7 @@
         <input
           type="text"
           class="bg-black/[0.04] dark:bg-white/[0.06] text-[12px] text-[#1d1d1f] dark:text-[#fafafa] pl-8 pr-3 py-2 border-none outline-none rounded-xl opacity-70 w-full"
-          placeholder="Search GGUF models on Hugging Face…"
+          placeholder={$i18n.t('settings.models.searchPlaceholder')}
           value={searchQuery}
           oninput={onSearchInput}
         />
@@ -342,9 +343,9 @@
           {/each}
         </div>
       {:else if searchQuery.trim() && !searching}
-        <div class="text-[11px] opacity-20 text-center py-3">No GGUF repos found</div>
+        <div class="text-[11px] opacity-20 text-center py-3">{$i18n.t('settings.models.noReposFound')}</div>
       {:else if !searchQuery.trim()}
-        <div class="text-[11px] opacity-20 text-center py-3">Search for models to get started</div>
+        <div class="text-[11px] opacity-20 text-center py-3">{$i18n.t('settings.models.searchForModels')}</div>
       {/if}
     {/if}
   </div>
