@@ -60,6 +60,78 @@
     envEntries = envEntries.filter((_, i) => i !== index)
     saveEnvVars()
   }
+
+  // Shortcut recorder
+  let shortcutValue = $state('')
+  let recording = $state(false)
+  let shortcutInputEl = $state<HTMLButtonElement | null>(null)
+
+  // Keep shortcut value in sync with config store
+  $effect(() => {
+    if ($config?.globalShortcut !== undefined) {
+      shortcutValue = $config.globalShortcut ?? ''
+    }
+  })
+
+  const keyToElectron = (e: KeyboardEvent): string | null => {
+    const parts: string[] = []
+    if (e.metaKey || e.ctrlKey) parts.push('CommandOrControl')
+    if (e.altKey) parts.push('Alt')
+    if (e.shiftKey) parts.push('Shift')
+
+    // Ignore bare modifier presses
+    const ignore = ['Control', 'Meta', 'Alt', 'Shift']
+    if (ignore.includes(e.key)) return null
+
+    // Map special keys
+    const keyMap: Record<string, string> = {
+      ' ': 'Space',
+      ArrowUp: 'Up',
+      ArrowDown: 'Down',
+      ArrowLeft: 'Left',
+      ArrowRight: 'Right',
+      Enter: 'Return'
+    }
+    const key = keyMap[e.key] ?? (e.key.length === 1 ? e.key.toUpperCase() : e.key)
+    parts.push(key)
+    return parts.join('+')
+  }
+
+  const displayShortcut = (accel: string): string => {
+    if (!accel) return ''
+    const isMac = navigator.platform.includes('Mac')
+    return accel
+      .replace(/CommandOrControl/g, isMac ? '⌘' : 'Ctrl')
+      .replace(/Alt/g, isMac ? '⌥' : 'Alt')
+      .replace(/Shift/g, isMac ? '⇧' : 'Shift')
+      .replace(/\+/g, ' + ')
+  }
+
+  const handleShortcutKeydown = async (e: KeyboardEvent) => {
+    e.preventDefault()
+    e.stopPropagation()
+
+    if (e.key === 'Escape') {
+      recording = false
+      return
+    }
+
+    if (e.key === 'Backspace' || e.key === 'Delete') {
+      shortcutValue = ''
+      recording = false
+      await window.electronAPI.setConfig({ globalShortcut: '' })
+      config.set(await window.electronAPI.getConfig())
+      return
+    }
+
+    const accel = keyToElectron(e)
+    if (accel) {
+      shortcutValue = accel
+      recording = false
+      await window.electronAPI.setConfig({ globalShortcut: accel })
+      config.set(await window.electronAPI.getConfig())
+    }
+  }
 </script>
 
 <div class="flex flex-col divide-y divide-white/[0.04]">
@@ -110,6 +182,60 @@
         config.set(await window.electronAPI.getConfig())
       }}
     />
+  </div>
+
+  <div class="py-4 flex items-center justify-between">
+    <div>
+      <div class="text-[13px] opacity-70">Global shortcut</div>
+      <div class="text-[11px] opacity-25 mt-0.5">
+        {#if recording}
+          Press a key combination… (Esc to cancel, Del to clear)
+        {:else}
+          Bring the app to the foreground from anywhere
+        {/if}
+      </div>
+    </div>
+    <div class="flex items-center gap-1.5">
+      <button
+        bind:this={shortcutInputEl}
+        class="text-[12px] px-3 py-1.5 border-none outline-none rounded-xl transition min-w-[80px] text-center
+          {recording
+            ? 'bg-black/[0.08] dark:bg-white/[0.10] text-[#1d1d1f] dark:text-[#fafafa] opacity-80 animate-pulse'
+            : 'bg-black/[0.04] dark:bg-white/[0.06] text-[#1d1d1f] dark:text-[#fafafa] opacity-60 hover:opacity-80'}"
+        onclick={() => {
+          recording = true
+          shortcutInputEl?.focus()
+        }}
+        onkeydown={(e) => {
+          if (recording) handleShortcutKeydown(e)
+        }}
+        onblur={() => {
+          recording = false
+        }}
+      >
+        {#if recording}
+          <span class="text-[11px]">Press shortcut…</span>
+        {:else if shortcutValue}
+          {displayShortcut(shortcutValue)}
+        {:else}
+          <span class="opacity-40">Disabled</span>
+        {/if}
+      </button>
+      {#if shortcutValue && !recording}
+        <button
+          class="opacity-20 hover:opacity-50 transition bg-transparent border-none text-[#1d1d1f] dark:text-[#fafafa] p-0.5 shrink-0"
+          onclick={async () => {
+            shortcutValue = ''
+            await window.electronAPI.setConfig({ globalShortcut: '' })
+            config.set(await window.electronAPI.getConfig())
+          }}
+        >
+          <svg class="w-3 h-3" fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="1.5">
+            <path stroke-linecap="round" stroke-linejoin="round" d="M6 18L18 6M6 6l12 12" />
+          </svg>
+        </button>
+      {/if}
+    </div>
   </div>
 
   <div class="py-4 flex items-center justify-between">

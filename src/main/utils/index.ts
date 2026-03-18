@@ -731,6 +731,7 @@ export interface AppConfig {
   defaultConnectionId: string | null
   connections: Connection[]
   runInBackground: boolean
+  globalShortcut: string
   localServer: {
     port: number
     serveOnLocalNetwork: boolean
@@ -749,6 +750,7 @@ const DEFAULT_CONFIG: AppConfig = {
   defaultConnectionId: null,
   connections: [],
   runInBackground: true,
+  globalShortcut: 'Alt+CommandOrControl+O',
   localServer: {
     port: 8080,
     serveOnLocalNetwork: false,

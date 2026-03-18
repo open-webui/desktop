@@ -74,7 +74,7 @@
 
   {#if view === 'logs'}
     <!-- Terminal / Logs -->
-    <div class="flex-1 min-h-0 overflow-hidden bg-[#f5f5f7] dark:bg-[#0a0a0a] relative">
+    <div class="flex-1 min-h-0 overflow-hidden bg-[#0a0a0a] relative">
       <div
         class="absolute inset-0 px-3 py-2"
         bind:this={terminalEl}
@@ -102,7 +102,7 @@
     </div>
   {:else if view === 'open-terminal-logs'}
     <!-- Open Terminal Logs -->
-    <div class="flex-1 min-h-0 flex flex-col bg-[#f5f5f7] dark:bg-[#0a0a0a]">
+    <div class="flex-1 min-h-0 flex flex-col bg-[#0a0a0a]">
       <div class="flex items-center justify-between px-3 py-1.5 border-b border-black/[0.06] dark:border-white/[0.06]">
         <span class="text-[11px] opacity-40">Open Terminal Logs</span>
         <button

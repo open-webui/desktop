@@ -74,6 +74,26 @@ let SERVER_STATUS: string | null = null
 let SERVER_REACHABLE = false
 let SERVER_PID: number | null = null
 
+// ─── Global Shortcut ────────────────────────────────────
+
+const registerGlobalShortcut = (accelerator?: string): void => {
+  globalShortcut.unregisterAll()
+  if (!accelerator) return
+  try {
+    globalShortcut.register(accelerator, () => {
+      if (contentWindow && !contentWindow.isDestroyed()) {
+        contentWindow.show()
+        contentWindow.focus()
+      } else {
+        mainWindow?.show()
+        mainWindow?.focus()
+      }
+    })
+  } catch (error) {
+    log.warn('Failed to register global shortcut:', accelerator, error)
+  }
+}
+
 // ─── Windows ────────────────────────────────────────────
 
 function createMainWindow(show = true): void {
@@ -511,6 +531,7 @@ if (!gotTheLock) {
       await setConfig(config)
       CONFIG = await getConfig()
       updateTray()
+      registerGlobalShortcut(CONFIG.globalShortcut)
     })
 
     // Python/uv
@@ -748,15 +769,7 @@ if (!gotTheLock) {
     Menu.setApplicationMenu(Menu.buildFromTemplate(menuTemplate))
 
     // Global shortcut
-    globalShortcut.register('Alt+CommandOrControl+O', () => {
-      if (contentWindow && !contentWindow.isDestroyed()) {
-        contentWindow.show()
-        contentWindow.focus()
-      } else {
-        mainWindow?.show()
-        mainWindow?.focus()
-      }
-    })
+    registerGlobalShortcut(CONFIG.globalShortcut)
 
     // Enable screen capture
     session.defaultSession.setDisplayMediaRequestHandler(
