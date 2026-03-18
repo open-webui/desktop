@@ -1,6 +1,7 @@
 <script lang="ts">
   import { onMount } from 'svelte'
   import { config, serverInfo } from '../../../stores'
+  import Switch from '../../common/Switch.svelte'
 
   let serverStatus = $state<string | null>(null)
   let updating = $state(false)
@@ -199,7 +200,7 @@
           Updating…
         {:else}
           <svg class="w-3 h-3" fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="1.5">
-            <path stroke-linecap="round" stroke-linejoin="round" d="M16.023 9.348h4.992v-.001M2.985 19.644v-4.992m0 0h4.992m-4.993 0l3.181 3.183a8.25 8.25 0 0013.803-3.7M20.015 4.356v4.992m0 0h-4.992m4.993 0l-3.181-3.183a8.25 8.25 0 00-13.803 3.7" />
+            <path stroke-linecap="round" stroke-linejoin="round" d="M3 16.5v2.25A2.25 2.25 0 005.25 21h13.5A2.25 2.25 0 0021 18.75V16.5M16.5 12L12 16.5m0 0L7.5 12m4.5 4.5V3" />
           </svg>
           Update
         {/if}
@@ -214,19 +215,11 @@
         Automatically start server when app opens
       </div>
     </div>
-    <button
-      class="w-9 h-5 rounded-full transition-colors {$config?.localServer?.enabled !== false
-        ? 'bg-black/20 dark:bg-white/30'
-        : 'bg-black/[0.06] dark:bg-white/[0.08]'} border-none relative"
-      aria-label="Toggle start on launch"
-      onclick={() => updateConfig('enabled', $config?.localServer?.enabled === false)}
-    >
-      <div
-        class="w-3.5 h-3.5 rounded-full bg-white absolute top-[3px] transition-all {$config?.localServer?.enabled !== false
-          ? 'left-[18px]'
-          : 'left-[3px]'}"
-      ></div>
-    </button>
+    <Switch
+      checked={$config?.localServer?.enabled !== false}
+      label="Toggle start on launch"
+      onchange={(value) => updateConfig('enabled', value)}
+    />
   </div>
 
   <div class="py-4 flex items-center justify-between">
@@ -250,22 +243,11 @@
         Allow other devices on your network to connect
       </div>
     </div>
-    <button
-      class="w-9 h-5 rounded-full transition-colors {$config?.localServer
-        ?.serveOnLocalNetwork
-        ? 'bg-black/20 dark:bg-white/30'
-        : 'bg-black/[0.06] dark:bg-white/[0.08]'} border-none relative"
-      aria-label="Toggle serve on local network"
-      onclick={() =>
-        updateConfig('serveOnLocalNetwork', !$config?.localServer?.serveOnLocalNetwork)}
-    >
-      <div
-        class="w-3.5 h-3.5 rounded-full bg-white absolute top-[3px] transition-all {$config
-          ?.localServer?.serveOnLocalNetwork
-          ? 'left-[18px]'
-          : 'left-[3px]'}"
-      ></div>
-    </button>
+    <Switch
+      checked={$config?.localServer?.serveOnLocalNetwork ?? false}
+      label="Toggle serve on local network"
+      onchange={(value) => updateConfig('serveOnLocalNetwork', value)}
+    />
   </div>
 
   <div class="py-4 flex items-center justify-between">
@@ -275,22 +257,11 @@
         Automatically update on launch
       </div>
     </div>
-    <button
-      class="w-9 h-5 rounded-full transition-colors {$config?.localServer?.autoUpdate !==
-      false
-        ? 'bg-black/20 dark:bg-white/30'
-        : 'bg-black/[0.06] dark:bg-white/[0.08]'} border-none relative"
-      aria-label="Toggle auto-update"
-      onclick={() =>
-        updateConfig('autoUpdate', $config?.localServer?.autoUpdate === false)}
-    >
-      <div
-        class="w-3.5 h-3.5 rounded-full bg-white absolute top-[3px] transition-all {$config
-          ?.localServer?.autoUpdate !== false
-          ? 'left-[18px]'
-          : 'left-[3px]'}"
-      ></div>
-    </button>
+    <Switch
+      checked={$config?.localServer?.autoUpdate !== false}
+      label="Toggle auto-update"
+      onchange={(value) => updateConfig('autoUpdate', value)}
+    />
   </div>
 
   <!-- Uninstall -->
