@@ -1,0 +1,88 @@
+@import "tailwindcss";
+
+@layer base {
+    *,
+    ::after,
+    ::before,
+    ::backdrop,
+    ::file-selector-button {
+        border-color: var(--color-gray-200, currentColor);
+    }
+}
+
+@layer base {
+    button {
+        @apply cursor-pointer;
+    }
+}
+
+@font-face {
+    font-family: "Archivo";
+    src: url("./lib/assets/fonts/Archivo-Variable.ttf");
+    font-display: swap;
+}
+
+.drag-region {
+    -webkit-app-region: drag;
+}
+
+.drag-region a,
+.drag-region button {
+    -webkit-app-region: no-drag;
+}
+
+.no-drag {
+    -webkit-app-region: no-drag;
+}
+
+@theme {
+    --color-white: #fff;
+    --color-black: #000;
+    --color-gray-50: #f9f9f9;
+    --color-gray-100: #ececec;
+    --color-gray-200: #e3e3e3;
+    --color-gray-300: #cdcdcd;
+    --color-gray-400: #b4b4b4;
+    --color-gray-500: #9b9b9b;
+    --color-gray-600: #676767;
+    --color-gray-700: #4e4e4e;
+    --color-gray-800: #333;
+    --color-gray-850: #262626;
+    --color-gray-900: #171717;
+    --color-gray-950: #0d0d0d;
+}
+
+html {
+    font-family: "Archivo", -apple-system, BlinkMacSystemFont, system-ui, sans-serif;
+    background: #0a0a0a;
+    color: #fafafa;
+    font-size: 13px;
+    -webkit-font-smoothing: antialiased;
+    -moz-osx-font-smoothing: grayscale;
+    user-select: none;
+}
+
+body {
+    height: 100%;
+    width: 100%;
+    overflow: hidden;
+}
+
+#app {
+    height: 100vh;
+}
+
+::selection {
+    background: rgba(255, 255, 255, 0.15);
+}
+
+::-webkit-scrollbar { width: 4px; }
+::-webkit-scrollbar-thumb {
+    background: rgba(255, 255, 255, 0.08);
+    border-radius: 99px;
+}
+::-webkit-scrollbar-track { background: transparent; }
+
+.xterm-screen {
+    height: 100% !important;
+}

@@ -1,5 +1,5 @@
-appId: com.electron.app
-productName: desktop
+appId: com.openwebui.desktop
+productName: Open WebUI
 directories:
   buildResources: build
 files:
@@ -13,7 +13,7 @@ files:
 asarUnpack:
   - resources/**
 win:
-  executableName: desktop
+  executableName: open-webui
 nsis:
   artifactName: ${name}-${version}-setup.${ext}
   shortcutName: ${productName}
@@ -26,15 +26,25 @@ mac:
     - NSMicrophoneUsageDescription: Application requests access to the device's microphone.
     - NSDocumentsFolderUsageDescription: Application requests access to the user's Documents folder.
     - NSDownloadsFolderUsageDescription: Application requests access to the user's Downloads folder.
-  notarize: false
+  notarize: true
 dmg:
+  background: build/dmg-background.png
   artifactName: ${name}-${version}.${ext}
+  title: ${productName}
+  contents:
+    - x: 225
+      y: 250
+      type: file
+    - x: 400
+      y: 240
+      type: link
+      path: /Applications
 linux:
   target:
     - AppImage
     - snap
     - deb
-  maintainer: electronjs.org
+  maintainer: openwebui.com
   category: Utility
 appImage:
   artifactName: ${name}-${version}.${ext}
@@ -42,5 +52,3 @@ npmRebuild: false
 publish:
   provider: generic
   url: https://example.com/auto-updates
-electronDownload:
-  mirror: https://npmmirror.com/mirrors/electron/

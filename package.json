@@ -1,11 +1,11 @@
 {
-  "name": "desktop",
-  "version": "1.0.0",
+  "name": "open-webui-desktop",
+  "version": "0.1.0",
   "license": "AGPL-3.0",
-  "description": "An Electron application with Svelte and TypeScript",
+  "description": "Open WebUI Desktop",
   "main": "./out/main/index.js",
-  "author": "example.com",
-  "homepage": "https://electron-vite.org",
+  "author": "Open WebUI Inc. (Timothy Jaeryang Baek)",
+  "homepage": "https://openwebui.com",
   "scripts": {
     "format": "prettier --plugin prettier-plugin-svelte --write .",
     "lint": "eslint --cache .",
@@ -24,7 +24,16 @@
   "dependencies": {
     "@electron-toolkit/preload": "^3.0.2",
     "@electron-toolkit/utils": "^4.0.0",
-    "electron-updater": "^6.3.9"
+    "@tailwindcss/vite": "^4.2.1",
+    "@xterm/addon-fit": "^0.11.0",
+    "@xterm/xterm": "^6.0.0",
+    "electron-log": "^5.4.3",
+    "electron-updater": "^6.3.9",
+    "node-pty": "^1.1.0",
+    "svelte-sonner": "^1.1.0",
+    "tailwindcss": "^4.2.1",
+    "tar": "^7.5.11",
+    "tippy.js": "^6.3.7"
   },
   "devDependencies": {
     "@electron-toolkit/eslint-config-prettier": "^3.0.0",
