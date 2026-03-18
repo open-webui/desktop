@@ -2,6 +2,7 @@
   import { fade, fly } from 'svelte/transition'
   import { connections, config, serverInfo, appState } from '../../../stores'
   import LocalInstall from '../../LocalInstall.svelte'
+  import landingVideo from '../../../../assets/landing.mp4'
 
   interface Props {
     sidebarOpen: boolean
@@ -163,7 +164,7 @@
             playsinline
             class="absolute inset-0 w-full h-full object-cover opacity-20 pointer-events-none"
           >
-            <source src="https://community.s3.openwebui.com/landing.mp4" type="video/mp4" />
+            <source src={landingVideo} type="video/mp4" />
           </video>
 
           <!-- Gradient overlay -->

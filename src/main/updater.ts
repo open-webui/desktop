@@ -1,6 +1,6 @@
 import { autoUpdater, type UpdateInfo } from 'electron-updater'
 import log from 'electron-log'
-import { BrowserWindow } from 'electron'
+import { app, BrowserWindow } from 'electron'
 
 let mainWin: BrowserWindow | null = null
 
@@ -47,13 +47,20 @@ export function initUpdater(window: BrowserWindow): void {
     send('update:error', { message: error?.message ?? 'Update error' })
   })
 
-  // Auto-check on launch (silently)
-  autoUpdater.checkForUpdates().catch((err) => {
-    log.warn('Auto update check failed:', err)
-  })
+  // Auto-check on launch (silently, only when packaged)
+  if (app.isPackaged) {
+    autoUpdater.checkForUpdates().catch((err) => {
+      log.warn('Auto update check failed:', err)
+    })
+  }
 }
 
 export async function checkForUpdates(): Promise<void> {
+  if (!app.isPackaged) {
+    log.info('Skipping update check — app is not packaged')
+    send('update:not-available')
+    return
+  }
   await autoUpdater.checkForUpdates()
 }
 
