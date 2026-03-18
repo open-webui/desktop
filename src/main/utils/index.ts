@@ -52,7 +52,16 @@ export const getUserDataPath = (): string => {
 }
 
 export const getOpenWebUIDataPath = (): string => {
-  const openWebUIDataDir = path.join(getUserDataPath(), 'data')
+  // Check config for custom data directory
+  const configPath = path.join(getUserDataPath(), 'config.json')
+  let customDir = ''
+  try {
+    if (fs.existsSync(configPath)) {
+      const data = JSON.parse(fs.readFileSync(configPath, 'utf8'))
+      customDir = data.dataDir || ''
+    }
+  } catch {}
+  const openWebUIDataDir = customDir || path.join(getUserDataPath(), 'data')
   if (!fs.existsSync(openWebUIDataDir)) {
     try {
       fs.mkdirSync(openWebUIDataDir, { recursive: true })
@@ -732,6 +741,7 @@ export interface AppConfig {
   connections: Connection[]
   runInBackground: boolean
   globalShortcut: string
+  dataDir: string
   localServer: {
     port: number
     serveOnLocalNetwork: boolean
@@ -742,6 +752,13 @@ export interface AppConfig {
     port: number
     cwd: string
   }
+  llamaCpp: {
+    enabled: boolean
+    port: number
+    version: string
+    variant: string
+    extraArgs: string[]
+  }
   envVars: Record<string, string>
 }
 
@@ -751,6 +768,7 @@ const DEFAULT_CONFIG: AppConfig = {
   connections: [],
   runInBackground: true,
   globalShortcut: 'Alt+CommandOrControl+O',
+  dataDir: '',
   localServer: {
     port: 8080,
     serveOnLocalNetwork: false,
@@ -760,6 +778,13 @@ const DEFAULT_CONFIG: AppConfig = {
     enabled: false,
     port: 8000,
     cwd: ''
+  },
+  llamaCpp: {
+    enabled: false,
+    port: 8081,
+    version: 'latest',
+    variant: 'cpu',
+    extraArgs: []
   },
   envVars: {}
 }

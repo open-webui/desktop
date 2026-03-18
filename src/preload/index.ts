@@ -58,6 +58,27 @@ ipcRenderer.on('open-terminal:pty:port', (event, _data) => {
   port.start()
 })
 
+// ─── llama.cpp PTY MessagePort ───────────────────────
+let activeLsCppPtyPort: MessagePort | null = null
+let lsCppPtyOutputCallback: ((data: string) => void) | null = null
+
+ipcRenderer.on('llamacpp:pty:port', (event, _data) => {
+  const [port] = event.ports
+  if (!port) return
+
+  if (activeLsCppPtyPort) {
+    activeLsCppPtyPort.close()
+  }
+  activeLsCppPtyPort = port
+
+  port.onmessage = (ev: MessageEvent) => {
+    if (ev.data?.type === 'output' && lsCppPtyOutputCallback) {
+      lsCppPtyOutputCallback(ev.data.data)
+    }
+  }
+  port.start()
+})
+
 const api = {
   onData: (callback: (data: any) => void) => {
     ipcRenderer.on('main:data', (_, data) => callback(data))
@@ -67,6 +88,7 @@ const api = {
   getAppInfo: () => ipcRenderer.invoke('app:info'),
   getVersion: () => ipcRenderer.invoke('get:version'),
   resetApp: () => ipcRenderer.invoke('app:reset'),
+  getDefaultDataPath: () => ipcRenderer.invoke('app:defaultDataPath'),
   getLaunchAtLogin: () => ipcRenderer.invoke('app:launchAtLogin:get'),
   setLaunchAtLogin: (enabled: boolean) => ipcRenderer.invoke('app:launchAtLogin:set', enabled),
   openInBrowser: (url: string) => ipcRenderer.invoke('open:browser', { url }),
@@ -129,6 +151,37 @@ const api = {
       activeOtPtyPort = null
     }
   },
+
+  // llama.cpp
+  setupLlamaCpp: () => ipcRenderer.invoke('llamacpp:setup'),
+  startLlamaCpp: () => ipcRenderer.invoke('llamacpp:start'),
+  stopLlamaCpp: () => ipcRenderer.invoke('llamacpp:stop'),
+  getLlamaCppInfo: () => ipcRenderer.invoke('llamacpp:info'),
+  getLlamaCppLogs: () => ipcRenderer.invoke('llamacpp:logs'),
+  connectLlamaCppPty: (onOutput: (data: string) => void) => {
+    lsCppPtyOutputCallback = onOutput
+    ipcRenderer.invoke('llamacpp:pty:connect')
+  },
+  disconnectLlamaCppPty: () => {
+    lsCppPtyOutputCallback = null
+    if (activeLsCppPtyPort) {
+      activeLsCppPtyPort.close()
+      activeLsCppPtyPort = null
+    }
+  },
+
+  // Hugging Face models
+  listHfModels: () => ipcRenderer.invoke('huggingface:models:list'),
+  getHfModelsDir: () => ipcRenderer.invoke('huggingface:models:dir'),
+  downloadHfModel: (repo: string, filename: string, token?: string, expectedSize?: number) =>
+    ipcRenderer.invoke('huggingface:models:download', repo, filename, token, expectedSize),
+  deleteHfModel: (repo: string, filename: string) =>
+    ipcRenderer.invoke('huggingface:models:delete', repo, filename),
+  cancelHfDownload: () => ipcRenderer.invoke('huggingface:models:cancel'),
+  searchHfModels: (query: string, token?: string) =>
+    ipcRenderer.invoke('huggingface:search', query, token),
+  getHfRepoFiles: (repo: string, token?: string) =>
+    ipcRenderer.invoke('huggingface:repo:files', repo, token),
 
   // Package
   getPackageVersion: (packageName: string) => ipcRenderer.invoke('package:version', packageName),

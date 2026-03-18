@@ -28,7 +28,7 @@
   let url = $state('')
   let connecting = $state(false)
   let error = $state('')
-  let view = $state('welcome') // welcome | add | install | logs | connected | open-terminal-logs
+  let view = $state('welcome') // welcome | add | install | logs | connected | open-terminal-logs | llamacpp-logs
   let autoInstall = $state(false)
   let installPhase = $state('idle') // idle | working | error
   let installError = $state('')
@@ -53,6 +53,12 @@
   let otFitAddon: FitAddon | null = null
   let otResizeObserver: ResizeObserver | null = null
 
+  // Llama Server log viewer
+  let lsTerminalEl: HTMLDivElement | undefined = $state()
+  let lsTerm: Terminal | null = null
+  let lsFitAddon: FitAddon | null = null
+  let lsResizeObserver: ResizeObserver | null = null
+
   const serverStatus = $derived($serverInfo?.status)
   const serverReachable = $derived($serverInfo?.reachable)
 
@@ -64,6 +70,10 @@
   // Open Terminal state
   let openTerminalStatus = $state<string | null>(null)
   let openTerminalInfo = $state<{ url?: string; apiKey?: string } | null>(null)
+
+  // Llama Server state
+  let llamaCppStatus = $state<string | null>(null)
+  let llamaCppInfo = $state<{ url?: string; pid?: number } | null>(null)
 
   const startInstall = async () => {
     installPhase = 'working'
@@ -316,9 +326,52 @@
     otFitAddon = null
   }
 
+  // ── Llama Server Log Viewer ─────────────────────────
+  const initLsTerminal = () => {
+    if (!lsTerminalEl || lsTerm) return
+
+    lsTerm = new Terminal({
+      cursorBlink: false,
+      disableStdin: true,
+      fontSize: 11,
+      fontFamily: "'SF Mono', 'Fira Code', 'Cascadia Code', Menlo, Monaco, monospace",
+      theme: {
+        background: '#0a0a0a',
+        foreground: '#d4d4d4',
+        cursor: '#d4d4d4',
+        selectionBackground: '#264f78'
+      },
+      convertEol: true,
+      scrollback: 5000
+    })
+    lsFitAddon = new FitAddon()
+    lsTerm.loadAddon(lsFitAddon)
+    lsTerm.open(lsTerminalEl)
+    lsFitAddon.fit()
+
+    window.electronAPI.connectLlamaCppPty((data: string) => {
+      lsTerm?.write(data)
+    })
+
+    lsResizeObserver = new ResizeObserver(() => {
+      try { lsFitAddon?.fit() } catch {}
+    })
+    lsResizeObserver.observe(lsTerminalEl)
+  }
+
+  const destroyLsTerminal = () => {
+    window.electronAPI?.disconnectLlamaCppPty?.()
+    lsResizeObserver?.disconnect()
+    lsResizeObserver = null
+    lsTerm?.dispose()
+    lsTerm = null
+    lsFitAddon = null
+  }
+
   onDestroy(() => {
     destroyTerminal()
     destroyOtTerminal()
+    destroyLsTerminal()
   })
 
   // Init/destroy OT terminal when switching views
@@ -333,8 +386,17 @@
   $effect(() => {
     if (view === 'logs' && terminalEl) {
       initTerminal()
-    } else if (view !== 'logs' && view !== 'open-terminal-logs') {
+    } else if (view !== 'logs' && view !== 'open-terminal-logs' && view !== 'llamacpp-logs') {
       destroyTerminal()
+    }
+  })
+
+  // Init/destroy llama-server terminal when switching views
+  $effect(() => {
+    if (view === 'llamacpp-logs' && lsTerminalEl) {
+      initLsTerminal()
+    } else if (view !== 'llamacpp-logs') {
+      destroyLsTerminal()
     }
   })
 
@@ -356,6 +418,13 @@
         openTerminalInfo = data.data
         openTerminalStatus = 'started'
       }
+      if (data.type === 'status:llamacpp') {
+        llamaCppStatus = data.data
+      }
+      if (data.type === 'llamacpp:ready') {
+        llamaCppInfo = data.data
+        llamaCppStatus = 'started'
+      }
       if (data.type === 'status:install') {
         installStatus = data.data ?? ''
       }
@@ -372,6 +441,14 @@
     // Check if Open WebUI package is installed
     window.electronAPI.getPackageVersion('open-webui').then((v: string | null) => {
       localInstalled = v !== null
+    })
+
+    // Check llama-server state on mount
+    window.electronAPI.getLlamaCppInfo().then((info: any) => {
+      if (info?.status) {
+        llamaCppStatus = info.status
+        llamaCppInfo = info
+      }
     })
   })
 
@@ -397,6 +474,33 @@
   const toggleOtLogs = () => {
     view = view === 'open-terminal-logs' ? (activeConnectionId ? 'connected' : 'welcome') : 'open-terminal-logs'
   }
+
+  const toggleLlamaCpp = async () => {
+    if (llamaCppStatus === 'starting' || llamaCppStatus === 'setting-up') return
+    if (llamaCppStatus === 'started') {
+      llamaCppStatus = 'stopping'
+      await window.electronAPI.stopLlamaCpp()
+      llamaCppStatus = null
+      llamaCppInfo = null
+    } else {
+      llamaCppStatus = 'starting'
+      const result = await window.electronAPI.startLlamaCpp()
+      if (result) {
+        llamaCppInfo = result
+        llamaCppStatus = 'started'
+      } else {
+        llamaCppStatus = 'failed'
+      }
+    }
+  }
+
+  const toggleLsLogs = () => {
+    // Auto-start if not running
+    if (!llamaCppStatus || llamaCppStatus === 'stopped' || llamaCppStatus === 'failed') {
+      toggleLlamaCpp()
+    }
+    view = view === 'llamacpp-logs' ? (activeConnectionId ? 'connected' : 'welcome') : 'llamacpp-logs'
+  }
 </script>
 
 <!-- svelte-ignore a11y_click_events_have_key_events -->
@@ -411,6 +515,7 @@
       {serverStatus}
       {serverReachable}
       {openTerminalStatus}
+      {llamaCppStatus}
       bind:settingsOpen
       {view}
       onConnect={connect}
@@ -419,6 +524,8 @@
       {onOpenSettings}
       onToggleOpenTerminal={toggleOpenTerminal}
       onToggleOtLogs={toggleOtLogs}
+      onToggleLlamaCpp={toggleLlamaCpp}
+      onToggleLlamaCppLogs={toggleLsLogs}
       onRename={async (id, name) => {
         await window.electronAPI.updateConnection(id, { name })
         connections.set(await window.electronAPI.getConnections())
@@ -446,11 +553,12 @@
     bind:autoInstall
     bind:terminalEl
     bind:otTerminalEl
+    bind:lsTerminalEl={lsTerminalEl}
     onStartInstall={startInstall}
     onAddConnection={addConnection}
     onSetView={(v) => { view = v }}
     onCopyLogs={(type) => {
-      const t = type === 'server' ? term : otTerm
+      const t = type === 'server' ? term : type === 'llama-server' ? lsTerm : otTerm
       if (!t) return null
       const buf = t.buffer.active
       const lines: string[] = []

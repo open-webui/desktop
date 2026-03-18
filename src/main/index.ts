@@ -25,6 +25,7 @@ import {
   checkUrlAndOpen,
   clearAllServerLogs,
   getConfig,
+  getUserDataPath,
   getServerLog,
   getServerPIDs,
   getServerPty,
@@ -53,6 +54,25 @@ import {
   getOpenTerminalPty,
   getOpenTerminalLog
 } from './utils/open-terminal'
+
+import {
+  setupLlamaCpp,
+  startLlamaCpp,
+  stopLlamaCpp,
+  getLlamaCppInfo,
+  getLlamaCppLog,
+  getLlamaCppPty
+} from './utils/llamacpp'
+
+import {
+  listModels,
+  downloadModel,
+  deleteModel,
+  cancelDownload,
+  getModelsDir,
+  searchModels,
+  getRepoFiles
+} from './utils/huggingface'
 
 import { initUpdater, checkForUpdates, downloadUpdate, installUpdate } from './updater'
 
@@ -233,7 +253,7 @@ const updateTray = () => {
 
   const trayMenuTemplate = [
     {
-      label: 'Show Controls',
+      label: 'Show Open WebUI',
       click: () => {
         mainWindow?.show()
         mainWindow?.focus()
@@ -436,6 +456,42 @@ const connectOpenTerminalPtyPort = (): void => {
   mainWindow.webContents.postMessage('open-terminal:pty:port', null, [port2])
 }
 
+/**
+ * MessagePort channel for the llamacpp PTY — log viewer.
+ */
+let activeLlamaCppDisposable: { dispose: () => void } | null = null
+
+const connectLlamaCppPtyPort = (): void => {
+  if (!mainWindow) return
+
+  const { port1, port2 } = new MessageChannelMain()
+
+  const lsPty = getLlamaCppPty()
+  if (!lsPty) {
+    port1.postMessage({ type: 'output', data: '[llamacpp is not running]\r\n' })
+    mainWindow.webContents.postMessage('llamacpp:pty:port', null, [port2])
+    return
+  }
+
+  // Clean up previous
+  activeLlamaCppDisposable?.dispose()
+
+  // Replay log buffer
+  const buffer = getLlamaCppLog()
+  for (const chunk of buffer) {
+    port1.postMessage({ type: 'output', data: chunk })
+  }
+
+  // Live data
+  const disposable = lsPty.onData((data: string) => {
+    port1.postMessage({ type: 'output', data })
+  })
+  activeLlamaCppDisposable = disposable
+
+  port1.start()
+  mainWindow.webContents.postMessage('llamacpp:pty:port', null, [port2])
+}
+
 const stopServerHandler = async (): Promise<boolean> => {
   try {
     await stopAllServers()
@@ -525,6 +581,10 @@ if (!gotTheLock) {
       platform: process.platform,
       arch: process.arch
     }))
+
+    ipcMain.handle('app:defaultDataPath', () => {
+      return join(getUserDataPath(), 'data')
+    })
 
     ipcMain.handle('get:config', () => getConfig())
     ipcMain.handle('set:config', async (_event, config) => {
@@ -714,6 +774,97 @@ if (!gotTheLock) {
     ipcMain.handle('open-terminal:status', () => isPackageInstalled('open-terminal'))
     ipcMain.handle('open-terminal:pty:connect', () => connectOpenTerminalPtyPort())
 
+    // llama.cpp
+    ipcMain.handle('llamacpp:setup', async () => {
+      try {
+        sendToRenderer('status:llamacpp', 'setting-up')
+        const binary = await setupLlamaCpp((status) => {
+          sendToRenderer('status:llamacpp-setup', status)
+        })
+        sendToRenderer('status:llamacpp', 'ready')
+        return binary
+      } catch (error) {
+        log.error('Failed to setup llamacpp:', error)
+        sendToRenderer('status:llamacpp', 'failed')
+        sendToRenderer('error', { message: `llamacpp setup failed: ${error?.message}` })
+        return null
+      }
+    })
+
+    ipcMain.handle('llamacpp:start', async () => {
+      try {
+        sendToRenderer('status:llamacpp', 'starting')
+        const result = await startLlamaCpp((status) => {
+          sendToRenderer('status:llamacpp-setup', status)
+        })
+        sendToRenderer('status:llamacpp', 'started')
+        sendToRenderer('llamacpp:ready', result)
+        await setConfig({ llamaCpp: { ...CONFIG?.llamaCpp, enabled: true } })
+        CONFIG = await getConfig()
+        return result
+      } catch (error) {
+        log.error('Failed to start llamacpp:', error)
+        sendToRenderer('status:llamacpp', 'failed')
+        sendToRenderer('error', { message: `llamacpp failed: ${error?.message}` })
+        return null
+      }
+    })
+
+    ipcMain.handle('llamacpp:stop', async () => {
+      try {
+        await stopLlamaCpp()
+        sendToRenderer('status:llamacpp', 'stopped')
+        await setConfig({ llamaCpp: { ...CONFIG?.llamaCpp, enabled: false } })
+        CONFIG = await getConfig()
+        return true
+      } catch (error) {
+        log.error('Failed to stop llamacpp:', error)
+        return false
+      }
+    })
+
+    ipcMain.handle('llamacpp:info', () => getLlamaCppInfo())
+    ipcMain.handle('llamacpp:logs', () => getLlamaCppLog())
+    ipcMain.handle('llamacpp:pty:connect', () => connectLlamaCppPtyPort())
+
+    // Hugging Face models
+    ipcMain.handle('huggingface:models:list', () => listModels())
+    ipcMain.handle('huggingface:models:dir', () => getModelsDir())
+    ipcMain.handle('huggingface:models:delete', (_event, repo: string, filename: string) => {
+      return deleteModel(repo, filename)
+    })
+    ipcMain.handle('huggingface:models:cancel', () => {
+      cancelDownload()
+      return true
+    })
+    ipcMain.handle('huggingface:search', async (_event, query: string, token?: string) => {
+      return searchModels(query, token)
+    })
+    ipcMain.handle('huggingface:repo:files', async (_event, repo: string, token?: string) => {
+      return getRepoFiles(repo, token)
+    })
+    ipcMain.handle('huggingface:models:download', async (_event, repo: string, filename: string, token?: string, expectedSize?: number) => {
+      try {
+        sendToRenderer('status:huggingface-download', { repo, filename, status: 'downloading', percent: 0 })
+        const filepath = await downloadModel(repo, filename, (progress) => {
+          sendToRenderer('status:huggingface-download', {
+            repo, filename,
+            status: 'downloading',
+            percent: progress.percent,
+            downloadedBytes: progress.downloadedBytes,
+            totalBytes: progress.totalBytes
+          })
+        }, token, expectedSize)
+        sendToRenderer('status:huggingface-download', { repo, filename, status: 'done', filepath })
+        return filepath
+      } catch (error) {
+        log.error('Failed to download model:', error)
+        sendToRenderer('status:huggingface-download', { repo, filename, status: 'failed', error: error?.message })
+        sendToRenderer('error', { message: `Model download failed: ${error?.message}` })
+        return null
+      }
+    })
+
     ipcMain.handle('package:version', (_event, packageName: string) => getPackageVersion(packageName))
     ipcMain.handle('package:uninstall', async (_event, packageName: string) => {
       return uninstallPackage(packageName)
@@ -794,13 +945,28 @@ if (!gotTheLock) {
       }
     }
 
+    // Auto-start llama.cpp if previously enabled
+    if (CONFIG?.llamaCpp?.enabled) {
+      try {
+        sendToRenderer('status:llamacpp', 'starting')
+        const result = await startLlamaCpp((status) => {
+          sendToRenderer('status:llamacpp-setup', status)
+        })
+        sendToRenderer('status:llamacpp', 'started')
+        sendToRenderer('llamacpp:ready', result)
+      } catch (error) {
+        log.error('Auto-start llama.cpp failed:', error)
+        sendToRenderer('status:llamacpp', 'failed')
+      }
+    }
+
     // Check if already configured, auto-connect to default
     if (CONFIG.defaultConnectionId && CONFIG.connections.length > 0) {
       const defaultConn = CONFIG.connections.find(
         (c) => c.id === CONFIG.defaultConnectionId
       )
       if (defaultConn) {
-        createMainWindow(false)
+        createMainWindow()
         await connectTo(defaultConn)
       } else {
         createMainWindow()
@@ -831,6 +997,7 @@ if (!gotTheLock) {
 
   app.on('before-quit', async () => {
     isQuiting = true
+    await stopLlamaCpp()
     await stopOpenTerminal()
     await stopServerHandler()
     globalShortcut.unregisterAll()

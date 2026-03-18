@@ -10,11 +10,13 @@
   let restarting = $state(false)
   let version = $state<string | null>(null)
   let loaded = $state(false)
+  let defaultDataPath = $state('')
 
   onMount(async () => {
     const info = await window.electronAPI.getServerInfo()
     serverStatus = info?.status ?? null
     version = await window.electronAPI.getPackageVersion('open-webui')
+    defaultDataPath = await window.electronAPI.getDefaultDataPath()
     loaded = true
   })
 
@@ -262,6 +264,38 @@
       label="Toggle auto-update"
       onchange={(value) => updateConfig('autoUpdate', value)}
     />
+  </div>
+
+  <div class="py-4 flex items-center justify-between gap-4">
+    <div class="shrink-0">
+      <div class="text-[13px] opacity-70">Data location</div>
+      <div class="text-[11px] opacity-25 mt-0.5">Where Open WebUI stores its data (restart required)</div>
+    </div>
+    <div class="flex items-center gap-1.5 min-w-0 flex-1 max-w-[280px] justify-end">
+      <input
+        type="text"
+        class="bg-black/[0.04] dark:bg-white/[0.06] text-[12px] text-[#1d1d1f] dark:text-[#fafafa] px-3 py-1.5 border-none outline-none rounded-xl opacity-60 min-w-0 flex-1 text-right font-mono"
+        placeholder={defaultDataPath || 'Default'}
+        value={$config?.dataDir ?? ''}
+        onchange={async (e) => {
+          const val = (e.target as HTMLInputElement).value.trim()
+          await window.electronAPI.setConfig({ dataDir: val })
+          config.set(await window.electronAPI.getConfig())
+        }}
+      />
+      <button
+        class="shrink-0 text-[12px] opacity-40 hover:opacity-70 px-2.5 py-1.5 bg-black/[0.04] dark:bg-white/[0.06] transition border-none text-[#1d1d1f] dark:text-[#fafafa] rounded-xl"
+        onclick={async () => {
+          const folder = await window.electronAPI.selectFolder()
+          if (folder) {
+            await window.electronAPI.setConfig({ dataDir: folder })
+            config.set(await window.electronAPI.getConfig())
+          }
+        }}
+      >
+        Browse
+      </button>
+    </div>
   </div>
 
   <!-- Uninstall -->

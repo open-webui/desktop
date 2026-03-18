@@ -11,6 +11,7 @@
     serverStatus: string | undefined
     serverReachable: boolean | undefined
     openTerminalStatus: string | null
+    llamaCppStatus: string | null
     settingsOpen: boolean
     view: string
     onConnect: (id: string) => void
@@ -19,6 +20,8 @@
     onOpenSettings: () => void
     onToggleOpenTerminal: () => void
     onToggleOtLogs: () => void
+    onToggleLlamaCpp: () => void
+    onToggleLlamaCppLogs: () => void
     onRename: (id: string, name: string) => void
     onRemove: (id: string) => void
     openGithub: () => void
@@ -32,6 +35,7 @@
     serverStatus,
     serverReachable,
     openTerminalStatus,
+    llamaCppStatus,
     settingsOpen = $bindable(false),
     view,
     onConnect,
@@ -40,6 +44,8 @@
     onOpenSettings,
     onToggleOpenTerminal,
     onToggleOtLogs,
+    onToggleLlamaCpp,
+    onToggleLlamaCppLogs,
     onRename,
     onRemove,
     openGithub
@@ -482,6 +488,62 @@
               stroke-linejoin="round"
               d="M5.636 5.636a9 9 0 1012.728 0M12 3v9"
             />
+          </svg>
+        </button>
+      {/if}
+    </button>
+
+    <!-- llama.cpp service -->
+    <button
+      class="w-full flex items-center gap-2 px-2 py-[6px] rounded-xl text-[12px] transition bg-transparent border-none text-[#1d1d1f] dark:text-[#fafafa] text-left group {llamaCppStatus === 'started'
+        ? 'opacity-70 hover:opacity-90'
+        : 'opacity-40 hover:opacity-70'} {llamaCppStatus === 'starting' || llamaCppStatus === 'setting-up' || llamaCppStatus === 'stopping'
+        ? 'pointer-events-none'
+        : ''}"
+      onclick={() => {
+        if (llamaCppStatus === 'started') {
+          onToggleLlamaCppLogs()
+        } else {
+          onToggleLlamaCpp()
+        }
+      }}
+      use:tooltip={llamaCppStatus === 'started'
+        ? view === 'llamacpp-logs'
+          ? 'Hide logs'
+          : 'Running · Click to view logs'
+        : llamaCppStatus === 'starting' || llamaCppStatus === 'setting-up'
+          ? 'Starting…'
+          : llamaCppStatus === 'failed'
+            ? 'Click to retry'
+            : 'Start llama-server'}
+    >
+      <!-- Status indicator -->
+      <div class="w-[14px] h-[14px] shrink-0 flex items-center justify-center">
+        {#if llamaCppStatus === 'starting' || llamaCppStatus === 'setting-up' || llamaCppStatus === 'stopping'}
+          <div class="w-2.5 h-2.5 rounded-full border-2 border-amber-400/60 border-t-transparent animate-spin"></div>
+        {:else if llamaCppStatus === 'started'}
+          <div class="w-2 h-2 rounded-full bg-emerald-400 shadow-[0_0_6px_rgba(52,211,153,0.5)]"></div>
+        {:else if llamaCppStatus === 'failed'}
+          <div class="w-2 h-2 rounded-full bg-red-400/70"></div>
+        {:else}
+          <svg class="w-[14px] h-[14px] opacity-50" fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="1.5">
+            <path stroke-linecap="round" stroke-linejoin="round" d="M8.25 3v1.5M4.5 8.25H3m18 0h-1.5M4.5 12H3m18 0h-1.5m-15 3.75H3m18 0h-1.5M8.25 19.5V21M12 3v1.5m0 15V21m3.75-18v1.5m0 15V21m-9-1.5h10.5a2.25 2.25 0 002.25-2.25V6.75a2.25 2.25 0 00-2.25-2.25H6.75A2.25 2.25 0 004.5 6.75v10.5a2.25 2.25 0 002.25 2.25zm.75-12h9v9h-9v-9z" />
+          </svg>
+        {/if}
+      </div>
+      <span class="truncate">llama.cpp</span>
+      <!-- Stop button (when running) -->
+      {#if llamaCppStatus === 'started'}
+        <button
+          class="ml-auto opacity-0 group-hover:opacity-40 hover:!opacity-80 transition bg-transparent border-none text-[#1d1d1f] dark:text-[#fafafa] p-0 leading-none"
+          onclick={(e) => {
+            e.stopPropagation()
+            onToggleLlamaCpp()
+          }}
+          use:tooltip={'Stop llama-server'}
+        >
+          <svg class="w-3 h-3" fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="1.5">
+            <path stroke-linecap="round" stroke-linejoin="round" d="M5.636 5.636a9 9 0 1012.728 0M12 3v9" />
           </svg>
         </button>
       {/if}
