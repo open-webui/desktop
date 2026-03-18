@@ -623,12 +623,16 @@ if (!gotTheLock) {
     // Package
     ipcMain.handle('install:package', async () => {
       try {
+        CONFIG = await getConfig()
+        const owuiVersion = CONFIG?.localServer?.version || undefined
+        const otVersion = CONFIG?.openTerminal?.version || undefined
+
         sendToRenderer('status:install', 'Installing Open WebUI…')
-        const res = await installPackage('open-webui', undefined, (status: string) => {
+        const res = await installPackage('open-webui', owuiVersion, (status: string) => {
           sendToRenderer('status:install', status)
         })
         sendToRenderer('status:install', 'Installing Open Terminal…')
-        await installPackage('open-terminal', undefined, (status: string) => {
+        await installPackage('open-terminal', otVersion, (status: string) => {
           sendToRenderer('status:install', status)
         }).catch((e) =>
           log.warn('open-terminal install failed (non-fatal):', e)

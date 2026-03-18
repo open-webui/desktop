@@ -292,6 +292,21 @@
     </div>
   {/if}
 
+  <!-- Version Pin -->
+  <div class="py-4 flex items-center justify-between">
+    <div>
+      <div class="text-[13px] opacity-70">Version</div>
+      <div class="text-[11px] opacity-25 mt-0.5">Pin to a specific version (blank = latest)</div>
+    </div>
+    <input
+      type="text"
+      class="bg-black/[0.04] dark:bg-white/[0.06] text-[12px] text-[#1d1d1f] dark:text-[#fafafa] px-3 py-1.5 border-none outline-none rounded-xl opacity-60 w-28 text-right font-mono"
+      placeholder="latest"
+      value={$config?.openTerminal?.version ?? ''}
+      onchange={(e) => updateOtConfig('version', (e.target as HTMLInputElement).value.trim())}
+    />
+  </div>
+
   <!-- Uninstall -->
   <div class="py-4 flex items-center justify-between">
     <div>
