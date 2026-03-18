@@ -241,7 +241,7 @@
     </div>
     <Switch
       checked={$config?.localServer?.enabled !== false}
-      label="Toggle start on launch"
+      label={$i18n.t('settings.openwebui.toggleStartOnLaunch')}
       onchange={(value) => updateConfig('enabled', value)}
     />
   </div>
@@ -269,7 +269,7 @@
     </div>
     <Switch
       checked={$config?.localServer?.serveOnLocalNetwork ?? false}
-      label="Toggle serve on local network"
+      label={$i18n.t('settings.openwebui.toggleServeOnLocalNetwork')}
       onchange={(value) => updateConfig('serveOnLocalNetwork', value)}
     />
   </div>
@@ -283,7 +283,7 @@
     </div>
     <Switch
       checked={$config?.localServer?.autoUpdate !== false}
-      label="Toggle auto-update"
+      label={$i18n.t('settings.openwebui.toggleAutoUpdate')}
       onchange={(value) => updateConfig('autoUpdate', value)}
     />
   </div>

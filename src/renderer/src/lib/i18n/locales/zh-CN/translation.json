@@ -76,6 +76,8 @@
   "main.selectConnection": "选择一个连接以开始使用",
   "main.heroDescription": "连接到 Open WebUI 服务器，或在本机上设置一个。",
   "main.getStarted": "开始使用",
+  "main.notEnoughDiskSpace": "磁盘空间不足",
+  "main.diskSpaceRequired": "至少需要 5 GB 空间，当前仅有 {{available}} GB 可用。",
 
   "main.install.startingServer": "正在启动服务器…",
   "main.install.settingUpConnection": "正在设置连接…",
@@ -137,6 +139,11 @@
   "settings.general.factoryReset": "恢复出厂设置",
   "settings.general.factoryResetDesc": "移除 Python、软件包、数据和连接",
   "settings.general.factoryResetConfirm": "这将移除所有已安装的组件、数据和连接。应用将重新启动。是否继续？",
+  "settings.general.toggleLaunchAtLogin": "切换登录时启动",
+  "settings.general.toggleRunInBackground": "切换后台运行",
+  "settings.general.light": "浅色",
+  "settings.general.dark": "深色",
+  "settings.general.keyPlaceholder": "键名",
 
   "settings.openwebui.notInstalled": "未安装",
   "settings.openwebui.notInstalledDesc": "设置本地 Open WebUI 服务器",
@@ -158,6 +165,9 @@
   "settings.openwebui.uninstall": "卸载",
   "settings.openwebui.uninstallDesc": "移除 Open WebUI 软件包",
   "settings.openwebui.uninstallConfirm": "这将停止服务器并移除 Open WebUI 软件包。是否继续？",
+  "settings.openwebui.toggleStartOnLaunch": "切换启动时运行",
+  "settings.openwebui.toggleServeOnLocalNetwork": "切换局域网共享",
+  "settings.openwebui.toggleAutoUpdate": "切换自动更新",
 
   "settings.terminal.notInstalled": "未安装",
   "settings.terminal.notInstalledDesc": "为 AI 模型启用终端访问",
@@ -177,6 +187,7 @@
   "settings.terminal.uninstall": "卸载",
   "settings.terminal.uninstallDesc": "移除 Open Terminal 软件包",
   "settings.terminal.uninstallConfirm": "这将停止 Open Terminal 并移除软件包。是否继续？",
+  "settings.terminal.toggleStartOnLaunch": "切换启动时自动运行 Open Terminal",
 
   "settings.inference.llamaServer": "llama-server",
   "settings.inference.llamaServerDesc": "由 llama.cpp 驱动的本地推理运行时",
@@ -195,6 +206,8 @@
   "settings.inference.extraArgumentsDesc": "llama-server 的附加命令行参数",
   "settings.inference.extraArgumentsPlaceholder": "例如 --model /path/to/model.gguf -ngl 99",
   "settings.inference.redownload": "重新下载",
+  "settings.inference.variantDefaultMetal": "默认 (Metal)",
+  "settings.inference.variantCPU": "CPU",
 
   "settings.models.downloadedModels": "已下载的模型",
   "settings.models.noModels": "尚未下载任何模型",

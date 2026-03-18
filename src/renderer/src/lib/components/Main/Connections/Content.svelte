@@ -190,9 +190,9 @@
     {#if insufficientStorage}
       <div class="px-5 py-2.5 flex items-center gap-3 bg-red-500/[0.06] border-b border-red-500/10">
         <div class="flex-1">
-          <div class="text-[12px] text-red-400 font-medium">Not enough disk space</div>
+          <div class="text-[12px] text-red-400 font-medium">{$i18n.t('main.notEnoughDiskSpace')}</div>
           <div class="text-[11px] opacity-40 mt-0.5">
-            At least 5 GB is required. Only {insufficientStorage} GB available.
+            {$i18n.t('main.diskSpaceRequired', { available: insufficientStorage })}
           </div>
         </div>
         <button
@@ -209,7 +209,7 @@
             window.electronAPI.installPython().then(() => appState.set('ready'))
           }}
         >
-          Retry
+          {$i18n.t('common.retry')}
         </button>
       </div>
     {:else if isInitializing}

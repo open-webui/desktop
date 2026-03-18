@@ -47,15 +47,15 @@
   })())
 
   const variantOptions = $derived((() => {
-    if (platform === 'darwin') return [{ value: 'cpu', label: 'Default (Metal)' }]
+    if (platform === 'darwin') return [{ value: 'cpu', label: $i18n.t('settings.inference.variantDefaultMetal') }]
     if (platform === 'win32') return [
-      { value: 'cpu', label: 'CPU' },
+      { value: 'cpu', label: $i18n.t('settings.inference.variantCPU') },
       { value: 'cuda-12.4', label: 'CUDA 12.4' },
       { value: 'cuda-13.1', label: 'CUDA 13.1' },
       { value: 'vulkan', label: 'Vulkan' }
     ]
     return [
-      { value: 'cpu', label: 'CPU' },
+      { value: 'cpu', label: $i18n.t('settings.inference.variantCPU') },
       { value: 'vulkan', label: 'Vulkan' },
       { value: 'rocm', label: 'ROCm' }
     ]
@@ -149,9 +149,9 @@
   <div class="py-4">
     <div class="flex items-center justify-between mb-3">
       <div>
-        <div class="text-[13px] opacity-70">llama-server</div>
+        <div class="text-[13px] opacity-70">{$i18n.t('settings.inference.llamaServer')}</div>
         <div class="text-[11px] opacity-25 mt-0.5">
-          Local inference runtime powered by llama.cpp
+          {$i18n.t('settings.inference.llamaServerDesc')}
         </div>
       </div>
       <div class="flex items-center gap-1.5">

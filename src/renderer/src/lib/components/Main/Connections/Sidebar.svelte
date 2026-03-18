@@ -349,7 +349,7 @@
                       d="M16.862 4.487l1.687-1.688a1.875 1.875 0 112.652 2.652L6.832 19.82a4.5 4.5 0 01-1.897 1.13l-2.685.8.8-2.685a4.5 4.5 0 011.13-1.897L16.863 4.487z"
                     />
                   </svg>
-                  Rename
+                  {$i18n.t('common.rename')}
                 </button>
                 <button
                   class="w-full flex items-center gap-2.5 px-3 py-1.5 text-left text-[12px] opacity-50 hover:opacity-90 hover:bg-black/[0.04] dark:bg-white/[0.06] transition bg-transparent border-none text-[#1d1d1f] dark:text-[#fafafa] rounded-xl"
@@ -372,7 +372,7 @@
                       d="M13.5 6H5.25A2.25 2.25 0 003 8.25v10.5A2.25 2.25 0 005.25 21h10.5A2.25 2.25 0 0018 18.75V10.5m-10.5 6L21 3m0 0h-5.25M21 3v5.25"
                     />
                   </svg>
-                  Open in Browser
+                  {$i18n.t('sidebar.openInBrowser')}
                 </button>
               </div>
               <div class="mx-3 border-t border-black/[0.06] dark:border-white/[0.06]"></div>

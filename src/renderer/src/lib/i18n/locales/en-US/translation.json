@@ -76,6 +76,8 @@
   "main.selectConnection": "Select a connection to get started",
   "main.heroDescription": "Connect to an Open WebUI server, or set one up on this machine.",
   "main.getStarted": "Get Started",
+  "main.notEnoughDiskSpace": "Not enough disk space",
+  "main.diskSpaceRequired": "At least 5 GB is required. Only {{available}} GB available.",
 
   "main.install.startingServer": "Starting server…",
   "main.install.settingUpConnection": "Setting up connection…",
@@ -137,6 +139,11 @@
   "settings.general.factoryReset": "Factory reset",
   "settings.general.factoryResetDesc": "Remove Python, packages, data & connections",
   "settings.general.factoryResetConfirm": "This will remove all installed components, data, and connections. The app will restart. Continue?",
+  "settings.general.toggleLaunchAtLogin": "Toggle launch at login",
+  "settings.general.toggleRunInBackground": "Toggle run in background",
+  "settings.general.light": "Light",
+  "settings.general.dark": "Dark",
+  "settings.general.keyPlaceholder": "KEY",
 
   "settings.openwebui.notInstalled": "Not installed",
   "settings.openwebui.notInstalledDesc": "Set up a local Open WebUI server",
@@ -158,6 +165,9 @@
   "settings.openwebui.uninstall": "Uninstall",
   "settings.openwebui.uninstallDesc": "Remove Open WebUI package",
   "settings.openwebui.uninstallConfirm": "This will stop the server and remove the Open WebUI package. Continue?",
+  "settings.openwebui.toggleStartOnLaunch": "Toggle start on launch",
+  "settings.openwebui.toggleServeOnLocalNetwork": "Toggle serve on local network",
+  "settings.openwebui.toggleAutoUpdate": "Toggle auto-update",
 
   "settings.terminal.notInstalled": "Not installed",
   "settings.terminal.notInstalledDesc": "Enable terminal access for your AI models",
@@ -177,6 +187,7 @@
   "settings.terminal.uninstall": "Uninstall",
   "settings.terminal.uninstallDesc": "Remove Open Terminal package",
   "settings.terminal.uninstallConfirm": "This will stop Open Terminal and remove the package. Continue?",
+  "settings.terminal.toggleStartOnLaunch": "Toggle auto-start Open Terminal",
 
   "settings.inference.llamaServer": "llama-server",
   "settings.inference.llamaServerDesc": "Local inference runtime powered by llama.cpp",
@@ -195,6 +206,8 @@
   "settings.inference.extraArgumentsDesc": "Additional CLI flags for llama-server",
   "settings.inference.extraArgumentsPlaceholder": "e.g. --model /path/to/model.gguf -ngl 99",
   "settings.inference.redownload": "Re-download",
+  "settings.inference.variantDefaultMetal": "Default (Metal)",
+  "settings.inference.variantCPU": "CPU",
 
   "settings.models.downloadedModels": "Downloaded Models",
   "settings.models.noModels": "No models downloaded yet",

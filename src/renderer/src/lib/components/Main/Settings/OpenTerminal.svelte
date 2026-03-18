@@ -243,7 +243,7 @@
     </div>
     <Switch
       checked={$config?.openTerminal?.enabled ?? false}
-      label="Toggle auto-start Open Terminal"
+      label={$i18n.t('settings.terminal.toggleStartOnLaunch')}
       onchange={(value) => updateOtConfig('enabled', value)}
     />
   </div>
@@ -290,7 +290,7 @@
 
   {#if isRunning && otInfo}
     <div class="py-4">
-      <div class="text-[13px] opacity-70 mb-3">Running Instance</div>
+      <div class="text-[13px] opacity-70 mb-3">{$i18n.t('settings.terminal.runningInstance')}</div>
       <div class="flex flex-col gap-2">
         <div class="flex items-center justify-between">
           <span class="text-[11px] opacity-30">URL</span>
