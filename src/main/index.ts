@@ -124,8 +124,13 @@ function createMainWindow(show = true): void {
 
   mainWindow.on('close', (event) => {
     if (!isQuiting) {
-      event.preventDefault()
-      mainWindow?.hide()
+      if (CONFIG?.runInBackground === false) {
+        isQuiting = true
+        app.quit()
+      } else {
+        event.preventDefault()
+        mainWindow?.hide()
+      }
     }
   })
 }
@@ -178,8 +183,13 @@ function createContentWindow(url: string, connectionId: string): BrowserWindow {
 
   contentWindow.on('close', (event) => {
     if (!isQuiting) {
-      event.preventDefault()
-      contentWindow?.hide()
+      if (CONFIG?.runInBackground === false) {
+        isQuiting = true
+        app.quit()
+      } else {
+        event.preventDefault()
+        contentWindow?.hide()
+      }
     }
   })
 

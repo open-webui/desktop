@@ -102,10 +102,13 @@
     {#if localConn && localInstalled}
       {@const isLocalDisabled = !serverReachable}
       <div
-        class="w-full px-2 py-[6px] rounded-xl group flex items-center gap-2 transition-colors {isLocalDisabled ? 'opacity-40 cursor-default' : 'cursor-pointer'} {activeConnectionId ===
-        localConn.id
+        class="w-full px-2 py-[6px] rounded-xl group flex items-center gap-2 transition-colors {isLocalDisabled
+          ? 'opacity-40 cursor-default'
+          : 'cursor-pointer'} {activeConnectionId === localConn.id
           ? 'bg-black/[0.06] dark:bg-white/[0.08]'
-          : isLocalDisabled ? '' : 'hover:bg-black/[0.03] dark:bg-white/[0.05]'}"
+          : isLocalDisabled
+            ? ''
+            : 'hover:bg-black/[0.03] dark:bg-white/[0.05]'}"
         role="button"
         tabindex="0"
         onclick={() => !isLocalDisabled && onConnect(localConn.id)}
@@ -162,12 +165,20 @@
             }}
           >
             <svg class="w-3.5 h-3.5" fill="currentColor" viewBox="0 0 20 20">
-              <path d="M6 10a2 2 0 11-4 0 2 2 0 014 0zM12 10a2 2 0 11-4 0 2 2 0 014 0zM18 10a2 2 0 11-4 0 2 2 0 014 0z" />
+              <path
+                d="M6 10a2 2 0 11-4 0 2 2 0 014 0zM12 10a2 2 0 11-4 0 2 2 0 014 0zM18 10a2 2 0 11-4 0 2 2 0 014 0z"
+              />
             </svg>
           </button>
 
           {#if menuOpenId === 'local'}
-            <div class="fixed inset-0 z-40" onclick={(e) => { e.stopPropagation(); menuOpenId = null }}></div>
+            <div
+              class="fixed inset-0 z-40"
+              onclick={(e) => {
+                e.stopPropagation()
+                menuOpenId = null
+              }}
+            ></div>
             <div
               class="absolute right-0 top-6 z-50 w-[160px] bg-white dark:bg-[#1a1a1a]/90 backdrop-blur-xl border border-black/[0.08] dark:border-white/[0.08] rounded-2xl shadow-2xl py-0.5 overflow-hidden"
               in:fly={{ y: -4, duration: 150 }}
@@ -182,8 +193,18 @@
                     startRename(localConn.id, localConn.name ?? 'Open WebUI')
                   }}
                 >
-                  <svg class="w-[14px] h-[14px] shrink-0" fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="1.5">
-                    <path stroke-linecap="round" stroke-linejoin="round" d="M16.862 4.487l1.687-1.688a1.875 1.875 0 112.652 2.652L6.832 19.82a4.5 4.5 0 01-1.897 1.13l-2.685.8.8-2.685a4.5 4.5 0 011.13-1.897L16.863 4.487z" />
+                  <svg
+                    class="w-[14px] h-[14px] shrink-0"
+                    fill="none"
+                    viewBox="0 0 24 24"
+                    stroke="currentColor"
+                    stroke-width="1.5"
+                  >
+                    <path
+                      stroke-linecap="round"
+                      stroke-linejoin="round"
+                      d="M16.862 4.487l1.687-1.688a1.875 1.875 0 112.652 2.652L6.832 19.82a4.5 4.5 0 01-1.897 1.13l-2.685.8.8-2.685a4.5 4.5 0 011.13-1.897L16.863 4.487z"
+                    />
                   </svg>
                   Rename
                 </button>
@@ -195,8 +216,18 @@
                     window.electronAPI?.openInBrowser?.(localConn.url)
                   }}
                 >
-                  <svg class="w-[14px] h-[14px] shrink-0" fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="1.5">
-                    <path stroke-linecap="round" stroke-linejoin="round" d="M13.5 6H5.25A2.25 2.25 0 003 8.25v10.5A2.25 2.25 0 005.25 21h10.5A2.25 2.25 0 0018 18.75V10.5m-10.5 6L21 3m0 0h-5.25M21 3v5.25" />
+                  <svg
+                    class="w-[14px] h-[14px] shrink-0"
+                    fill="none"
+                    viewBox="0 0 24 24"
+                    stroke="currentColor"
+                    stroke-width="1.5"
+                  >
+                    <path
+                      stroke-linecap="round"
+                      stroke-linejoin="round"
+                      d="M13.5 6H5.25A2.25 2.25 0 003 8.25v10.5A2.25 2.25 0 005.25 21h10.5A2.25 2.25 0 0018 18.75V10.5m-10.5 6L21 3m0 0h-5.25M21 3v5.25"
+                    />
                   </svg>
                   Open in Browser
                 </button>
@@ -256,8 +287,7 @@
           <span
             class="text-[12px] {activeConnectionId === conn.id
               ? 'opacity-90'
-              : 'opacity-100'} transition-opacity truncate flex-1 min-w-0"
-            >{conn.name}</span
+              : 'opacity-100'} transition-opacity truncate flex-1 min-w-0">{conn.name}</span
           >
         {/if}
 
@@ -271,12 +301,20 @@
             }}
           >
             <svg class="w-3.5 h-3.5" fill="currentColor" viewBox="0 0 20 20">
-              <path d="M6 10a2 2 0 11-4 0 2 2 0 014 0zM12 10a2 2 0 11-4 0 2 2 0 014 0zM18 10a2 2 0 11-4 0 2 2 0 014 0z" />
+              <path
+                d="M6 10a2 2 0 11-4 0 2 2 0 014 0zM12 10a2 2 0 11-4 0 2 2 0 014 0zM18 10a2 2 0 11-4 0 2 2 0 014 0z"
+              />
             </svg>
           </button>
 
           {#if menuOpenId === conn.id}
-            <div class="fixed inset-0 z-40" onclick={(e) => { e.stopPropagation(); menuOpenId = null }}></div>
+            <div
+              class="fixed inset-0 z-40"
+              onclick={(e) => {
+                e.stopPropagation()
+                menuOpenId = null
+              }}
+            ></div>
             <div
               class="absolute right-0 top-6 z-50 w-[160px] bg-white dark:bg-[#1a1a1a]/90 backdrop-blur-xl border border-black/[0.08] dark:border-white/[0.08] rounded-2xl shadow-2xl py-0.5 overflow-hidden"
               in:fly={{ y: -4, duration: 150 }}
@@ -291,8 +329,18 @@
                     startRename(conn.id, conn.name)
                   }}
                 >
-                  <svg class="w-[14px] h-[14px] shrink-0" fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="1.5">
-                    <path stroke-linecap="round" stroke-linejoin="round" d="M16.862 4.487l1.687-1.688a1.875 1.875 0 112.652 2.652L6.832 19.82a4.5 4.5 0 01-1.897 1.13l-2.685.8.8-2.685a4.5 4.5 0 011.13-1.897L16.863 4.487z" />
+                  <svg
+                    class="w-[14px] h-[14px] shrink-0"
+                    fill="none"
+                    viewBox="0 0 24 24"
+                    stroke="currentColor"
+                    stroke-width="1.5"
+                  >
+                    <path
+                      stroke-linecap="round"
+                      stroke-linejoin="round"
+                      d="M16.862 4.487l1.687-1.688a1.875 1.875 0 112.652 2.652L6.832 19.82a4.5 4.5 0 01-1.897 1.13l-2.685.8.8-2.685a4.5 4.5 0 011.13-1.897L16.863 4.487z"
+                    />
                   </svg>
                   Rename
                 </button>
@@ -304,8 +352,18 @@
                     window.electronAPI?.openInBrowser?.(conn.url)
                   }}
                 >
-                  <svg class="w-[14px] h-[14px] shrink-0" fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="1.5">
-                    <path stroke-linecap="round" stroke-linejoin="round" d="M13.5 6H5.25A2.25 2.25 0 003 8.25v10.5A2.25 2.25 0 005.25 21h10.5A2.25 2.25 0 0018 18.75V10.5m-10.5 6L21 3m0 0h-5.25M21 3v5.25" />
+                  <svg
+                    class="w-[14px] h-[14px] shrink-0"
+                    fill="none"
+                    viewBox="0 0 24 24"
+                    stroke="currentColor"
+                    stroke-width="1.5"
+                  >
+                    <path
+                      stroke-linecap="round"
+                      stroke-linejoin="round"
+                      d="M13.5 6H5.25A2.25 2.25 0 003 8.25v10.5A2.25 2.25 0 005.25 21h10.5A2.25 2.25 0 0018 18.75V10.5m-10.5 6L21 3m0 0h-5.25M21 3v5.25"
+                    />
                   </svg>
                   Open in Browser
                 </button>
@@ -320,8 +378,18 @@
                     onRemove(conn.id)
                   }}
                 >
-                  <svg class="w-[14px] h-[14px] shrink-0" fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="1.5">
-                    <path stroke-linecap="round" stroke-linejoin="round" d="M14.74 9l-.346 9m-4.788 0L9.26 9m9.968-3.21c.342.052.682.107 1.022.166m-1.022-.165L18.16 19.673a2.25 2.25 0 01-2.244 2.077H8.084a2.25 2.25 0 01-2.244-2.077L4.772 5.79m14.456 0a48.108 48.108 0 00-3.478-.397m-12 .562c.34-.059.68-.114 1.022-.165m0 0a48.11 48.11 0 013.478-.397m7.5 0v-.916c0-1.18-.91-2.164-2.09-2.201a51.964 51.964 0 00-3.32 0c-1.18.037-2.09 1.022-2.09 2.201v.916m7.5 0a48.667 48.667 0 00-7.5 0" />
+                  <svg
+                    class="w-[14px] h-[14px] shrink-0"
+                    fill="none"
+                    viewBox="0 0 24 24"
+                    stroke="currentColor"
+                    stroke-width="1.5"
+                  >
+                    <path
+                      stroke-linecap="round"
+                      stroke-linejoin="round"
+                      d="M14.74 9l-.346 9m-4.788 0L9.26 9m9.968-3.21c.342.052.682.107 1.022.166m-1.022-.165L18.16 19.673a2.25 2.25 0 01-2.244 2.077H8.084a2.25 2.25 0 01-2.244-2.077L4.772 5.79m14.456 0a48.108 48.108 0 00-3.478-.397m-12 .562c.34-.059.68-.114 1.022-.165m0 0a48.11 48.11 0 013.478-.397m7.5 0v-.916c0-1.18-.91-2.164-2.09-2.201a51.964 51.964 0 00-3.32 0c-1.18.037-2.09 1.022-2.09 2.201v.916m7.5 0a48.667 48.667 0 00-7.5 0"
+                    />
                   </svg>
                   Delete
                 </button>
@@ -339,7 +407,13 @@
       <span class="text-[10px] tracking-wider uppercase opacity-25 px-2">Services</span>
     </div>
     <button
-      class="w-full flex items-center gap-2 px-2 py-[6px] rounded-xl text-[12px] transition bg-transparent border-none text-[#1d1d1f] dark:text-[#fafafa] text-left group {openTerminalStatus === 'started' ? 'opacity-70 hover:opacity-90' : 'opacity-40 hover:opacity-70'} {openTerminalStatus === 'starting' || openTerminalStatus === 'stopping' ? 'pointer-events-none' : ''}"
+      class="w-full flex items-center gap-2 px-2 py-[6px] rounded-xl text-[12px] transition bg-transparent border-none text-[#1d1d1f] dark:text-[#fafafa] text-left group {openTerminalStatus ===
+      'started'
+        ? 'opacity-70 hover:opacity-90'
+        : 'opacity-40 hover:opacity-70'} {openTerminalStatus === 'starting' ||
+      openTerminalStatus === 'stopping'
+        ? 'pointer-events-none'
+        : ''}"
       onclick={() => {
         if (openTerminalStatus === 'started') {
           onToggleOtLogs()
@@ -348,7 +422,9 @@
         }
       }}
       use:tooltip={openTerminalStatus === 'started'
-        ? (view === 'open-terminal-logs' ? 'Hide logs' : `Running · Click to view logs`)
+        ? view === 'open-terminal-logs'
+          ? 'Hide logs'
+          : `Running · Click to view logs`
         : openTerminalStatus === 'starting'
           ? 'Starting…'
           : openTerminalStatus === 'failed'
@@ -388,11 +464,24 @@
       {#if openTerminalStatus === 'started'}
         <button
           class="ml-auto opacity-0 group-hover:opacity-40 hover:!opacity-80 transition bg-transparent border-none text-[#1d1d1f] dark:text-[#fafafa] p-0 leading-none"
-          onclick={(e) => { e.stopPropagation(); onToggleOpenTerminal() }}
+          onclick={(e) => {
+            e.stopPropagation()
+            onToggleOpenTerminal()
+          }}
           use:tooltip={'Stop Open Terminal'}
         >
-          <svg class="w-3 h-3" fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="1.5">
-            <path stroke-linecap="round" stroke-linejoin="round" d="M5.636 5.636a9 9 0 1012.728 0M12 3v9" />
+          <svg
+            class="w-3 h-3"
+            fill="none"
+            viewBox="0 0 24 24"
+            stroke="currentColor"
+            stroke-width="1.5"
+          >
+            <path
+              stroke-linecap="round"
+              stroke-linejoin="round"
+              d="M5.636 5.636a9 9 0 1012.728 0M12 3v9"
+            />
           </svg>
         </button>
       {/if}
@@ -404,7 +493,7 @@
     <div class="fixed inset-0 z-40" onclick={() => (settingsOpen = false)}></div>
 
     <div
-      class="absolute bottom-12 left-2 right-2 z-50 bg-white dark:bg-[#1a1a1a]/90 backdrop-blur-xl border border-black/[0.08] dark:border-white/[0.08] rounded-2xl shadow-2xl py-0.5 overflow-hidden"
+      class="absolute bottom-12 left-2 right-2 z-50 bg-white dark:bg-[#1a1a1a]/90 backdrop-blur-xl border border-black/[0.08] dark:border-white/[0.08] rounded-2xl shadow-lg py-0.5 overflow-hidden"
       in:fly={{ y: 8, duration: 150 }}
       out:fade={{ duration: 100 }}
     >
@@ -415,7 +504,7 @@
 
       <div class="py-1 px-1.5">
         <button
-          class="w-full flex items-center gap-2.5 px-3 py-1.5 text-left text-[12px] opacity-50 hover:opacity-90 hover:bg-black/[0.04] dark:bg-white/[0.06] transition bg-transparent border-none text-[#1d1d1f] dark:text-[#fafafa] rounded-xl"
+          class="w-full flex items-center gap-2.5 px-3 py-1.5 text-left text-[12px] opacity-50 hover:opacity-90 hover:bg-black/4 dark:hover:bg-white/4 transition bg-transparent border-none text-[#1d1d1f] dark:text-[#fafafa] rounded-xl"
           onclick={() => {
             settingsOpen = false
             onOpenSettings()
@@ -443,7 +532,7 @@
         </button>
 
         <button
-          class="w-full flex items-center gap-2.5 px-3 py-1.5 text-left text-[12px] opacity-50 hover:opacity-90 hover:bg-black/[0.04] dark:bg-white/[0.06] transition bg-transparent border-none text-[#1d1d1f] dark:text-[#fafafa] rounded-xl"
+          class="w-full flex items-center gap-2.5 px-3 py-1.5 text-left text-[12px] opacity-50 hover:opacity-90 hover:bg-black/4 dark:hover:bg-white/4 transition bg-transparent border-none text-[#1d1d1f] dark:text-[#fafafa] rounded-xl"
           onclick={openGithub}
         >
           <svg
@@ -468,7 +557,7 @@
   <!-- Settings button (bottom) -->
   <div class="px-2 pb-3">
     <button
-      class="w-full flex items-center gap-2 px-2 py-[6px] rounded-xl text-[12px] opacity-40 hover:opacity-70 hover:bg-black/[0.03] dark:bg-white/[0.05] transition bg-transparent border-none text-[#1d1d1f] dark:text-[#fafafa] text-left"
+      class="w-full flex items-center gap-2 px-2 py-[6px] rounded-xl text-[12px] opacity-80 hover:opacity-70 hover:bg-black/4 dark:hover:bg-white/4 transition bg-transparent border-none text-[#1d1d1f] dark:text-[#fafafa] text-left"
       onclick={() => (settingsOpen = !settingsOpen)}
     >
       <svg
@@ -483,11 +572,7 @@
           stroke-linejoin="round"
           d="M9.594 3.94c.09-.542.56-.94 1.11-.94h2.593c.55 0 1.02.398 1.11.94l.213 1.281c.063.374.313.686.645.87.074.04.147.083.22.127.325.196.72.257 1.075.124l1.217-.456a1.125 1.125 0 011.37.49l1.296 2.247a1.125 1.125 0 01-.26 1.431l-1.003.827c-.293.241-.438.613-.43.992a7.723 7.723 0 010 .255c-.008.378.137.75.43.991l1.004.827c.424.35.534.955.26 1.43l-1.298 2.247a1.125 1.125 0 01-1.369.491l-1.217-.456c-.355-.133-.75-.072-1.076.124a6.47 6.47 0 01-.22.128c-.331.183-.581.495-.644.869l-.213 1.281c-.09.543-.56.941-1.11.941h-2.594c-.55 0-1.019-.398-1.11-.94l-.213-1.281c-.062-.374-.312-.686-.644-.87a6.52 6.52 0 01-.22-.127c-.325-.196-.72-.257-1.076-.124l-1.217.456a1.125 1.125 0 01-1.369-.49l-1.297-2.247a1.125 1.125 0 01.26-1.431l1.004-.827c.292-.24.437-.613.43-.991a6.932 6.932 0 010-.255c.007-.38-.138-.751-.43-.992l-1.004-.827a1.125 1.125 0 01-.26-1.43l1.297-2.247a1.125 1.125 0 011.37-.491l1.216.456c.356.133.751.072 1.076-.124.072-.044.146-.086.22-.128.332-.183.582-.495.644-.869l.214-1.28z"
         />
-        <path
-          stroke-linecap="round"
-          stroke-linejoin="round"
-          d="M15 12a3 3 0 11-6 0 3 3 0 016 0z"
-        />
+        <path stroke-linecap="round" stroke-linejoin="round" d="M15 12a3 3 0 11-6 0 3 3 0 016 0z" />
       </svg>
       Settings
     </button>

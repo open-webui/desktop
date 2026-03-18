@@ -730,6 +730,7 @@ export interface AppConfig {
   version: number
   defaultConnectionId: string | null
   connections: Connection[]
+  runInBackground: boolean
   localServer: {
     port: number
     serveOnLocalNetwork: boolean
@@ -747,6 +748,7 @@ const DEFAULT_CONFIG: AppConfig = {
   version: 1,
   defaultConnectionId: null,
   connections: [],
+  runInBackground: true,
   localServer: {
     port: 8080,
     serveOnLocalNetwork: false,

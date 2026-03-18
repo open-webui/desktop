@@ -1,9 +1,9 @@
 <script lang="ts">
   import { onMount } from 'svelte'
   import { fade } from 'svelte/transition'
-  import { serverInfo } from '../stores'
+  import { serverInfo } from '../../stores'
 
-  import logoImage from '../assets/images/splash.png'
+  import logoImage from '../../assets/images/splash.png'
 
   let { phase = 'loading' } = $props()
   let visible = $state(false)

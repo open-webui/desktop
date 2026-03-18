@@ -1,7 +1,7 @@
 <script lang="ts">
   import { fade, fly } from 'svelte/transition'
   import { connections, config, serverInfo, appState } from '../../../stores'
-  import LocalInstall from '../../LocalInstall.svelte'
+  import LocalInstall from '../../Setup/LocalInstall.svelte'
   import landingVideo from '../../../../assets/landing.mp4'
 
   interface Props {

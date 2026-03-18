@@ -1,10 +1,10 @@
 <script lang="ts">
   import { onMount } from 'svelte'
   import { fly, fade } from 'svelte/transition'
-  import { appState, connections, config } from '../stores'
+  import { appState, connections, config } from '../../stores'
   import LocalInstall from './LocalInstall.svelte'
 
-  import logoImage from '../assets/images/splash.png'
+  import logoImage from '../../assets/images/splash.png'
 
   let view = $state('main') // main | install
   let url = $state('')

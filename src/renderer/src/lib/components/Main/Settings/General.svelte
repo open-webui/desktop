@@ -3,6 +3,7 @@
   import { connections, config } from '../../../stores'
 
   let launchAtLogin = $state(false)
+  let runInBackground = $state(true)
   let resetting = $state(false)
   let theme = $state<string>('system')
 
@@ -12,6 +13,7 @@
   onMount(async () => {
     launchAtLogin = await window.electronAPI.getLaunchAtLogin()
     const cfg = await window.electronAPI.getConfig()
+    runInBackground = cfg?.runInBackground ?? true
     const vars = cfg?.envVars ?? {}
     envEntries = Object.entries(vars).map(([key, value]) => ({ key, value: value as string }))
     theme = cfg?.theme ?? 'system'
@@ -95,6 +97,30 @@
     >
       <div
         class="w-3.5 h-3.5 rounded-full bg-white absolute top-[3px] transition-all {launchAtLogin
+          ? 'left-[18px]'
+          : 'left-[3px]'}"
+      ></div>
+    </button>
+  </div>
+
+  <div class="py-4 flex items-center justify-between">
+    <div>
+      <div class="text-[13px] opacity-70">Run in background</div>
+      <div class="text-[11px] opacity-25 mt-0.5">Keep running in the system tray when closed</div>
+    </div>
+    <button
+      class="w-9 h-5 rounded-full transition-colors {runInBackground
+        ? 'bg-black/20 dark:bg-white/30'
+        : 'bg-black/[0.06] dark:bg-white/[0.08]'} border-none relative"
+      aria-label="Toggle run in background"
+      onclick={async () => {
+        runInBackground = !runInBackground
+        await window.electronAPI.setConfig({ runInBackground })
+        config.set(await window.electronAPI.getConfig())
+      }}
+    >
+      <div
+        class="w-3.5 h-3.5 rounded-full bg-white absolute top-[3px] transition-all {runInBackground
           ? 'left-[18px]'
           : 'left-[3px]'}"
       ></div>

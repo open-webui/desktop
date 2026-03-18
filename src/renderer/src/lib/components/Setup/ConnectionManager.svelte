@@ -1,9 +1,9 @@
 <script lang="ts">
   import { fly, fade } from 'svelte/transition'
   import { onMount } from 'svelte'
-  import { connections, config, appState, appInfo } from '../stores'
+  import { connections, config, appState, appInfo } from '../../stores'
 
-  import logoImage from '../assets/images/splash.png'
+  import logoImage from '../../assets/images/splash.png'
 
   let view = $state('list') // list | add
   let url = $state('')
