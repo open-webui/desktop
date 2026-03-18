@@ -77,7 +77,7 @@
 
   const connect = async (id: string) => {
     destroyTerminal()
-    // If already open, just switch to it
+    showingLogs = false
     if (openConnections.has(id)) {
       activeConnectionId = id
       connectedUrl = openConnections.get(id)!

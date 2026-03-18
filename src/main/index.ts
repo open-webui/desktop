@@ -64,8 +64,8 @@ let SERVER_PID: number | null = null
 
 function createMainWindow(show = true): void {
   mainWindow = new BrowserWindow({
-    width: 900,
-    height: 560,
+    width: 1100,
+    height: 700,
     minWidth: 900,
     minHeight: 560,
     icon: path.join(__dirname, 'assets/icon.png'),
