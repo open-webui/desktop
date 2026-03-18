@@ -19,6 +19,8 @@
     onOpenSettings: () => void
     onToggleOpenTerminal: () => void
     onToggleOtLogs: () => void
+    onRename: (id: string, name: string) => void
+    onRemove: (id: string) => void
     openGithub: () => void
   }
 
@@ -38,8 +40,33 @@
     onOpenSettings,
     onToggleOpenTerminal,
     onToggleOtLogs,
+    onRename,
+    onRemove,
     openGithub
   }: Props = $props()
+
+  // Inline rename state
+  let editingId = $state<string | null>(null)
+  let editValue = $state('')
+  let menuOpenId = $state<string | null>(null)
+
+  const startRename = (id: string, currentName: string) => {
+    editingId = id
+    editValue = currentName
+  }
+
+  const commitRename = () => {
+    if (editingId && editValue.trim()) {
+      onRename(editingId, editValue.trim())
+    }
+    editingId = null
+    editValue = ''
+  }
+
+  const cancelRename = () => {
+    editingId = null
+    editValue = ''
+  }
 </script>
 
 <div
@@ -84,11 +111,12 @@
         onclick={() => !isLocalDisabled && onConnect(localConn.id)}
         onkeydown={(e) => e.key === 'Enter' && !isLocalDisabled && onConnect(localConn.id)}
       >
-        {#if serverStatus === 'starting'}
+        {#if serverStatus === 'starting' || (serverStatus === 'running' && !serverReachable)}
           <div class="w-[14px] h-[14px] shrink-0 flex items-center justify-center">
-            <div
-              class="w-2.5 h-2.5 rounded-full border-2 border-amber-400/60 border-t-transparent animate-spin"
-            ></div>
+            <svg class="w-3 h-3 animate-spin text-white/40" fill="none" viewBox="0 0 24 24">
+              <circle class="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" stroke-width="3"></circle>
+              <path class="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4zm2 5.291A7.962 7.962 0 014 12H0c0 3.042 1.135 5.824 3 7.938l3-2.647z"></path>
+            </svg>
           </div>
         {:else if serverReachable}
           <div class="w-[14px] h-[14px] shrink-0 flex items-center justify-center">
@@ -101,35 +129,82 @@
             <div class="w-2 h-2 rounded-full bg-white/15"></div>
           </div>
         {/if}
-        <span
-          class="text-[12px] {activeConnectionId === localConn.id
-            ? 'opacity-90'
-            : 'opacity-100'} transition-opacity truncate"
-          >Open WebUI</span
-        >
-
-        <button
-          class="ml-auto opacity-0 group-hover:opacity-30 hover:!opacity-70 transition bg-transparent border-none text-[#fafafa] shrink-0"
-          onclick={(e) => {
-            e.stopPropagation()
-            window.electronAPI?.openInBrowser?.(localConn.url)
-          }}
-          title="Open in browser"
-        >
-          <svg
-            class="w-[12px] h-[12px]"
-            fill="none"
-            viewBox="0 0 24 24"
-            stroke="currentColor"
-            stroke-width="1.5"
+        {#if editingId === localConn.id}
+          <!-- svelte-ignore a11y_autofocus -->
+          <input
+            type="text"
+            class="text-[12px] bg-transparent text-[#fafafa] px-0 py-0 border-none outline-none rounded-md flex-1 min-w-0"
+            bind:value={editValue}
+            autofocus
+            onfocus={(e) => e.currentTarget.select()}
+            onclick={(e) => e.stopPropagation()}
+            onkeydown={(e) => {
+              e.stopPropagation()
+              if (e.key === 'Enter') commitRename()
+              if (e.key === 'Escape') cancelRename()
+            }}
+            onblur={commitRename}
+          />
+        {:else}
+          <span
+            class="text-[12px] {activeConnectionId === localConn.id
+              ? 'opacity-90'
+              : 'opacity-100'} transition-opacity truncate flex-1 min-w-0"
+            >{localConn.name ?? 'Open WebUI'}</span
           >
-            <path
-              stroke-linecap="round"
-              stroke-linejoin="round"
-              d="M13.5 6H5.25A2.25 2.25 0 003 8.25v10.5A2.25 2.25 0 005.25 21h10.5A2.25 2.25 0 0018 18.75V10.5m-10.5 6L21 3m0 0h-5.25M21 3v5.25"
-            />
-          </svg>
-        </button>
+        {/if}
+
+        <div class="ml-auto relative shrink-0">
+          <button
+            class="opacity-20 hover:opacity-70 transition bg-transparent border-none text-[#fafafa] p-0.5 leading-none"
+            onclick={(e) => {
+              e.stopPropagation()
+              menuOpenId = menuOpenId === 'local' ? null : 'local'
+            }}
+          >
+            <svg class="w-3.5 h-3.5" fill="currentColor" viewBox="0 0 20 20">
+              <path d="M6 10a2 2 0 11-4 0 2 2 0 014 0zM12 10a2 2 0 11-4 0 2 2 0 014 0zM18 10a2 2 0 11-4 0 2 2 0 014 0z" />
+            </svg>
+          </button>
+
+          {#if menuOpenId === 'local'}
+            <div class="fixed inset-0 z-40" onclick={(e) => { e.stopPropagation(); menuOpenId = null }}></div>
+            <div
+              class="absolute right-0 top-6 z-50 w-[160px] bg-[#1a1a1a]/90 backdrop-blur-xl border border-white/[0.08] rounded-2xl shadow-2xl py-0.5 overflow-hidden"
+              in:fly={{ y: -4, duration: 150 }}
+              out:fade={{ duration: 100 }}
+            >
+              <div class="py-1 px-1.5">
+                <button
+                  class="w-full flex items-center gap-2.5 px-3 py-1.5 text-left text-[12px] opacity-50 hover:opacity-90 hover:bg-white/[0.06] transition bg-transparent border-none text-[#fafafa] rounded-xl"
+                  onclick={(e) => {
+                    e.stopPropagation()
+                    menuOpenId = null
+                    startRename(localConn.id, localConn.name ?? 'Open WebUI')
+                  }}
+                >
+                  <svg class="w-[14px] h-[14px] shrink-0" fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="1.5">
+                    <path stroke-linecap="round" stroke-linejoin="round" d="M16.862 4.487l1.687-1.688a1.875 1.875 0 112.652 2.652L6.832 19.82a4.5 4.5 0 01-1.897 1.13l-2.685.8.8-2.685a4.5 4.5 0 011.13-1.897L16.863 4.487z" />
+                  </svg>
+                  Rename
+                </button>
+                <button
+                  class="w-full flex items-center gap-2.5 px-3 py-1.5 text-left text-[12px] opacity-50 hover:opacity-90 hover:bg-white/[0.06] transition bg-transparent border-none text-[#fafafa] rounded-xl"
+                  onclick={(e) => {
+                    e.stopPropagation()
+                    menuOpenId = null
+                    window.electronAPI?.openInBrowser?.(localConn.url)
+                  }}
+                >
+                  <svg class="w-[14px] h-[14px] shrink-0" fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="1.5">
+                    <path stroke-linecap="round" stroke-linejoin="round" d="M13.5 6H5.25A2.25 2.25 0 003 8.25v10.5A2.25 2.25 0 005.25 21h10.5A2.25 2.25 0 0018 18.75V10.5m-10.5 6L21 3m0 0h-5.25M21 3v5.25" />
+                  </svg>
+                  Open in Browser
+                </button>
+              </div>
+            </div>
+          {/if}
+        </div>
       </div>
     {/if}
 
@@ -145,8 +220,8 @@
           : 'hover:bg-white/[0.05]'}"
         role="button"
         tabindex="0"
-        onclick={() => onConnect(conn.id)}
-        onkeydown={(e) => e.key === 'Enter' && onConnect(conn.id)}
+        onclick={() => editingId !== conn.id && onConnect(conn.id)}
+        onkeydown={(e) => e.key === 'Enter' && editingId !== conn.id && onConnect(conn.id)}
       >
         <svg
           class="w-[14px] h-[14px] shrink-0 opacity-30"
@@ -161,35 +236,100 @@
             d="M12 21a9.004 9.004 0 008.716-6.747M12 21a9.004 9.004 0 01-8.716-6.747M12 21c2.485 0 4.5-4.03 4.5-9S14.485 3 12 3m0 18c-2.485 0-4.5-4.03-4.5-9S9.515 3 12 3m0 0a8.997 8.997 0 017.843 4.582M12 3a8.997 8.997 0 00-7.843 4.582m15.686 0A11.953 11.953 0 0112 10.5c-2.998 0-5.74-1.1-7.843-2.918m15.686 0A8.959 8.959 0 0121 12c0 .778-.099 1.533-.284 2.253m0 0A17.919 17.919 0 0112 16.5a17.92 17.92 0 01-8.716-2.247m0 0A9.015 9.015 0 013 12c0-1.605.42-3.113 1.157-4.418"
           />
         </svg>
-        <span
-          class="text-[12px] {activeConnectionId === conn.id
-            ? 'opacity-90'
-            : 'opacity-100'} transition-opacity truncate"
-          >{conn.name}</span
-        >
 
-        <button
-          class="ml-auto opacity-0 group-hover:opacity-30 hover:!opacity-70 transition bg-transparent border-none text-[#fafafa] shrink-0"
-          onclick={(e) => {
-            e.stopPropagation()
-            window.electronAPI?.openInBrowser?.(conn.url)
-          }}
-          title="Open in browser"
-        >
-          <svg
-            class="w-[12px] h-[12px]"
-            fill="none"
-            viewBox="0 0 24 24"
-            stroke="currentColor"
-            stroke-width="1.5"
+        {#if editingId === conn.id}
+          <!-- svelte-ignore a11y_autofocus -->
+          <input
+            type="text"
+            class="text-[12px] bg-transparent text-[#fafafa] px-0 py-0 border-none outline-none rounded-md flex-1 min-w-0"
+            bind:value={editValue}
+            autofocus
+            onfocus={(e) => e.currentTarget.select()}
+            onclick={(e) => e.stopPropagation()}
+            onkeydown={(e) => {
+              e.stopPropagation()
+              if (e.key === 'Enter') commitRename()
+              if (e.key === 'Escape') cancelRename()
+            }}
+            onblur={commitRename}
+          />
+        {:else}
+          <span
+            class="text-[12px] {activeConnectionId === conn.id
+              ? 'opacity-90'
+              : 'opacity-100'} transition-opacity truncate flex-1 min-w-0"
+            >{conn.name}</span
           >
-            <path
-              stroke-linecap="round"
-              stroke-linejoin="round"
-              d="M13.5 6H5.25A2.25 2.25 0 003 8.25v10.5A2.25 2.25 0 005.25 21h10.5A2.25 2.25 0 0018 18.75V10.5m-10.5 6L21 3m0 0h-5.25M21 3v5.25"
-            />
-          </svg>
-        </button>
+        {/if}
+
+        <!-- Three-dots menu -->
+        <div class="ml-auto relative shrink-0">
+          <button
+            class="opacity-20 hover:opacity-70 transition bg-transparent border-none text-[#fafafa] p-0.5 leading-none"
+            onclick={(e) => {
+              e.stopPropagation()
+              menuOpenId = menuOpenId === conn.id ? null : conn.id
+            }}
+          >
+            <svg class="w-3.5 h-3.5" fill="currentColor" viewBox="0 0 20 20">
+              <path d="M6 10a2 2 0 11-4 0 2 2 0 014 0zM12 10a2 2 0 11-4 0 2 2 0 014 0zM18 10a2 2 0 11-4 0 2 2 0 014 0z" />
+            </svg>
+          </button>
+
+          {#if menuOpenId === conn.id}
+            <div class="fixed inset-0 z-40" onclick={(e) => { e.stopPropagation(); menuOpenId = null }}></div>
+            <div
+              class="absolute right-0 top-6 z-50 w-[160px] bg-[#1a1a1a]/90 backdrop-blur-xl border border-white/[0.08] rounded-2xl shadow-2xl py-0.5 overflow-hidden"
+              in:fly={{ y: -4, duration: 150 }}
+              out:fade={{ duration: 100 }}
+            >
+              <div class="py-1 px-1.5">
+                <button
+                  class="w-full flex items-center gap-2.5 px-3 py-1.5 text-left text-[12px] opacity-50 hover:opacity-90 hover:bg-white/[0.06] transition bg-transparent border-none text-[#fafafa] rounded-xl"
+                  onclick={(e) => {
+                    e.stopPropagation()
+                    menuOpenId = null
+                    startRename(conn.id, conn.name)
+                  }}
+                >
+                  <svg class="w-[14px] h-[14px] shrink-0" fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="1.5">
+                    <path stroke-linecap="round" stroke-linejoin="round" d="M16.862 4.487l1.687-1.688a1.875 1.875 0 112.652 2.652L6.832 19.82a4.5 4.5 0 01-1.897 1.13l-2.685.8.8-2.685a4.5 4.5 0 011.13-1.897L16.863 4.487z" />
+                  </svg>
+                  Rename
+                </button>
+                <button
+                  class="w-full flex items-center gap-2.5 px-3 py-1.5 text-left text-[12px] opacity-50 hover:opacity-90 hover:bg-white/[0.06] transition bg-transparent border-none text-[#fafafa] rounded-xl"
+                  onclick={(e) => {
+                    e.stopPropagation()
+                    menuOpenId = null
+                    window.electronAPI?.openInBrowser?.(conn.url)
+                  }}
+                >
+                  <svg class="w-[14px] h-[14px] shrink-0" fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="1.5">
+                    <path stroke-linecap="round" stroke-linejoin="round" d="M13.5 6H5.25A2.25 2.25 0 003 8.25v10.5A2.25 2.25 0 005.25 21h10.5A2.25 2.25 0 0018 18.75V10.5m-10.5 6L21 3m0 0h-5.25M21 3v5.25" />
+                  </svg>
+                  Open in Browser
+                </button>
+              </div>
+              <div class="mx-3 border-t border-white/[0.06]"></div>
+              <div class="py-1 px-1.5">
+                <button
+                  class="w-full flex items-center gap-2.5 px-3 py-1.5 text-left text-[12px] opacity-50 hover:opacity-90 hover:bg-red-500/10 transition bg-transparent border-none text-red-400 rounded-xl"
+                  onclick={(e) => {
+                    e.stopPropagation()
+                    menuOpenId = null
+                    onRemove(conn.id)
+                  }}
+                >
+                  <svg class="w-[14px] h-[14px] shrink-0" fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="1.5">
+                    <path stroke-linecap="round" stroke-linejoin="round" d="M14.74 9l-.346 9m-4.788 0L9.26 9m9.968-3.21c.342.052.682.107 1.022.166m-1.022-.165L18.16 19.673a2.25 2.25 0 01-2.244 2.077H8.084a2.25 2.25 0 01-2.244-2.077L4.772 5.79m14.456 0a48.108 48.108 0 00-3.478-.397m-12 .562c.34-.059.68-.114 1.022-.165m0 0a48.11 48.11 0 013.478-.397m7.5 0v-.916c0-1.18-.91-2.164-2.09-2.201a51.964 51.964 0 00-3.32 0c-1.18.037-2.09 1.022-2.09 2.201v.916m7.5 0a48.667 48.667 0 00-7.5 0" />
+                  </svg>
+                  Delete
+                </button>
+              </div>
+            </div>
+          {/if}
+        </div>
       </div>
     {/each}
   </div>

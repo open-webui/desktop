@@ -13,7 +13,8 @@ import {
   Notification,
   Menu,
   ipcMain,
-  Tray
+  Tray,
+  dialog
 } from 'electron'
 import path, { join } from 'path'
 import { electronApp, optimizer, is } from '@electron-toolkit/utils'
@@ -51,6 +52,8 @@ import {
   getOpenTerminalPty,
   getOpenTerminalLog
 } from './utils/open-terminal'
+
+import { initUpdater, checkForUpdates, downloadUpdate, installUpdate } from './updater'
 
 import log from 'electron-log'
 log.transports.file.resolvePathFn = () => getLogFilePath('main')
@@ -590,6 +593,18 @@ if (!gotTheLock) {
       return config.connections
     })
 
+    ipcMain.handle('connections:update', async (_event, id: string, updates: Partial<Connection>) => {
+      const config = await getConfig()
+      const idx = config.connections.findIndex((c) => c.id === id)
+      if (idx !== -1) {
+        config.connections[idx] = { ...config.connections[idx], ...updates }
+        await setConfig(config)
+        CONFIG = config
+        updateTray()
+      }
+      return config.connections
+    })
+
     ipcMain.handle('connections:setDefault', async (_event, id: string) => {
       const config = await getConfig()
       config.defaultConnectionId = id
@@ -610,6 +625,11 @@ if (!gotTheLock) {
     ipcMain.handle('validate:url', async (_event, url: string) => {
       return await validateRemoteUrl(url)
     })
+
+    // Updater
+    ipcMain.handle('updater:check', () => checkForUpdates())
+    ipcMain.handle('updater:download', () => downloadUpdate())
+    ipcMain.handle('updater:install', () => installUpdate())
 
     // Misc
     ipcMain.handle('app:reset', () => resetAppHandler())
@@ -653,6 +673,13 @@ if (!gotTheLock) {
     ipcMain.handle('package:version', (_event, packageName: string) => getPackageVersion(packageName))
     ipcMain.handle('package:uninstall', async (_event, packageName: string) => {
       return uninstallPackage(packageName)
+    })
+
+    ipcMain.handle('dialog:selectFolder', async () => {
+      const result = await dialog.showOpenDialog(mainWindow!, {
+        properties: ['openDirectory']
+      })
+      return result.canceled ? null : result.filePaths[0] ?? null
     })
 
     ipcMain.handle('app:launchAtLogin:get', () => {
@@ -744,6 +771,11 @@ if (!gotTheLock) {
       }
     } else {
       createMainWindow()
+    }
+
+    // Initialize auto-updater
+    if (mainWindow) {
+      initUpdater(mainWindow)
     }
 
     app.on('activate', () => {

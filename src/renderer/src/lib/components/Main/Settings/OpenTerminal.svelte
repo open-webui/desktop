@@ -7,6 +7,7 @@
   let version = $state<string | null>(null)
   let stopping = $state(false)
   let starting = $state(false)
+  let restarting = $state(false)
   let updating = $state(false)
   let loaded = $state(false)
   let uninstalling = $state(false)
@@ -49,6 +50,18 @@
       console.error('Failed to start Open Terminal:', e)
     }
     starting = false
+  }
+
+  const restartTerminal = async () => {
+    restarting = true
+    try {
+      await window.electronAPI.stopOpenTerminal()
+      await window.electronAPI.startOpenTerminal()
+      otInfo = await window.electronAPI.getOpenTerminalInfo()
+    } catch (e) {
+      console.error('Failed to restart Open Terminal:', e)
+    }
+    restarting = false
   }
 
   const updatePackage = async () => {
@@ -149,6 +162,21 @@
             Stop
           {/if}
         </button>
+        <button
+          class="text-[12px] opacity-40 hover:opacity-70 px-3 py-1.5 bg-white/[0.06] transition border-none text-[#fafafa] rounded-xl flex items-center gap-1.5 {restarting ? 'pointer-events-none opacity-20' : ''}"
+          disabled={restarting}
+          onclick={restartTerminal}
+        >
+          {#if restarting}
+            <div class="w-2.5 h-2.5 rounded-full border-[1.5px] border-white/30 border-t-transparent animate-spin"></div>
+            Restarting…
+          {:else}
+            <svg class="w-3 h-3" fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="1.5">
+              <path stroke-linecap="round" stroke-linejoin="round" d="M16.023 9.348h4.992v-.001M2.985 19.644v-4.992m0 0h4.992m-4.993 0l3.181 3.183a8.25 8.25 0 0013.803-3.7M20.015 4.356v4.992m0 0h-4.992m4.993 0l-3.181-3.183a8.25 8.25 0 00-13.803 3.7" />
+            </svg>
+            Restart
+          {/if}
+        </button>
       {:else}
         <button
           class="text-[12px] opacity-40 hover:opacity-70 px-3 py-1.5 bg-white/[0.06] transition border-none text-[#fafafa] rounded-xl flex items-center gap-1.5 {starting ? 'pointer-events-none opacity-20' : ''}"
@@ -219,6 +247,32 @@
       onchange={(e) =>
         updateOtConfig('port', parseInt((e.target as HTMLInputElement).value) || 8000)}
     />
+  </div>
+
+  <div class="py-4 flex items-center justify-between gap-4">
+    <div class="shrink-0">
+      <div class="text-[13px] opacity-70">Working Directory</div>
+      <div class="text-[11px] opacity-25 mt-0.5">Starting directory for terminal sessions</div>
+    </div>
+    <div class="flex items-center gap-1.5 min-w-0 flex-1 max-w-[280px] justify-end">
+      <input
+        type="text"
+        class="bg-white/[0.06] text-[12px] text-[#fafafa] px-3 py-1.5 border-none outline-none rounded-xl opacity-60 min-w-0 flex-1 text-right font-mono"
+        placeholder="~ (default)"
+        value={$config?.openTerminal?.cwd ?? ''}
+        onchange={(e) =>
+          updateOtConfig('cwd', (e.target as HTMLInputElement).value.trim())}
+      />
+      <button
+        class="shrink-0 text-[12px] opacity-40 hover:opacity-70 px-2.5 py-1.5 bg-white/[0.06] transition border-none text-[#fafafa] rounded-xl"
+        onclick={async () => {
+          const folder = await window.electronAPI.selectFolder()
+          if (folder) updateOtConfig('cwd', folder)
+        }}
+      >
+        Browse
+      </button>
+    </div>
   </div>
 
   {#if isRunning && otInfo}

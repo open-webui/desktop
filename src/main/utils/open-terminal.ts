@@ -63,11 +63,14 @@ export const startOpenTerminal = async (
     }
   }
 
+  const cwd = config.openTerminal?.cwd || require('os').homedir()
+
   const commandArgs = [
     '-m', 'uv', 'run', 'open-terminal', 'run',
     '--host', host,
     '--port', availablePort.toString(),
-    '--api-key', generatedKey
+    '--api-key', generatedKey,
+    '--cwd', cwd
   ]
 
   log.info('Starting Open Terminal...', pythonPath, commandArgs.join(' '))

@@ -138,9 +138,16 @@ const api = {
   getConnections: () => ipcRenderer.invoke('connections:list'),
   addConnection: (connection: any) => ipcRenderer.invoke('connections:add', connection),
   removeConnection: (id: string) => ipcRenderer.invoke('connections:remove', id),
+  updateConnection: (id: string, updates: any) => ipcRenderer.invoke('connections:update', id, updates),
   setDefaultConnection: (id: string) => ipcRenderer.invoke('connections:setDefault', id),
   connectTo: (id: string) => ipcRenderer.invoke('connections:connect', id),
-  validateUrl: (url: string) => ipcRenderer.invoke('validate:url', url)
+  validateUrl: (url: string) => ipcRenderer.invoke('validate:url', url),
+  selectFolder: () => ipcRenderer.invoke('dialog:selectFolder'),
+
+  // Updater
+  checkForUpdates: () => ipcRenderer.invoke('updater:check'),
+  downloadUpdate: () => ipcRenderer.invoke('updater:download'),
+  installUpdate: () => ipcRenderer.invoke('updater:install')
 }
 
 if (process.contextIsolated) {

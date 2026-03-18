@@ -738,6 +738,7 @@ export interface AppConfig {
   openTerminal: {
     enabled: boolean
     port: number
+    cwd: string
   }
   envVars: Record<string, string>
 }
@@ -753,7 +754,8 @@ const DEFAULT_CONFIG: AppConfig = {
   },
   openTerminal: {
     enabled: false,
-    port: 8000
+    port: 8000,
+    cwd: ''
   },
   envVars: {}
 }

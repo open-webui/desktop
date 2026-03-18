@@ -148,6 +148,13 @@
   const connect = async (id: string) => {
     destroyTerminal()
     showingLogs = false
+    // Toggle: clicking the active connection unselects it
+    if (activeConnectionId === id && view === 'connected') {
+      activeConnectionId = ''
+      connectedUrl = ''
+      view = 'welcome'
+      return
+    }
     if (openConnections.has(id)) {
       activeConnectionId = id
       connectedUrl = openConnections.get(id)!
@@ -412,6 +419,11 @@
       {onOpenSettings}
       onToggleOpenTerminal={toggleOpenTerminal}
       onToggleOtLogs={toggleOtLogs}
+      onRename={async (id, name) => {
+        await window.electronAPI.updateConnection(id, { name })
+        connections.set(await window.electronAPI.getConnections())
+      }}
+      onRemove={remove}
       {openGithub}
     />
   {/if}

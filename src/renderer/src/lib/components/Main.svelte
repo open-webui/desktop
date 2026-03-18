@@ -116,7 +116,7 @@
       >
         <!-- svelte-ignore a11y_no_static_element_interactions -->
         <div
-          class="w-[calc(100%-32px)] h-[calc(100%-32px)] max-w-[900px] max-h-[600px] rounded-2xl overflow-hidden shadow-2xl border border-white/[0.08]"
+          class="w-[calc(100%-32px)] h-[calc(100%-32px)] max-w-[900px] max-h-[600px] rounded-3xl overflow-hidden shadow-2xl border border-white/[0.08]"
           in:fade={{ duration: 150 }}
           onclick={(e) => e.stopPropagation()}
         >

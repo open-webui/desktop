@@ -6,6 +6,7 @@
   let updating = $state(false)
   let stopping = $state(false)
   let starting = $state(false)
+  let restarting = $state(false)
   let version = $state<string | null>(null)
   let loaded = $state(false)
 
@@ -52,6 +53,17 @@
       console.error('Failed to start server:', e)
     }
     starting = false
+  }
+
+  const restartServer = async () => {
+    restarting = true
+    try {
+      await window.electronAPI.restartServer()
+      serverStatus = 'running'
+    } catch (e) {
+      console.error('Failed to restart server:', e)
+    }
+    restarting = false
   }
 
   const updatePackage = async () => {
@@ -142,6 +154,21 @@
               <path stroke-linecap="round" stroke-linejoin="round" d="M5.636 5.636a9 9 0 1012.728 0M12 3v9" />
             </svg>
             Stop
+          {/if}
+        </button>
+        <button
+          class="text-[12px] opacity-40 hover:opacity-70 px-3 py-1.5 bg-white/[0.06] transition border-none text-[#fafafa] rounded-xl flex items-center gap-1.5 {restarting ? 'pointer-events-none opacity-20' : ''}"
+          disabled={restarting}
+          onclick={restartServer}
+        >
+          {#if restarting}
+            <div class="w-2.5 h-2.5 rounded-full border-[1.5px] border-white/30 border-t-transparent animate-spin"></div>
+            Restarting…
+          {:else}
+            <svg class="w-3 h-3" fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="1.5">
+              <path stroke-linecap="round" stroke-linejoin="round" d="M16.023 9.348h4.992v-.001M2.985 19.644v-4.992m0 0h4.992m-4.993 0l3.181 3.183a8.25 8.25 0 0013.803-3.7M20.015 4.356v4.992m0 0h-4.992m4.993 0l-3.181-3.183a8.25 8.25 0 00-13.803 3.7" />
+            </svg>
+            Restart
           {/if}
         </button>
       {:else}
