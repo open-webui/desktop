@@ -11,6 +11,7 @@ import {
   isPythonInstalled,
   portInUse
 } from './index'
+import { ServiceLock, isProcessAlive } from './service-lock'
 
 // ─── State ──────────────────────────────────────────────
 
@@ -20,6 +21,8 @@ let url: string | null = null
 let apiKey: string | null = null
 let status: string | null = null // null | starting | started | stopped | failed
 let logBuffer: string[] = []
+
+const lock = new ServiceLock('open-terminal')
 
 // ─── Public API ─────────────────────────────────────────
 
@@ -36,6 +39,10 @@ export const getOpenTerminalLog = (): string[] => logBuffer
 export const startOpenTerminal = async (
   port: number | null = null
 ): Promise<{ url: string; apiKey: string; pid: number }> => {
+  if (!lock.acquire()) {
+    return { url, apiKey, pid }
+  }
+
   await stopOpenTerminal()
 
   if (!isPythonInstalled()) throw new Error('Python is not installed')
@@ -148,4 +155,17 @@ export const stopOpenTerminal = async (): Promise<void> => {
   apiKey = null
   status = null
   logBuffer = []
+  lock.release()
+}
+
+/**
+ * Validate whether the tracked Open Terminal process is still alive.
+ */
+export const validateOpenTerminalProcess = (): boolean => {
+  if (!pid) return false
+  if (isProcessAlive(pid)) return true
+  pid = null
+  status = null
+  lock.release()
+  return false
 }

@@ -16,6 +16,7 @@ import {
 } from './index'
 
 import { getModelsDir } from './huggingface'
+import { ServiceLock, isProcessAlive } from './service-lock'
 
 // ─── State ──────────────────────────────────────────────
 
@@ -24,16 +25,24 @@ let pid: number | null = null
 let url: string | null = null
 let status: string | null = null // null | setting-up | starting | started | stopped | failed
 let logBuffer: string[] = []
+
+const lock = new ServiceLock('llamacpp')
 let binaryPath: string | null = null
 
 // ─── Public Getters ─────────────────────────────────────
 
-export const getLlamaCppInfo = () => ({
-  url,
-  status,
-  pid,
-  binaryPath
-})
+export const getLlamaCppInfo = () => {
+  // Extract version tag from binaryPath — the tag is the directory name
+  // directly under the llama.cpp cache dir, e.g. …/llama.cpp/<tag>/bin/llama-server
+  let version: string | null = null
+  if (binaryPath) {
+    const cacheBase = path.join(getUserDataPath(), 'llama.cpp')
+    const relative = path.relative(cacheBase, binaryPath)
+    const tag = relative.split(path.sep)[0]
+    if (tag) version = tag
+  }
+  return { url, status, pid, binaryPath, version }
+}
 
 export const getLlamaCppPty = (): pty.IPty | null => ptyProcess
 export const getLlamaCppLog = (): string[] => logBuffer
@@ -230,6 +239,10 @@ export const setupLlamaCpp = async (
 export const startLlamaCpp = async (
   onStatus?: (status: string) => void
 ): Promise<{ url: string; pid: number }> => {
+  if (!lock.acquire()) {
+    return { url, pid }
+  }
+
   await stopLlamaCpp()
 
   status = 'setting-up'
@@ -348,4 +361,19 @@ export const stopLlamaCpp = async (): Promise<void> => {
   url = null
   status = null
   logBuffer = []
+  lock.release()
+}
+
+/**
+ * Validate whether the tracked llama.cpp process is still alive.
+ * Used for crash recovery on app startup.
+ */
+export const validateLlamaCppProcess = (): boolean => {
+  if (!pid) return false
+  if (isProcessAlive(pid)) return true
+  // Stale PID — clean up
+  pid = null
+  status = null
+  lock.release()
+  return false
 }

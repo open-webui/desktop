@@ -52,7 +52,8 @@ import {
   stopOpenTerminal,
   getOpenTerminalInfo,
   getOpenTerminalPty,
-  getOpenTerminalLog
+  getOpenTerminalLog,
+  validateOpenTerminalProcess
 } from './utils/open-terminal'
 
 import {
@@ -61,7 +62,8 @@ import {
   stopLlamaCpp,
   getLlamaCppInfo,
   getLlamaCppLog,
-  getLlamaCppPty
+  getLlamaCppPty,
+  validateLlamaCppProcess
 } from './utils/llamacpp'
 
 import {
@@ -323,6 +325,10 @@ const connectTo = async (connection: Connection) => {
 let activePtyDataDisposable: { dispose: () => void } | null = null
 
 const startServerHandler = async (): Promise<boolean> => {
+  if (SERVER_STATUS === 'starting' || SERVER_STATUS === 'started') {
+    log.info('[server] Already running or starting, skipping duplicate start')
+    return true
+  }
   await stopServerHandler()
   SERVER_STATUS = 'starting'
   sendToRenderer('status:server', SERVER_STATUS)
@@ -641,7 +647,10 @@ if (!gotTheLock) {
     // Server
     ipcMain.handle('server:start', () => startServerHandler())
     ipcMain.handle('server:stop', () => stopServerHandler())
-    ipcMain.handle('server:restart', () => startServerHandler())
+    ipcMain.handle('server:restart', async () => {
+      await stopServerHandler()
+      return startServerHandler()
+    })
     ipcMain.handle('server:logs', () => (SERVER_PID ? getServerLog(SERVER_PID) : []))
     ipcMain.handle('server:logs:clear', () => clearAllServerLogs())
 
@@ -931,6 +940,10 @@ if (!gotTheLock) {
       },
       { useSystemPicker: true }
     )
+
+    // Validate stale PIDs from previous crash
+    validateOpenTerminalProcess()
+    validateLlamaCppProcess()
 
     // Auto-start Open Terminal if previously enabled
     if (CONFIG?.openTerminal?.enabled) {
