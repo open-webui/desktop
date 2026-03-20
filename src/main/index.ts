@@ -595,6 +595,10 @@ if (!gotTheLock) {
       username: require('os').userInfo().username
     }))
 
+    ipcMain.handle('app:contentPreloadPath', () => {
+      return `file://${join(__dirname, '../preload/content-preload.js')}`
+    })
+
     ipcMain.handle('app:defaultDataPath', () => {
       return join(getUserDataPath(), 'data')
     })
@@ -775,6 +779,12 @@ if (!gotTheLock) {
         const result = await startOpenTerminal(CONFIG?.openTerminal?.port ?? null)
         sendToRenderer('status:open-terminal', 'started')
         sendToRenderer('open-terminal:ready', result)
+        // Notify webview to register terminal server at system level
+        sendToRenderer('connections:terminal', {
+          action: 'add',
+          url: result.url,
+          key: result.apiKey
+        })
         // Save enabled state
         await setConfig({ openTerminal: { ...CONFIG?.openTerminal, enabled: true } })
         CONFIG = await getConfig()
@@ -789,8 +799,16 @@ if (!gotTheLock) {
 
     ipcMain.handle('open-terminal:stop', async () => {
       try {
+        const info = getOpenTerminalInfo()
         await stopOpenTerminal()
         sendToRenderer('status:open-terminal', 'stopped')
+        // Notify webview to unregister terminal server
+        if (info.url) {
+          sendToRenderer('connections:terminal', {
+            action: 'remove',
+            url: info.url
+          })
+        }
         await setConfig({ openTerminal: { ...CONFIG?.openTerminal, enabled: false } })
         CONFIG = await getConfig()
         return true
@@ -829,6 +847,15 @@ if (!gotTheLock) {
         })
         sendToRenderer('status:llamacpp', 'started')
         sendToRenderer('llamacpp:ready', result)
+        // Notify webview to register llama-server as OpenAI endpoint
+        if (result.url) {
+          sendToRenderer('connections:openai', {
+            action: 'add',
+            url: `${result.url}/v1`
+          })
+          // Refresh model list after backend registers the endpoint
+          setTimeout(() => sendToRenderer('models:refresh'), 1000)
+        }
         await setConfig({ llamaCpp: { ...CONFIG?.llamaCpp, enabled: true } })
         CONFIG = await getConfig()
         return result
@@ -842,8 +869,18 @@ if (!gotTheLock) {
 
     ipcMain.handle('llamacpp:stop', async () => {
       try {
+        const info = getLlamaCppInfo()
         await stopLlamaCpp()
         sendToRenderer('status:llamacpp', 'stopped')
+        // Notify webview to unregister llama-server
+        if (info.url) {
+          sendToRenderer('connections:openai', {
+            action: 'remove',
+            url: `${info.url}/v1`
+          })
+          // Refresh model list after removing endpoint
+          setTimeout(() => sendToRenderer('models:refresh'), 500)
+        }
         await setConfig({ llamaCpp: { ...CONFIG?.llamaCpp, enabled: false } })
         CONFIG = await getConfig()
         return true

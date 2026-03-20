@@ -74,6 +74,9 @@
   // Track webview loading per connection
   let webviewLoading: Map<string, boolean> = $state(new Map())
 
+  // Content preload path for webview bridge
+  let contentPreloadPath: string = $state('')
+
   // Server is starting up (local)
   const serverStarting = $derived(
     localConn && localInstalled && (
@@ -88,8 +91,25 @@
     (view === 'connected' && activeConnectionId && (webviewLoading.get(activeConnectionId) ?? true))
   )
 
-  // Attach load event listeners to webviews
-  onMount(() => {
+  // Attach load event listeners and IPC forwarding to webviews
+  onMount(async () => {
+    // Fetch the content preload path once
+    contentPreloadPath = await window.electronAPI.getContentPreloadPath()
+
+    // Forward main:data events from the main process into all active webviews
+    window.electronAPI.onData((data: any) => {
+      const container = document.querySelector('.content-webview-container')
+      if (!container) return
+      const webviews = container.querySelectorAll('webview')
+      webviews.forEach((wv: any) => {
+        try {
+          wv.send('desktop:event', data)
+        } catch (_) {
+          // webview may not be ready yet
+        }
+      })
+    })
+
     const observer = new MutationObserver(() => {
       const container = document.querySelector('.content-webview-container')
       if (!container) return
@@ -110,6 +130,28 @@
         wv.addEventListener('did-stop-loading', () => {
           webviewLoading.set(connId, false)
           webviewLoading = new Map(webviewLoading)
+        })
+
+        // Handle IPC messages from the webview guest (Open WebUI → desktop)
+        wv.addEventListener('ipc-message', async (event: any) => {
+          if (event.channel === 'webview:send') {
+            const requestData = event.args?.[0]
+            if (!requestData) return
+            try {
+              const response = await window.electronAPI[requestData.type]?.(requestData)
+              if (requestData._requestId) {
+                wv.send('desktop:response', {
+                  _responseId: requestData._requestId,
+                  data: response
+                })
+              }
+            } catch (e) {
+              console.error('webview:send handler error:', e)
+            }
+          } else if (event.channel === 'webview:load') {
+            const page = event.args?.[0]
+            if (page) onSetView(page === 'home' ? 'welcome' : page)
+          }
         })
       })
     })
@@ -136,6 +178,7 @@
       style="display: {view === 'connected' && activeConnectionId === connId ? 'flex' : 'none'}"
       allowpopups
       partition="persist:connection-{connId}"
+      preload={contentPreloadPath}
     ></webview>
   {/each}
 
