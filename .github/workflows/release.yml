@@ -58,10 +58,10 @@ jobs:
                   security import $CERTIFICATE_PATH -P "$P12_PASSWORD" -A -t cert -f pkcs12 -k $KEYCHAIN_PATH
                   security list-keychain -d user -s $KEYCHAIN_PATH
 
-            # Build commands
+            # Build commands — use electron-builder directly to pass arch flags
             - name: Create Windows Builds
               if: ${{ matrix.os == 'windows-latest' }}
-              run: npm run build:win
+              run: npm run build && npx electron-builder --win --${{ matrix.arch }}
 
             - name: Create macOS Builds
               if: ${{ matrix.os == 'macos-latest' }}
@@ -69,61 +69,13 @@ jobs:
                   APPLE_ID: ${{ secrets.APPLE_ID }}
                   APPLE_APP_SPECIFIC_PASSWORD: ${{ secrets.APPLE_PASSWORD }}
                   APPLE_TEAM_ID: ${{ secrets.APPLE_TEAM_ID }}
-              run: npm run build:mac
+              run: npm run build && npx electron-builder --mac --${{ matrix.arch }}
 
             - name: Create Linux Builds
               if: ${{ matrix.os == 'ubuntu-latest' }}
-              run: npm run build:linux
+              run: npm run build && npx electron-builder --linux --${{ matrix.arch }}
 
-            - name: Find and Rename Windows Executable
-              if: ${{ matrix.os == 'windows-latest' }}
-              shell: pwsh
-              run: |
-                  $exePath = Get-ChildItem -Path dist -Recurse -Filter "*.exe" | Select-Object -First 1
-                  if (-not $exePath) { throw "Error: No .exe file was found in dist."; }
-                  Write-Host "The found executable is: $($exePath.FullName)"
-                  $destinationPath = "${{ matrix.os }}-${{ matrix.arch }}.exe"
-                  Copy-Item -Path $exePath.FullName -Destination $destinationPath
-                  Write-Host "Copied executable to: $destinationPath"
-
-            - name: Find and Rename macOS Package
-              if: ${{ matrix.os == 'macos-latest' }}
-              run: |
-                  if [ -d "dist" ]; then
-                    package_file=$(find dist -maxdepth 1 -name "*.dmg" -o -name "*.zip" -o -name "*.pkg" | head -1)
-                    if [ -n "$package_file" ]; then
-                      extension="${package_file##*.}"
-                      cp "$package_file" "${{ matrix.os }}-${{ matrix.arch }}.$extension"
-                      echo "Copied package to: ${{ matrix.os }}-${{ matrix.arch }}.$extension"
-                    else
-                      echo "No macOS package found in dist"
-                      ls -la dist/ || echo "dist directory not found or empty"
-                    fi
-                  else
-                    echo "dist directory not found"
-                  fi
-
-            - name: Find and Rename Linux Packages
-              if: ${{ matrix.os == 'ubuntu-latest' }}
-              run: |
-                  if [ -d "dist" ]; then
-                    shopt -s nullglob
-                    for package_file in dist/*.deb dist/*.rpm dist/*.AppImage dist/*.tar.gz dist/*.flatpak; do
-                      [ -e "$package_file" ] || continue
-                      filename=$(basename "$package_file")
-                      extension="${filename##*.}"
-                      if [[ "$filename" == *.tar.gz ]]; then
-                        extension="tar.gz"
-                      fi
-                      dest="${{ matrix.os }}-${{ matrix.arch }}.${extension}"
-                      cp "$package_file" "$dest"
-                      echo "Copied $package_file to $dest"
-                    done
-                  else
-                    echo "dist directory not found"
-                  fi
-
-            # (Optional Windows Signing step remains)
+            # Sign Windows executable after build
             - name: Azure Trusted Signing (Windows Only)
               if: ${{ matrix.os == 'windows-latest' }}
               uses: azure/trusted-signing-action@v0.5.1
@@ -134,15 +86,13 @@ jobs:
                   endpoint: https://eus.codesigning.azure.net/
                   trusted-signing-account-name: open-webui
                   certificate-profile-name: open-webui
-                  files-folder: .
+                  files-folder: dist
                   files-folder-filter: exe
 
             - name: List files for debugging
               shell: bash
               run: |
-                  echo "Files in current directory:"
-                  ls -la
-                  echo "Files in dist directory (if exists):"
+                  echo "Files in dist directory:"
                   ls -la dist/ || echo "dist directory not found"
 
             - name: Upload Artifacts
@@ -150,7 +100,17 @@ jobs:
               with:
                   name: ${{ matrix.os }}-${{ matrix.arch }}
                   path: |
-                      ${{ matrix.os }}-${{ matrix.arch }}.*
+                      dist/*.exe
+                      dist/*.dmg
+                      dist/*.zip
+                      dist/*.pkg
+                      dist/*.deb
+                      dist/*.rpm
+                      dist/*.AppImage
+                      dist/*.snap
+                      dist/*.flatpak
+                      dist/*.tar.gz
+                      dist/*.blockmap
                       dist/latest*.yml
                   if-no-files-found: warn
 
@@ -177,7 +137,7 @@ jobs:
                   # Extract the section for the current version from CHANGELOG.md
                   VERSION="${{ steps.version.outputs.version }}"
                   # Get content between ## [VERSION] and the next ## [ heading
-                  NOTES=$(awk "/^## \\[$VERSION\\]/{found=1; next} /^## \\[/{if(found) exit} found{print}" CHANGELOG.md)
+                  NOTES=$(awk "/^## \[$VERSION\]/{found=1; next} /^## \[/{if(found) exit} found{print}" CHANGELOG.md)
                   if [ -z "$NOTES" ]; then
                     NOTES="Release v$VERSION"
                   fi
@@ -192,8 +152,8 @@ jobs:
             - name: List downloaded artifacts
               run: |
                   echo "Downloaded artifacts:"
-                  find . -type f -name "*" | grep -E "\.(exe|zip|dmg|pkg|deb|rpm|AppImage|flatpak|tar\.gz|yml)$" || echo "No package files found"
-                  ls -la
+                  find . -type f | grep -E "\.(exe|zip|dmg|pkg|deb|rpm|AppImage|flatpak|tar\.gz|yml|blockmap)$" || echo "No package files found"
+                  ls -laR
 
             - name: Create Release
               id: create_release
@@ -216,5 +176,5 @@ jobs:
                       **/*.AppImage
                       **/*.flatpak
                       **/*.tar.gz
+                      **/*.blockmap
                       **/latest*.yml
-

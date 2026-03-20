@@ -81,7 +81,9 @@ ipcRenderer.on('llamacpp:pty:port', (event, _data) => {
 
 const api = {
   onData: (callback: (data: any) => void) => {
-    ipcRenderer.on('main:data', (_, data) => callback(data))
+    const handler = (_: any, data: any): void => callback(data)
+    ipcRenderer.on('main:data', handler)
+    return () => ipcRenderer.removeListener('main:data', handler)
   },
 
   // App

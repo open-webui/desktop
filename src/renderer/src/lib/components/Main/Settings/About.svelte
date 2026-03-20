@@ -15,6 +15,8 @@
   let downloadPercent = $state(0)
   let updateError = $state<string | null>(null)
 
+  let cleanupDataListener: (() => void) | null = null
+
   // Changelog state
   let changelogOpen = $state(false)
   let changelogLoading = $state(false)
@@ -133,7 +135,7 @@
     } catch {}
 
     // Listen for update events from main process
-    window.electronAPI.onData((data: any) => {
+    cleanupDataListener = window.electronAPI.onData((data: any) => {
       switch (data.type) {
         case 'update:checking':
           updateStatus = 'checking'
@@ -163,6 +165,7 @@
   })
 
   onDestroy(() => {
+    cleanupDataListener?.()
     if (dismissTimer) clearTimeout(dismissTimer)
     if (clickTimer) clearTimeout(clickTimer)
     typewriterTimers.forEach(t => clearTimeout(t))
