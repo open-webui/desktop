@@ -890,4 +890,36 @@ export const resetApp = async (): Promise<void> => {
       log.error('Failed to remove data directory:', error)
     }
   }
+
+  // Remove llama.cpp binaries
+  const llamaCppPath = path.join(getUserDataPath(), 'llama.cpp')
+  if (fs.existsSync(llamaCppPath)) {
+    try {
+      fs.rmSync(llamaCppPath, { recursive: true, force: true })
+      log.info('Removed llama.cpp directory')
+    } catch (error) {
+      log.error('Failed to remove llama.cpp directory:', error)
+    }
+  }
+
+  // Remove service lock files
+  const locksPath = path.join(getUserDataPath(), 'locks')
+  if (fs.existsSync(locksPath)) {
+    try {
+      fs.rmSync(locksPath, { recursive: true, force: true })
+      log.info('Removed service locks')
+    } catch (error) {
+      log.error('Failed to remove locks directory:', error)
+    }
+  }
+
+  // Clear Electron session data (localStorage, cookies, cache, etc.)
+  try {
+    const { session } = require('electron')
+    await session.defaultSession.clearStorageData()
+    await session.defaultSession.clearCache()
+    log.info('Cleared Electron session data')
+  } catch (error) {
+    log.error('Failed to clear Electron session data:', error)
+  }
 }

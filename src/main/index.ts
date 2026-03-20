@@ -538,6 +538,13 @@ const resetAppHandler = async () => {
     } catch (e) {
       log.warn('Failed to stop Open Terminal during reset:', e)
     }
+    // Stop llama.cpp if running
+    try {
+      await stopLlamaCpp()
+      sendToRenderer('status:llamacpp', null)
+    } catch (e) {
+      log.warn('Failed to stop llama.cpp during reset:', e)
+    }
     await new Promise((resolve) => setTimeout(resolve, 1000))
     await resetApp()
     new Notification({ title: 'Open WebUI', body: 'Application has been reset.' }).show()
