@@ -23,13 +23,9 @@
     connecting: boolean
     error: string
     autoInstall: boolean
-    terminalEl?: HTMLDivElement
-    otTerminalEl?: HTMLDivElement
-    lsTerminalEl?: HTMLDivElement
     onStartInstall: () => void
     onAddConnection: () => void
     onSetView: (v: string) => void
-    onCopyLogs: (type: 'server' | 'open-terminal' | 'llama-server') => string | null
   }
 
   let {
@@ -49,13 +45,9 @@
     connecting = $bindable(false),
     error = $bindable(''),
     autoInstall = $bindable(false),
-    terminalEl = $bindable(),
-    otTerminalEl = $bindable(),
-    lsTerminalEl = $bindable(),
     onStartInstall,
     onAddConnection,
-    onSetView,
-    onCopyLogs
+    onSetView
   }: Props = $props()
 
   const isInitializing = $derived($appState === 'initializing')
@@ -69,7 +61,7 @@
       ? $appState.substring('install-failed:'.length)
       : null
   )
-  let copied = $state(false)
+
 
   // Track webview loading per connection
   let webviewLoading: Map<string, boolean> = $state(new Map())
@@ -192,113 +184,7 @@
     </div>
   {/if}
 
-  {#if view === 'logs'}
-    <!-- Terminal / Logs -->
-    <div class="flex-1 min-h-0 overflow-hidden bg-[#0a0a0a] relative">
-      <div
-        class="absolute inset-0 px-3 py-2"
-        bind:this={terminalEl}
-      ></div>
-      <button
-        class="absolute top-2 right-2 z-10 p-1.5 rounded-lg bg-black/[0.04] dark:bg-white/[0.06] opacity-30 hover:opacity-90 hover:bg-black/[0.08] dark:bg-white/[0.12] transition border-none text-[#1d1d1f] dark:text-[#fafafa] cursor-pointer"
-        onclick={() => {
-          const text = onCopyLogs('server')
-          if (text) {
-            navigator.clipboard.writeText(text)
-            copied = true
-            setTimeout(() => { copied = false }, 1500)
-          }
-        }}
-        title={$i18n.t('logs.copyLogs')}
-      >
-        <svg class="w-3.5 h-3.5" fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="1.5">
-          {#if copied}
-            <path stroke-linecap="round" stroke-linejoin="round" d="M4.5 12.75l6 6 9-13.5" />
-          {:else}
-            <path stroke-linecap="round" stroke-linejoin="round" d="M15.666 3.888A2.25 2.25 0 0013.5 2.25h-3c-1.03 0-1.9.693-2.166 1.638m7.332 0c.055.194.084.4.084.612v0a.75.75 0 01-.75.75H9.75a.75.75 0 01-.75-.75v0c0-.212.03-.418.084-.612m7.332 0c.646.049 1.288.11 1.927.184 1.1.128 1.907 1.077 1.907 2.185V19.5a2.25 2.25 0 01-2.25 2.25H6.75A2.25 2.25 0 014.5 19.5V6.257c0-1.108.806-2.057 1.907-2.185a48.208 48.208 0 011.927-.184" />
-          {/if}
-        </svg>
-      </button>
-    </div>
-  {:else if view === 'open-terminal-logs'}
-    <!-- Open Terminal Logs -->
-    <div class="flex-1 min-h-0 flex flex-col bg-[#0a0a0a]">
-      <div class="flex items-center justify-between px-3 py-1.5 border-b border-black/[0.06] dark:border-white/[0.06]">
-        <span class="text-[11px] opacity-40">{$i18n.t('logs.openTerminalLogs')}</span>
-        <button
-          class="text-[11px] opacity-30 hover:opacity-60 transition bg-transparent border-none text-[#1d1d1f] dark:text-[#fafafa]"
-          onclick={() => { onSetView(activeConnectionId ? 'connected' : 'welcome') }}
-        >
-          {$i18n.t('common.close')}
-        </button>
-      </div>
-      <div class="flex-1 min-h-0 overflow-hidden relative">
-        <div
-          class="absolute inset-0 px-3 py-2"
-          bind:this={otTerminalEl}
-        ></div>
-        <button
-          class="absolute top-2 right-2 z-10 p-1.5 rounded-lg bg-black/[0.04] dark:bg-white/[0.06] opacity-30 hover:opacity-90 hover:bg-black/[0.08] dark:bg-white/[0.12] transition border-none text-[#1d1d1f] dark:text-[#fafafa] cursor-pointer"
-          onclick={() => {
-            const text = onCopyLogs('open-terminal')
-            if (text) {
-              navigator.clipboard.writeText(text)
-              copied = true
-              setTimeout(() => { copied = false }, 1500)
-            }
-          }}
-          title={$i18n.t('logs.copyLogs')}
-        >
-          <svg class="w-3.5 h-3.5" fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="1.5">
-            {#if copied}
-              <path stroke-linecap="round" stroke-linejoin="round" d="M4.5 12.75l6 6 9-13.5" />
-            {:else}
-              <path stroke-linecap="round" stroke-linejoin="round" d="M15.666 3.888A2.25 2.25 0 0013.5 2.25h-3c-1.03 0-1.9.693-2.166 1.638m7.332 0c.055.194.084.4.084.612v0a.75.75 0 01-.75.75H9.75a.75.75 0 01-.75-.75v0c0-.212.03-.418.084-.612m7.332 0c.646.049 1.288.11 1.927.184 1.1.128 1.907 1.077 1.907 2.185V19.5a2.25 2.25 0 01-2.25 2.25H6.75A2.25 2.25 0 014.5 19.5V6.257c0-1.108.806-2.057 1.907-2.185a48.208 48.208 0 011.927-.184" />
-            {/if}
-          </svg>
-        </button>
-      </div>
-    </div>
-  {:else if view === 'llamacpp-logs'}
-    <!-- Llama Server Logs -->
-    <div class="flex-1 min-h-0 flex flex-col bg-[#0a0a0a]">
-      <div class="flex items-center justify-between px-3 py-1.5 border-b border-black/[0.06] dark:border-white/[0.06]">
-        <span class="text-[11px] opacity-40">{$i18n.t('logs.llamaCppLogs')}</span>
-        <button
-          class="text-[11px] opacity-30 hover:opacity-60 transition bg-transparent border-none text-[#1d1d1f] dark:text-[#fafafa]"
-          onclick={() => { onSetView(activeConnectionId ? 'connected' : 'welcome') }}
-        >
-          {$i18n.t('common.close')}
-        </button>
-      </div>
-      <div class="flex-1 min-h-0 overflow-hidden relative">
-        <div
-          class="absolute inset-0 px-3 py-2"
-          bind:this={lsTerminalEl}
-        ></div>
-        <button
-          class="absolute top-2 right-2 z-10 p-1.5 rounded-lg bg-black/[0.04] dark:bg-white/[0.06] opacity-30 hover:opacity-90 hover:bg-black/[0.08] dark:bg-white/[0.12] transition border-none text-[#1d1d1f] dark:text-[#fafafa] cursor-pointer"
-          onclick={() => {
-            const text = onCopyLogs('llama-server')
-            if (text) {
-              navigator.clipboard.writeText(text)
-              copied = true
-              setTimeout(() => { copied = false }, 1500)
-            }
-          }}
-          title={$i18n.t('logs.copyLogs')}
-        >
-          <svg class="w-3.5 h-3.5" fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="1.5">
-            {#if copied}
-              <path stroke-linecap="round" stroke-linejoin="round" d="M4.5 12.75l6 6 9-13.5" />
-            {:else}
-              <path stroke-linecap="round" stroke-linejoin="round" d="M15.666 3.888A2.25 2.25 0 0013.5 2.25h-3c-1.03 0-1.9.693-2.166 1.638m7.332 0c.055.194.084.4.084.612v0a.75.75 0 01-.75.75H9.75a.75.75 0 01-.75-.75v0c0-.212.03-.418.084-.612m7.332 0c.646.049 1.288.11 1.927.184 1.1.128 1.907 1.077 1.907 2.185V19.5a2.25 2.25 0 01-2.25 2.25H6.75A2.25 2.25 0 014.5 19.5V6.257c0-1.108.806-2.057 1.907-2.185a48.208 48.208 0 011.927-.184" />
-            {/if}
-          </svg>
-        </button>
-      </div>
-    </div>
-  {:else if view !== 'connected'}
+  {#if view !== 'connected'}
     {#if insufficientStorage}
       <div class="px-5 py-2.5 flex items-center gap-3 bg-red-500/[0.06] border-b border-red-500/10">
         <div class="flex-1">

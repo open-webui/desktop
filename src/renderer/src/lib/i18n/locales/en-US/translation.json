@@ -114,6 +114,10 @@
   "logs.llamaCppLogs": "llama.cpp Logs",
   "logs.copyLogs": "Copy logs",
 
+  "statusBar.server": "Open WebUI",
+  "statusBar.serverRunning": "Open WebUI is running",
+  "statusBar.serverStopped": "Open WebUI is not running",
+
   "settings.title": "Settings",
   "settings.closeSettings": "Close settings",
 

@@ -3,12 +3,11 @@
   import { fade } from 'svelte/transition'
   import { connections, config, serverInfo, appState } from '../../stores'
   import i18n from '../../i18n'
-  import { Terminal } from '@xterm/xterm'
-  import { FitAddon } from '@xterm/addon-fit'
-  import '@xterm/xterm/css/xterm.css'
 
   import Sidebar from './Connections/Sidebar.svelte'
   import Content from './Connections/Content.svelte'
+  import StatusBar from './Connections/StatusBar.svelte'
+  import LogPanel from './Connections/LogPanel.svelte'
 
   interface Props {
     onOpenSettings: () => void
@@ -29,7 +28,7 @@
   let url = $state('')
   let connecting = $state(false)
   let error = $state('')
-  let view = $state('welcome') // welcome | add | install | logs | connected | open-terminal-logs | llamacpp-logs
+  let view = $state('welcome') // welcome | add | install | connected
   let autoInstall = $state(false)
   let installPhase = $state('idle') // idle | working | error
   let installError = $state('')
@@ -43,23 +42,8 @@
   let openConnections: Map<string, string> = $state(new Map())
   let localInstalled = $state(false)
 
-  // Terminal state (server logs)
-  let terminalEl: HTMLDivElement | undefined = $state()
-  let term: Terminal | null = null
-  let fitAddon: FitAddon | null = null
-  let resizeObserver: ResizeObserver | null = null
-
-  // Open Terminal log viewer
-  let otTerminalEl: HTMLDivElement | undefined = $state()
-  let otTerm: Terminal | null = null
-  let otFitAddon: FitAddon | null = null
-  let otResizeObserver: ResizeObserver | null = null
-
-  // Llama Server log viewer
-  let lsTerminalEl: HTMLDivElement | undefined = $state()
-  let lsTerm: Terminal | null = null
-  let lsFitAddon: FitAddon | null = null
-  let lsResizeObserver: ResizeObserver | null = null
+  // Active log panel
+  let activeLog = $state<'server' | 'open-terminal' | 'llama-server' | null>(null)
 
   const serverStatus = $derived($serverInfo?.status)
   const serverReachable = $derived($serverInfo?.reachable)
@@ -166,7 +150,6 @@
   }
 
   const connect = async (id: string) => {
-    destroyTerminal()
     showingLogs = false
     // Toggle: clicking the active connection unselects it
     if (activeConnectionId === id && view === 'connected') {
@@ -213,10 +196,6 @@
     openConnections = new Map(openConnections)
   }
 
-  const showLogs = () => {
-    view = 'logs'
-  }
-
   // Sync active connection info to parent
   $effect(() => {
     const conn = ($connections ?? []).find((c) => c.id === activeConnectionId)
@@ -224,18 +203,12 @@
     isLocalConnection = conn?.type === 'local'
   })
 
-  // React to showingLogs from parent
+  // React to showingLogs from parent — open the server log panel
   $effect(() => {
     if (showingLogs) {
-      view = 'logs'
-      initTerminal()
-    } else if (view === 'logs') {
-      destroyTerminal()
-      if (activeConnectionId) {
-        view = 'connected'
-      } else {
-        view = 'welcome'
-      }
+      activeLog = 'server'
+    } else if (activeLog === 'server') {
+      activeLog = null
     }
   })
 
@@ -244,178 +217,51 @@
     window.electronAPI?.openInBrowser?.('https://github.com/open-webui/desktop')
   }
 
-  // ── Terminal ──────────────────────────────────────────
-  const initTerminal = () => {
-    if (!terminalEl || term) return
-
-    term = new Terminal({
-      cursorBlink: false,
-      disableStdin: false,
-      fontSize: 11,
-      fontFamily: "'SF Mono', 'Fira Code', 'Cascadia Code', Menlo, Monaco, monospace",
-      lineHeight: 1.5,
-      scrollback: 10000,
-      theme: {
-        background: '#0a0a0a',
-        foreground: '#a0a0a0',
-        cursor: 'transparent',
-        selectionBackground: '#ffffff30'
-      },
-      convertEol: true
-    })
-
-    fitAddon = new FitAddon()
-    term.loadAddon(fitAddon)
-    term.open(terminalEl)
-    requestAnimationFrame(() => fitAddon?.fit())
-
-    resizeObserver = new ResizeObserver(() => {
-      fitAddon?.fit()
-      if (term) {
-        window.electronAPI.resizePty(term.cols, term.rows)
+  // ── Log panel PTY helpers ─────────────────────────────
+  const getConnectPty = (log: string) => {
+    return (callback: (data: string) => void) => {
+      if (log === 'server') {
+        window.electronAPI.connectPty(callback)
+      } else if (log === 'open-terminal') {
+        window.electronAPI.connectOpenTerminalPty(callback)
+      } else if (log === 'llama-server') {
+        window.electronAPI.connectLlamaCppPty(callback)
       }
-    })
-    resizeObserver.observe(terminalEl)
-
-    term.onData((data: string) => {
-      window.electronAPI.writePty(data)
-    })
-
-    window.electronAPI.connectPty((data: string) => {
-      term?.write(data)
-    })
-
-    if (term) {
-      window.electronAPI.resizePty(term.cols, term.rows)
     }
   }
 
-  const destroyTerminal = () => {
-    resizeObserver?.disconnect()
-    resizeObserver = null
-    window.electronAPI.disconnectPty()
-    term?.dispose()
-    term = null
-    fitAddon = null
-  }
-
-  // ── Open Terminal Log Viewer ─────────────────────────
-  const initOtTerminal = () => {
-    if (!otTerminalEl || otTerm) return
-
-    otTerm = new Terminal({
-      cursorBlink: false,
-      disableStdin: true,
-      fontSize: 11,
-      fontFamily: "'SF Mono', 'Fira Code', 'Cascadia Code', Menlo, Monaco, monospace",
-      theme: {
-        background: '#0a0a0a',
-        foreground: '#d4d4d4',
-        cursor: '#d4d4d4',
-        selectionBackground: '#264f78'
-      },
-      convertEol: true,
-      scrollback: 5000
-    })
-    otFitAddon = new FitAddon()
-    otTerm.loadAddon(otFitAddon)
-    otTerm.open(otTerminalEl)
-    otFitAddon.fit()
-
-    window.electronAPI.connectOpenTerminalPty((data: string) => {
-      otTerm?.write(data)
-    })
-
-    otResizeObserver = new ResizeObserver(() => {
-      try { otFitAddon?.fit() } catch {}
-    })
-    otResizeObserver.observe(otTerminalEl)
-  }
-
-  const destroyOtTerminal = () => {
-    window.electronAPI?.disconnectOpenTerminalPty?.()
-    otResizeObserver?.disconnect()
-    otResizeObserver = null
-    otTerm?.dispose()
-    otTerm = null
-    otFitAddon = null
-  }
-
-  // ── Llama Server Log Viewer ─────────────────────────
-  const initLsTerminal = () => {
-    if (!lsTerminalEl || lsTerm) return
-
-    lsTerm = new Terminal({
-      cursorBlink: false,
-      disableStdin: true,
-      fontSize: 11,
-      fontFamily: "'SF Mono', 'Fira Code', 'Cascadia Code', Menlo, Monaco, monospace",
-      theme: {
-        background: '#0a0a0a',
-        foreground: '#d4d4d4',
-        cursor: '#d4d4d4',
-        selectionBackground: '#264f78'
-      },
-      convertEol: true,
-      scrollback: 5000
-    })
-    lsFitAddon = new FitAddon()
-    lsTerm.loadAddon(lsFitAddon)
-    lsTerm.open(lsTerminalEl)
-    lsFitAddon.fit()
-
-    window.electronAPI.connectLlamaCppPty((data: string) => {
-      lsTerm?.write(data)
-    })
-
-    lsResizeObserver = new ResizeObserver(() => {
-      try { lsFitAddon?.fit() } catch {}
-    })
-    lsResizeObserver.observe(lsTerminalEl)
-  }
-
-  const destroyLsTerminal = () => {
-    window.electronAPI?.disconnectLlamaCppPty?.()
-    lsResizeObserver?.disconnect()
-    lsResizeObserver = null
-    lsTerm?.dispose()
-    lsTerm = null
-    lsFitAddon = null
-  }
-
-  onDestroy(() => {
-    destroyTerminal()
-    destroyOtTerminal()
-    destroyLsTerminal()
-  })
-
-  // Init/destroy OT terminal when switching views
-  $effect(() => {
-    if (view === 'open-terminal-logs' && otTerminalEl) {
-      initOtTerminal()
-    } else if (view !== 'open-terminal-logs') {
-      destroyOtTerminal()
+  const getDisconnectPty = (log: string) => {
+    return () => {
+      if (log === 'server') {
+        window.electronAPI.disconnectPty()
+      } else if (log === 'open-terminal') {
+        window.electronAPI?.disconnectOpenTerminalPty?.()
+      } else if (log === 'llama-server') {
+        window.electronAPI?.disconnectLlamaCppPty?.()
+      }
     }
-  })
+  }
 
-  $effect(() => {
-    if (view === 'logs' && terminalEl) {
-      initTerminal()
-    } else if (view !== 'logs' && view !== 'open-terminal-logs' && view !== 'llamacpp-logs') {
-      destroyTerminal()
+  const getOnWrite = (log: string) => {
+    if (log === 'server') {
+      return (data: string) => window.electronAPI.writePty(data)
     }
-  })
+    return undefined
+  }
 
-  // Init/destroy llama-server terminal when switching views
-  $effect(() => {
-    if (view === 'llamacpp-logs' && lsTerminalEl) {
-      initLsTerminal()
-    } else if (view !== 'llamacpp-logs') {
-      destroyLsTerminal()
+  const getOnResize = (log: string) => {
+    if (log === 'server') {
+      return (cols: number, rows: number) => window.electronAPI.resizePty(cols, rows)
     }
-  })
+    return undefined
+  }
 
-  // Listen for connection:open from main process (auto-connect on launch)
+  // ── Status bar log selection ──────────────────────────
+  const selectLog = (log: string) => {
+    activeLog = activeLog === log ? null : (log as typeof activeLog)
+  }
+
+  // Listen for events from main process
   onMount(() => {
     window.electronAPI.onData((data: any) => {
       if (data.type === 'connection:open' && data.data?.url) {
@@ -486,10 +332,6 @@
     }
   }
 
-  const toggleOtLogs = () => {
-    view = view === 'open-terminal-logs' ? (activeConnectionId ? 'connected' : 'welcome') : 'open-terminal-logs'
-  }
-
   const toggleLlamaCpp = async () => {
     if (llamaCppStatus === 'starting' || llamaCppStatus === 'setting-up') return
     if (llamaCppStatus === 'started') {
@@ -508,81 +350,78 @@
       }
     }
   }
-
-  const toggleLsLogs = () => {
-    // Auto-start if not running
-    if (!llamaCppStatus || llamaCppStatus === 'stopped' || llamaCppStatus === 'failed') {
-      toggleLlamaCpp()
-    }
-    view = view === 'llamacpp-logs' ? (activeConnectionId ? 'connected' : 'welcome') : 'llamacpp-logs'
-  }
 </script>
 
 <!-- svelte-ignore a11y_click_events_have_key_events -->
 <!-- svelte-ignore a11y_no_static_element_interactions -->
-<div class="h-full w-full flex bg-[#f5f5f7] dark:bg-[#0a0a0a] text-[#1d1d1f] dark:text-[#fafafa]" in:fade={{ duration: 200 }}>
-  {#if sidebarOpen}
-    <Sidebar
+<div class="h-full w-full flex flex-col bg-[#f5f5f7] dark:bg-[#0a0a0a] text-[#1d1d1f] dark:text-[#fafafa]" in:fade={{ duration: 200 }}>
+  <div class="flex-1 min-h-0 flex">
+    {#if sidebarOpen}
+      <Sidebar
+        {activeConnectionId}
+        {connectingId}
+        {localConn}
+        {localInstalled}
+        {remoteConnections}
+        {serverStatus}
+        {serverReachable}
+        bind:settingsOpen
+        onConnect={connect}
+        onDisconnect={disconnect}
+        onAddView={() => { disconnect(); view = 'add' }}
+        {onOpenSettings}
+        onRename={async (id, name) => {
+          await window.electronAPI.updateConnection(id, { name })
+          connections.set(await window.electronAPI.getConnections())
+        }}
+        onRemove={remove}
+        {openGithub}
+      />
+    {/if}
+
+    <Content
+      {sidebarOpen}
+      bind:view
       {activeConnectionId}
       {connectingId}
+      {openConnections}
       {localConn}
       {localInstalled}
       {remoteConnections}
-      {serverStatus}
-      {serverReachable}
-      {openTerminalStatus}
-      {llamaCppStatus}
-      bind:settingsOpen
-      {view}
-      onConnect={connect}
-      onDisconnect={disconnect}
-      onAddView={() => { disconnect(); view = 'add' }}
-      {onOpenSettings}
-      onToggleOpenTerminal={toggleOpenTerminal}
-      onToggleOtLogs={toggleOtLogs}
-      onToggleLlamaCpp={toggleLlamaCpp}
-      onToggleLlamaCppLogs={toggleLsLogs}
-      onRename={async (id, name) => {
-        await window.electronAPI.updateConnection(id, { name })
-        connections.set(await window.electronAPI.getConnections())
-      }}
-      onRemove={remove}
-      {openGithub}
+      bind:installPhase
+      bind:installError
+      bind:installStatus
+      bind:toastVisible
+      bind:url
+      bind:connecting
+      bind:error
+      bind:autoInstall
+      onStartInstall={startInstall}
+      onAddConnection={addConnection}
+      onSetView={(v) => { view = v }}
+    />
+  </div>
+
+  {#if activeLog}
+    <LogPanel
+      {activeLog}
+      connectPty={getConnectPty(activeLog)}
+      disconnectPty={getDisconnectPty(activeLog)}
+      readonly={activeLog !== 'server'}
+      onWrite={getOnWrite(activeLog)}
+      onResize={getOnResize(activeLog)}
+      onClose={() => { activeLog = null; showingLogs = false }}
     />
   {/if}
 
-  <Content
-    {sidebarOpen}
-    bind:view
-    {activeConnectionId}
-    {connectingId}
-    {openConnections}
-    {localConn}
-    {localInstalled}
-    {remoteConnections}
-    bind:installPhase
-    bind:installError
-    bind:installStatus
-    bind:toastVisible
-    bind:url
-    bind:connecting
-    bind:error
-    bind:autoInstall
-    bind:terminalEl
-    bind:otTerminalEl
-    bind:lsTerminalEl={lsTerminalEl}
-    onStartInstall={startInstall}
-    onAddConnection={addConnection}
-    onSetView={(v) => { view = v }}
-    onCopyLogs={(type) => {
-      const t = type === 'server' ? term : type === 'llama-server' ? lsTerm : otTerm
-      if (!t) return null
-      const buf = t.buffer.active
-      const lines: string[] = []
-      for (let i = 0; i < buf.length; i++) {
-        lines.push(buf.getLine(i)?.translateToString(true) ?? '')
-      }
-      return lines.join('\n').trimEnd()
-    }}
+  <StatusBar
+    {serverStatus}
+    {serverReachable}
+    {openTerminalStatus}
+    {llamaCppStatus}
+    {activeLog}
+    onSelectLog={selectLog}
+    onToggleOpenTerminal={toggleOpenTerminal}
+    onToggleLlamaCpp={toggleLlamaCpp}
   />
 </div>
