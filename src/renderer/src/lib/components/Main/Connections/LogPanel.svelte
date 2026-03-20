@@ -47,6 +47,11 @@
     startY = e.clientY
     startHeight = panelHeight
 
+    // Overlay prevents webview from capturing mouse events during drag
+    const overlay = document.createElement('div')
+    overlay.style.cssText = 'position:fixed;inset:0;z-index:9999;cursor:ns-resize;'
+    document.body.appendChild(overlay)
+
     const onDragMove = (e: MouseEvent) => {
       const delta = startY - e.clientY
       panelHeight = Math.max(120, Math.min(600, startHeight + delta))
@@ -54,6 +59,7 @@
 
     const onDragEnd = () => {
       dragging = false
+      overlay.remove()
       window.removeEventListener('mousemove', onDragMove)
       window.removeEventListener('mouseup', onDragEnd)
     }
@@ -78,21 +84,23 @@
   in:fly={{ y: 60, duration: 200 }}
   out:fly={{ y: 60, duration: 150 }}
 >
-  <!-- Drag handle -->
+  <!-- Resize edge -->
   <!-- svelte-ignore a11y_no_static_element_interactions -->
   <div
-    class="h-[6px] shrink-0 cursor-ns-resize group flex items-center justify-center hover:bg-white/[0.06] transition {dragging ? 'bg-white/[0.08]' : ''}"
+    class="h-0 shrink-0 cursor-ns-resize relative"
     onmousedown={onDragStart}
   >
-    <div class="w-10 h-[3px] rounded-full bg-white/[0.12] group-hover:bg-white/[0.25] transition"></div>
+    <div class="absolute -top-[3px] left-0 right-0 h-[6px] z-10"></div>
   </div>
 
   <!-- Header bar -->
-  <div class="flex items-center justify-between px-3 py-1 shrink-0 border-b border-white/[0.06]">
+  <!-- svelte-ignore a11y_no_static_element_interactions -->
+  <div class="flex items-center justify-between px-3 py-1 shrink-0 border-b border-white/[0.06] cursor-pointer" onclick={onClose}>
     <div class="flex items-center gap-2">
       <span class="text-[11px] uppercase tracking-wider text-white/40 font-medium">{logLabels[activeLog]?.() ?? activeLog}</span>
     </div>
-    <div class="flex items-center gap-0.5">
+    <!-- svelte-ignore a11y_no_static_element_interactions -->
+    <div class="flex items-center gap-0.5" onclick={(e) => e.stopPropagation()}>
       <!-- Copy button -->
       <button
         class="p-1 rounded-md opacity-40 hover:opacity-80 hover:bg-white/[0.08] transition bg-transparent border-none text-white cursor-pointer"
