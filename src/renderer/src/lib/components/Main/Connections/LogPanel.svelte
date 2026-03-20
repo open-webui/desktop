@@ -133,8 +133,8 @@
     {:else}
       <div class="absolute inset-0 flex items-center justify-center bg-[#0a0a0a]">
         <div class="flex flex-col items-center gap-2">
-          <div class="w-4 h-4 rounded-full border-2 border-white/10 border-t-white/40 animate-spin"></div>
-          <span class="text-[10px] text-white/20">{$i18n.t('common.starting')}</span>
+          <div class="w-4 h-4 rounded-full border-2 border-white/20 border-t-white/60 animate-spin"></div>
+          <span class="text-[10px] text-white/40">{$i18n.t('common.starting')}</span>
         </div>
       </div>
     {/if}

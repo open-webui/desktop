@@ -204,11 +204,18 @@
   })
 
   // React to showingLogs from parent — open the server log panel
+  // Only react when parent sets showingLogs to true; don't close on false
+  // (the status bar manages its own open/close via activeLog)
   $effect(() => {
     if (showingLogs) {
       activeLog = 'server'
-    } else if (activeLog === 'server') {
-      activeLog = null
+    }
+  })
+
+  // Sync back: when panel closes, tell parent
+  $effect(() => {
+    if (activeLog === null) {
+      showingLogs = false
     }
   })
 

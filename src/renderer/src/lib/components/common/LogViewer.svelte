@@ -37,7 +37,7 @@
       scrollback: 10000,
       theme: {
         background: '#0a0a0a',
-        foreground: '#a0a0a0',
+        foreground: '#d4d4d4',
         cursor: readonly ? '#d4d4d4' : 'transparent',
         selectionBackground: readonly ? '#264f78' : '#ffffff30'
       },
