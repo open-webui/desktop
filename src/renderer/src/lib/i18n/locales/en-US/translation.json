@@ -235,6 +235,11 @@
   "settings.inference.updateAvailable": "Update available: {{version}}",
   "settings.inference.upToDate": "Up to date",
   "settings.inference.updating": "Updating…",
+  "settings.inference.uninstall": "Uninstall",
+  "settings.inference.uninstallDesc": "Remove llama.cpp binaries",
+  "settings.inference.uninstallConfirm": "This will stop llama-server and remove all downloaded binaries. Continue?",
+  "settings.inference.notInstalled": "llama.cpp is not installed",
+  "settings.inference.notInstalledDesc": "Download and set up llama.cpp for local model inference",
 
   "settings.models.downloadedModels": "Downloaded Models",
   "settings.models.noModels": "No models downloaded yet",

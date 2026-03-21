@@ -11,6 +11,8 @@
   let settingUp = $state(false)
   let loaded = $state(false)
   let setupStatus = $state('')
+  let uninstalling = $state(false)
+  let installing = $state(false)
 
   type UpdateStatus = 'idle' | 'checking' | 'available' | 'updating' | 'up-to-date' | 'error'
   let updateStatus = $state<UpdateStatus>('idle')
@@ -166,6 +168,8 @@
     deleting = null
   }
 
+  const installed = $derived(!!lsInfo?.binaryPath)
+
   const formatSize = (bytes: number): string => {
     if (bytes < 1024) return `${bytes} B`
     if (bytes < 1024 * 1024) return `${(bytes / 1024).toFixed(1)} KB`
@@ -176,6 +180,37 @@
 
 {#if !loaded}
   <div class="py-6 text-[12px] opacity-20 text-center">{$i18n.t('common.loading')}</div>
+{:else if !installed}
+  <div class="py-4 flex items-center justify-between">
+    <div>
+      <div class="text-[13px] opacity-40 flex items-center gap-1.5">
+        {$i18n.t('settings.inference.notInstalled')}
+        <span class="text-[9px] opacity-30 uppercase tracking-wide">{$i18n.t('common.experimental')}</span>
+      </div>
+      <div class="text-[11px] opacity-20 mt-0.5">{$i18n.t('settings.inference.notInstalledDesc')}</div>
+    </div>
+    <button
+      class="text-[12px] opacity-40 hover:opacity-70 px-3 py-1.5 bg-black/[0.04] dark:bg-white/[0.06] transition border-none text-[#1d1d1f] dark:text-[#fafafa] rounded-xl flex items-center gap-1.5 {installing ? 'pointer-events-none opacity-20' : ''}"
+      disabled={installing}
+      onclick={async () => {
+        installing = true
+        try {
+          await window.electronAPI.startLlamaCpp()
+          lsInfo = await window.electronAPI.getLlamaCppInfo()
+        } catch (e) {
+          console.error('Failed to install:', e)
+        }
+        installing = false
+      }}
+    >
+      {#if installing}
+        <div class="w-2.5 h-2.5 rounded-full border-[1.5px] border-black/20 dark:border-white/30 border-t-transparent animate-spin"></div>
+        {$i18n.t('common.installing')}
+      {:else}
+        {$i18n.t('common.install')}
+      {/if}
+    </button>
+  </div>
 {:else}
 <div class="flex flex-col divide-y divide-white/[0.04]">
   <!-- Server status & controls -->
@@ -184,7 +219,7 @@
       <div>
         <div class="text-[13px] opacity-70 flex items-center gap-1.5">
           {$i18n.t('settings.inference.llamaServer')}
-          <span class="text-[9px] px-1.5 py-0.5 rounded-full bg-amber-500/10 text-amber-600 dark:text-amber-400 uppercase tracking-wide font-medium">{$i18n.t('common.experimental')}</span>
+          <span class="text-[9px] opacity-30 uppercase tracking-wide">{$i18n.t('common.experimental')}</span>
         </div>
         <div class="text-[11px] opacity-25 mt-0.5">
           {$i18n.t('settings.inference.llamaServerDesc')}
@@ -429,6 +464,39 @@
       }}
     />
   </div>
+
+  <!-- Uninstall -->
+  {#if lsInfo?.binaryPath}
+  <div class="py-4 flex items-center justify-between">
+    <div>
+      <div class="text-[13px] opacity-70">{$i18n.t('settings.inference.uninstall')}</div>
+      <div class="text-[11px] opacity-25 mt-0.5">{$i18n.t('settings.inference.uninstallDesc')}</div>
+    </div>
+    <button
+      class="text-[12px] opacity-40 hover:opacity-70 px-3 py-1.5 bg-black/[0.04] dark:bg-white/[0.06] transition border-none text-[#1d1d1f] dark:text-[#fafafa] rounded-xl flex items-center gap-1.5 {uninstalling ? 'pointer-events-none opacity-20' : ''}"
+      disabled={uninstalling}
+      onclick={async () => {
+        if (confirm($i18n.t('settings.inference.uninstallConfirm'))) {
+          uninstalling = true
+          try {
+            await window.electronAPI.uninstallLlamaCpp()
+            lsInfo = await window.electronAPI.getLlamaCppInfo()
+          } catch (e) {
+            console.error('Failed to uninstall llama.cpp:', e)
+          }
+          uninstalling = false
+        }
+      }}
+    >
+      {#if uninstalling}
+        <div class="w-2.5 h-2.5 rounded-full border-[1.5px] border-black/20 dark:border-white/30 border-t-transparent animate-spin"></div>
+        {$i18n.t('common.uninstalling')}
+      {:else}
+        {$i18n.t('common.uninstall')}
+      {/if}
+    </button>
+  </div>
+  {/if}
 
 </div>
 {/if}

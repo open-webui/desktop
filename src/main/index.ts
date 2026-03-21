@@ -65,7 +65,8 @@ import {
   getLlamaCppPty,
   validateLlamaCppProcess,
   checkLlamaCppUpdate,
-  updateLlamaCpp
+  updateLlamaCpp,
+  uninstallLlamaCpp
 } from './utils/llamacpp'
 
 import {
@@ -906,6 +907,28 @@ if (!gotTheLock) {
     ipcMain.handle('llamacpp:info', () => getLlamaCppInfo())
     ipcMain.handle('llamacpp:logs', () => getLlamaCppLog())
     ipcMain.handle('llamacpp:pty:connect', () => connectLlamaCppPtyPort())
+
+    ipcMain.handle('llamacpp:uninstall', async () => {
+      try {
+        const info = getLlamaCppInfo()
+        await uninstallLlamaCpp()
+        sendToRenderer('status:llamacpp', null)
+        // Unregister OpenAI endpoint if it was running
+        if (info.url) {
+          sendToRenderer('connections:openai', {
+            action: 'remove',
+            url: `${info.url}/v1`
+          })
+          setTimeout(() => sendToRenderer('models:refresh'), 500)
+        }
+        await setConfig({ llamaCpp: { ...CONFIG?.llamaCpp, enabled: false } })
+        CONFIG = await getConfig()
+        return true
+      } catch (error) {
+        log.error('Failed to uninstall llamacpp:', error)
+        return false
+      }
+    })
 
     // Hugging Face models
     ipcMain.handle('huggingface:models:list', () => listModels())

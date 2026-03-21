@@ -175,6 +175,7 @@ const api = {
   },
   checkLlamaCppUpdate: () => ipcRenderer.invoke('llamacpp:check-update'),
   updateLlamaCpp: () => ipcRenderer.invoke('llamacpp:update'),
+  uninstallLlamaCpp: () => ipcRenderer.invoke('llamacpp:uninstall'),
 
   // Hugging Face models
   listHfModels: () => ipcRenderer.invoke('huggingface:models:list'),

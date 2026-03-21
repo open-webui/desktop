@@ -505,3 +505,18 @@ export const validateLlamaCppProcess = (): boolean => {
   lock.release()
   return false
 }
+
+/**
+ * Uninstall llama.cpp — stop the server and remove all downloaded binaries.
+ */
+export const uninstallLlamaCpp = async (): Promise<void> => {
+  await stopLlamaCpp()
+
+  const cacheBase = path.join(getUserDataPath(), 'llama.cpp')
+  if (fs.existsSync(cacheBase)) {
+    fs.rmSync(cacheBase, { recursive: true, force: true })
+    log.info('Removed llama.cpp directory:', cacheBase)
+  }
+
+  binaryPath = null
+}
