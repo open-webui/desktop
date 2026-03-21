@@ -211,6 +211,36 @@
       {/if}
     </button>
   </div>
+
+  <!-- Version -->
+  <div class="py-4 flex items-center justify-between border-t border-white/[0.04]">
+    <div>
+      <div class="text-[13px] opacity-70">{$i18n.t('settings.inference.version')}</div>
+      <div class="text-[11px] opacity-25 mt-0.5">{$i18n.t('settings.inference.versionDesc')}</div>
+    </div>
+    <input
+      type="text"
+      class="bg-black/[0.04] dark:bg-white/[0.06] text-[12px] text-[#1d1d1f] dark:text-[#fafafa] px-3 py-1.5 border-none outline-none rounded-xl opacity-60 w-24 text-right font-mono"
+      value={$config?.llamaCpp?.version ?? 'latest'}
+      onchange={(e) => updateConfig('version', (e.target as HTMLInputElement).value.trim() || 'latest')}
+    />
+  </div>
+
+  <!-- Variant -->
+  <div class="py-4 flex items-center justify-between border-t border-white/[0.04]">
+    <div>
+      <div class="text-[13px] opacity-70">{$i18n.t('settings.inference.variant')}</div>
+      <div class="text-[11px] opacity-25 mt-0.5">{$i18n.t('settings.inference.variantDesc')}</div>
+    </div>
+    <select
+      class="bg-black/[0.04] dark:bg-white/[0.06] text-[12px] text-[#1d1d1f] dark:text-[#fafafa] px-3 py-1.5 border-none outline-none rounded-xl opacity-60"
+      onchange={(e) => updateConfig('variant', (e.target as HTMLSelectElement).value)}
+    >
+      {#each variantOptions as opt}
+        <option value={opt.value} selected={($config?.llamaCpp?.variant ?? 'auto') === opt.value}>{opt.label}</option>
+      {/each}
+    </select>
+  </div>
 {:else}
 <div class="flex flex-col divide-y divide-white/[0.04]">
   <!-- Server status & controls -->
