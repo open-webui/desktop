@@ -439,13 +439,14 @@
       statusText={activeLog === 'server'
         ? (serverStatus === 'starting' ? 'Starting Open WebUI…' : serverStatus === 'running' && !serverReachable ? 'Waiting for server…' : installStatus || '')
         : activeLog === 'open-terminal'
-          ? (openTerminalStatus === 'starting' ? 'Starting Open Terminal…' : '')
-          : (llamaCppSetupStatus || (llamaCppStatus === 'starting' ? 'Starting llama-server…' : llamaCppStatus === 'setting-up' ? 'Setting up llama.cpp…' : ''))}
+          ? (openTerminalStatus === 'stopping' ? 'Stopping Open Terminal…' : openTerminalStatus === 'starting' ? 'Starting Open Terminal…' : '')
+          : (llamaCppStatus === 'stopping' ? 'Stopping llama-server…' : llamaCppSetupStatus || (llamaCppStatus === 'starting' ? 'Starting llama-server…' : llamaCppStatus === 'setting-up' ? 'Setting up llama.cpp…' : ''))}
       connectPty={getConnectPty(activeLog)}
       disconnectPty={getDisconnectPty(activeLog)}
       readonly={activeLog !== 'server'}
       onWrite={getOnWrite(activeLog)}
       onResize={getOnResize(activeLog)}
+      onStop={activeLog === 'open-terminal' ? toggleOpenTerminal : activeLog === 'llama-server' ? toggleLlamaCpp : undefined}
       onClose={() => { activeLog = null; showingLogs = false }}
     />
   {/if}

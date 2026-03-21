@@ -1,6 +1,7 @@
 <script lang="ts">
   import { fly } from 'svelte/transition'
   import i18n from '../../../i18n'
+  import { tooltip } from '../../../actions/tooltip'
   import LogViewer from '../../common/LogViewer.svelte'
 
   interface Props {
@@ -12,6 +13,7 @@
     readonly?: boolean
     onWrite?: (data: string) => void
     onResize?: (cols: number, rows: number) => void
+    onStop?: () => Promise<void>
     onClose: () => void
   }
 
@@ -24,8 +26,11 @@
     readonly = false,
     onWrite,
     onResize,
+    onStop,
     onClose
   }: Props = $props()
+
+  let stopping = $state(false)
 
   let panelHeight = $state(250)
   let dragging = $state(false)
@@ -101,6 +106,31 @@
     </div>
     <!-- svelte-ignore a11y_no_static_element_interactions -->
     <div class="flex items-center gap-0.5" onclick={(e) => e.stopPropagation()}>
+      <!-- Stop button (Open Terminal / llama.cpp only) -->
+      {#if onStop && serviceReady}
+        <button
+          class="p-1 rounded-md hover:bg-white/[0.08] transition bg-transparent border-none cursor-pointer {stopping ? 'opacity-30 pointer-events-none' : 'opacity-40 hover:opacity-80'} text-white"
+          disabled={stopping}
+          onclick={async () => {
+            stopping = true
+            try {
+              await onStop()
+            } finally {
+              stopping = false
+              onClose()
+            }
+          }}
+          use:tooltip={$i18n.t('common.stop')}
+        >
+          {#if stopping}
+            <div class="w-3.5 h-3.5 rounded-full border-[1.5px] border-white/30 border-t-transparent animate-spin"></div>
+          {:else}
+            <svg class="w-3.5 h-3.5" fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="1.5">
+              <path stroke-linecap="round" stroke-linejoin="round" d="M5.636 5.636a9 9 0 1012.728 0M12 3v9" />
+            </svg>
+          {/if}
+        </button>
+      {/if}
       <!-- Copy button -->
       <button
         class="p-1 rounded-md opacity-40 hover:opacity-80 hover:bg-white/[0.08] transition bg-transparent border-none text-white cursor-pointer"
@@ -155,7 +185,7 @@
       <div class="absolute inset-0 flex items-center justify-center bg-[#0a0a0a]">
         <div class="flex flex-col items-center gap-3">
           <div class="w-5 h-5 rounded-full border-2 border-white/15 border-t-white/50 animate-spin"></div>
-          <span class="text-[11px] text-white/50">{statusText || $i18n.t('common.starting')}</span>
+          <span class="text-[11px] text-white/50">{statusText || $i18n.t('common.loading')}</span>
         </div>
       </div>
     {/if}
