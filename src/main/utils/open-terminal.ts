@@ -61,7 +61,7 @@ export const startOpenTerminal = async (
   const generatedKey = crypto.randomBytes(24).toString('base64url')
 
   // Find available port
-  let desiredPort = port || 8000
+  let desiredPort = port || 39284
   let availablePort = desiredPort
   while (await portInUse(availablePort, host)) {
     availablePort++

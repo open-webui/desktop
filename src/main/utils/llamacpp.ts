@@ -385,7 +385,7 @@ export const startLlamaCpp = async (
   const llamaConfig = config.llamaCpp ?? {}
   const host = '127.0.0.1'
 
-  let desiredPort = llamaConfig.port || 8081
+  let desiredPort = llamaConfig.port || 18881
   let availablePort = desiredPort
   while (await portInUse(availablePort, host)) {
     availablePort++
