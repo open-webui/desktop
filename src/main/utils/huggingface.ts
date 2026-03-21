@@ -5,7 +5,7 @@
  * Downloads files from HF repos, manages a local model cache,
  * and provides listing/deletion of cached models.
  *
- * Cache dir: <userData>/huggingface/<repo-slug>/<filename>
+ * Cache dir: <userData>/models/huggingface/<repo-slug>/<filename>
  */
 
 import * as fs from 'fs'
@@ -33,7 +33,7 @@ export interface HfDownloadProgress {
 // ─── Paths ──────────────────────────────────────────────
 
 const getHfCacheDir = (): string => {
-  const dir = path.join(getUserDataPath(), 'huggingface')
+  const dir = path.join(getUserDataPath(), 'models', 'huggingface')
   if (!fs.existsSync(dir)) {
     fs.mkdirSync(dir, { recursive: true })
   }
@@ -86,7 +86,13 @@ export const listModels = (): HfModel[] => {
 /**
  * Get the cache directory path (so runtimes can reference it).
  */
-export const getModelsDir = (): string => getHfCacheDir()
+export const getModelsDir = (): string => {
+  const dir = path.join(getUserDataPath(), 'models')
+  if (!fs.existsSync(dir)) {
+    fs.mkdirSync(dir, { recursive: true })
+  }
+  return dir
+}
 
 /**
  * Download a file from a Hugging Face repository.

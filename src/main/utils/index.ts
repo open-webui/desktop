@@ -900,6 +900,17 @@ export const resetApp = async (): Promise<void> => {
     }
   }
 
+  // Remove downloaded models (huggingface + any user-added models)
+  const modelsPath = path.join(getUserDataPath(), 'models')
+  if (fs.existsSync(modelsPath)) {
+    try {
+      fs.rmSync(modelsPath, { recursive: true, force: true })
+      log.info('Removed models directory')
+    } catch (error) {
+      log.error('Failed to remove models directory:', error)
+    }
+  }
+
   // Remove service lock files
   const locksPath = path.join(getUserDataPath(), 'locks')
   if (fs.existsSync(locksPath)) {

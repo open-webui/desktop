@@ -96,6 +96,7 @@ const api = {
   getLaunchAtLogin: () => ipcRenderer.invoke('app:launchAtLogin:get'),
   setLaunchAtLogin: (enabled: boolean) => ipcRenderer.invoke('app:launchAtLogin:set', enabled),
   openInBrowser: (url: string) => ipcRenderer.invoke('open:browser', { url }),
+  openPath: (folderPath: string) => ipcRenderer.invoke('open:path', folderPath),
   notification: (title: string, body: string) =>
     ipcRenderer.invoke('notification', { title, body }),
 

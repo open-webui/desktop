@@ -252,6 +252,9 @@
   "settings.models.downloaded": "Downloaded",
   "settings.models.cancelDownload": "Cancel download",
   "settings.models.deleteModel": "Delete model",
+  "settings.models.openModelsFolder": "Open Models Folder",
+  "settings.models.modelsDirectory": "Models Directory",
+  "settings.models.modelsHint": "You can also add GGUF files directly to this folder. They'll be auto-detected by llama-server.",
 
   "settings.connections.remove": "Remove",
   "settings.connections.noConnections": "No connections",

@@ -1013,6 +1013,11 @@ if (!gotTheLock) {
       await openUrl(normalizedUrl)
     })
 
+    ipcMain.handle('open:path', async (_event, folderPath: string) => {
+      if (!folderPath) throw new Error('No path provided')
+      await shell.openPath(folderPath)
+    })
+
     ipcMain.handle('notification', async (_event, { title, body }) => {
       new Notification({ title, body }).show()
     })
