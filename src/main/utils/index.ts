@@ -840,7 +840,15 @@ export const getConfig = async (): Promise<AppConfig> => {
   }
 }
 
+let configWriteLock: Promise<void> = Promise.resolve()
+
 export const setConfig = async (config: Partial<AppConfig>): Promise<void> => {
+  // Serialize writes so concurrent callers don't race on the tmp file
+  const previous = configWriteLock
+  let resolve: () => void
+  configWriteLock = new Promise<void>((r) => { resolve = r })
+  await previous
+
   const configPath = path.join(getUserDataPath(), 'config.json')
   const tmpPath = configPath + '.tmp'
   try {
@@ -855,6 +863,8 @@ export const setConfig = async (config: Partial<AppConfig>): Promise<void> => {
       if (fs.existsSync(tmpPath)) fs.unlinkSync(tmpPath)
     } catch {}
     throw error
+  } finally {
+    resolve!()
   }
 }
 
