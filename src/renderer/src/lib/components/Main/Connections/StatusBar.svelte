@@ -2,6 +2,7 @@
   import { fade } from 'svelte/transition'
   import i18n from '../../../i18n'
   import { tooltip } from '../../../actions/tooltip'
+  import { appInfo } from '../../../stores'
   import trayIcon from '../../../../../../../resources/tray.png'
 
   interface Props {
@@ -9,6 +10,8 @@
     serverReachable: boolean | undefined
     openTerminalStatus: string | null
     llamaCppStatus: string | null
+    openWebuiInstalled: boolean
+    openTerminalInstalled: boolean
     llamaCppInstalled: boolean
     activeLog: string | null
     onSelectLog: (log: string) => void
@@ -22,6 +25,8 @@
     serverReachable,
     openTerminalStatus,
     llamaCppStatus,
+    openWebuiInstalled,
+    openTerminalInstalled,
     llamaCppInstalled,
     activeLog,
     onSelectLog,
@@ -45,16 +50,21 @@
     llamaCppStatus === 'starting' || llamaCppStatus === 'setting-up' || llamaCppStatus === 'stopping'
   )
   const lsFailed = $derived(llamaCppStatus === 'failed')
+
+  // Derived visibility — show each section only when installed or active
+  const showServer = $derived(openWebuiInstalled || !!serverStatus)
+  const showTerminal = $derived(openTerminalInstalled || !!openTerminalStatus)
+  const showLlama = $derived(llamaCppInstalled || !!llamaCppStatus)
 </script>
 
 <div
   class="shrink-0 flex items-center gap-1 px-3 h-7 border-t border-black/[0.08] dark:border-white/[0.08] bg-[#ebebed] dark:bg-[#111111]"
   in:fade={{ duration: 150 }}
 >
-  <!-- Local label -->
   <!-- Open WebUI logo mark -->
   <img src={trayIcon} alt="" class="w-3.5 opacity-30 mx-0.5 shrink-0 invert dark:invert-0" />
 
+  {#if showServer}
   <!-- Open WebUI status -->
   <button
     class="flex items-center gap-1.5 px-2 py-0.5 rounded-md text-[11px] transition-all bg-transparent border-none cursor-pointer text-[#1d1d1f] dark:text-[#fafafa] {activeLog === 'server'
@@ -80,8 +90,12 @@
     </div>
     <span>{$i18n.t('statusBar.server')}</span>
   </button>
+  {/if}
 
+  {#if showTerminal}
+  {#if showServer}
   <div class="w-px h-3 bg-black/[0.08] dark:bg-white/[0.08] mx-0.5"></div>
+  {/if}
 
   <!-- Open Terminal status -->
   <button
@@ -118,9 +132,12 @@
     </div>
     <span>{$i18n.t('sidebar.openTerminal')}</span>
   </button>
+  {/if}
 
-  {#if llamaCppInstalled || llamaCppStatus}
+  {#if showLlama}
+  {#if showServer || showTerminal}
   <div class="w-px h-3 bg-black/[0.08] dark:bg-white/[0.08] mx-0.5"></div>
+  {/if}
 
   <!-- llama.cpp status -->
   <button
@@ -158,4 +175,7 @@
     <span>{$i18n.t('sidebar.llamaCpp')}</span>
   </button>
   {/if}
+
+  <!-- Version (right-aligned) -->
+  <span class="ml-auto text-[10px] opacity-25 select-none">v{$appInfo?.version ?? ''}</span>
 </div>

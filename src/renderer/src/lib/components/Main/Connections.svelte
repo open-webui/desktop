@@ -40,6 +40,7 @@
   let connectingId = $state('')
   let openConnections: Map<string, string> = $state(new Map())
   let localInstalled = $state(false)
+  let openTerminalInstalled = $state(false)
   let showAddConnectionModal = $state(false)
 
   // Active log panel
@@ -345,6 +346,11 @@
       }
     })
 
+    // Check if Open Terminal package is installed
+    window.electronAPI.getOpenTerminalStatus().then((installed: boolean) => {
+      openTerminalInstalled = installed
+    })
+
     // Check if Open WebUI package is installed
     window.electronAPI.getPackageVersion('open-webui').then((v: string | null) => {
       localInstalled = v !== null
@@ -479,6 +485,8 @@
     {serverReachable}
     {openTerminalStatus}
     {llamaCppStatus}
+    openWebuiInstalled={localInstalled}
+    {openTerminalInstalled}
     llamaCppInstalled={!!llamaCppInfo?.binaryPath}
     {activeLog}
     onSelectLog={selectLog}
