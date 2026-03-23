@@ -69,32 +69,47 @@ jobs:
 
             # Build commands — use electron-builder directly to pass arch flags
             - name: Create Windows Builds
+              id: win_build
               if: ${{ matrix.os == 'windows-latest' }}
-              run: npm run build && npx electron-builder --win --${{ matrix.arch }}
+              continue-on-error: true
+              run: npm run build && npx electron-builder --win --${{ matrix.arch }} --publish never
 
-            - name: Create macOS Builds (signed)
+            - name: Create Windows Builds (unsigned fallback)
+              if: ${{ matrix.os == 'windows-latest' && steps.win_build.outcome == 'failure' }}
+              env:
+                  WIN_CSC_LINK: ''
+                  CSC_IDENTITY_AUTO_DISCOVERY: 'false'
+              run: |
+                  rm -rf dist/
+                  npm run build && npx electron-builder --win --${{ matrix.arch }} --publish never
+
+            - name: Create macOS Builds (signed + notarized)
+              id: mac_build_signed
               if: ${{ matrix.os == 'macos-latest' && steps.apple_cert.outcome == 'success' }}
+              continue-on-error: true
               env:
                   APPLE_ID: ${{ secrets.APPLE_ID }}
                   APPLE_APP_SPECIFIC_PASSWORD: ${{ secrets.APPLE_PASSWORD }}
                   APPLE_TEAM_ID: ${{ secrets.APPLE_TEAM_ID }}
-              run: npm run build && npx electron-builder --mac --${{ matrix.arch }}
+              run: npm run build && npx electron-builder --mac --${{ matrix.arch }} --publish never
 
             - name: Create macOS Builds (unsigned fallback)
-              if: ${{ matrix.os == 'macos-latest' && steps.apple_cert.outcome != 'success' }}
+              if: ${{ matrix.os == 'macos-latest' && (steps.apple_cert.outcome != 'success' || steps.mac_build_signed.outcome == 'failure') }}
               env:
                   CSC_IDENTITY_AUTO_DISCOVERY: 'false'
-              run: npm run build && npx electron-builder --mac --${{ matrix.arch }}
+              run: |
+                  rm -rf dist/
+                  npm run build && npx electron-builder --mac --${{ matrix.arch }} -c.mac.notarize=null --publish never
 
             - name: Create Linux Builds
               if: ${{ matrix.os == 'ubuntu-latest' }}
               run: |
                   npm run build
                   if [ "${{ steps.flatpak.outcome }}" == "success" ]; then
-                    npx electron-builder --linux --${{ matrix.arch }}
+                    npx electron-builder --linux --${{ matrix.arch }} --publish never
                   else
                     echo "Flatpak not available, building without flatpak"
-                    npx electron-builder --linux AppImage deb snap --${{ matrix.arch }}
+                    npx electron-builder --linux AppImage deb snap --${{ matrix.arch }} --publish never
                   fi
 
             # Sign Windows executable after build
