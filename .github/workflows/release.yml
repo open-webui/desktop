@@ -35,7 +35,9 @@ jobs:
               run: npm ci
 
             - name: Install Flatpak build tools
+              id: flatpak
               if: ${{ matrix.os == 'ubuntu-latest' }}
+              continue-on-error: true
               run: |
                   sudo apt-get update
                   sudo apt-get install -y flatpak flatpak-builder
@@ -44,6 +46,7 @@ jobs:
                   flatpak install --user -y flathub org.electronjs.Electron2.BaseApp//23.08
 
             - name: Install Apple codesigning certificate
+              id: apple_cert
               if: ${{ matrix.os == 'macos-latest' }}
               continue-on-error: true
               env:
@@ -51,6 +54,10 @@ jobs:
                   P12_PASSWORD: ${{ secrets.P12_PASSWORD }}
                   KEYCHAIN_PASSWORD: ${{ secrets.KEYCHAIN_PASSWORD }}
               run: |
+                  if [ -z "$BUILD_CERTIFICATE_BASE64" ]; then
+                    echo "No certificate provided, will build unsigned"
+                    exit 1
+                  fi
                   CERTIFICATE_PATH=$RUNNER_TEMP/build_certificate.p12
                   KEYCHAIN_PATH=$RUNNER_TEMP/app-signing.keychain-db
                   echo -n "$BUILD_CERTIFICATE_BASE64" | base64 --decode > $CERTIFICATE_PATH
@@ -65,17 +72,30 @@ jobs:
               if: ${{ matrix.os == 'windows-latest' }}
               run: npm run build && npx electron-builder --win --${{ matrix.arch }}
 
-            - name: Create macOS Builds
-              if: ${{ matrix.os == 'macos-latest' }}
+            - name: Create macOS Builds (signed)
+              if: ${{ matrix.os == 'macos-latest' && steps.apple_cert.outcome == 'success' }}
               env:
                   APPLE_ID: ${{ secrets.APPLE_ID }}
                   APPLE_APP_SPECIFIC_PASSWORD: ${{ secrets.APPLE_PASSWORD }}
                   APPLE_TEAM_ID: ${{ secrets.APPLE_TEAM_ID }}
               run: npm run build && npx electron-builder --mac --${{ matrix.arch }}
 
+            - name: Create macOS Builds (unsigned fallback)
+              if: ${{ matrix.os == 'macos-latest' && steps.apple_cert.outcome != 'success' }}
+              env:
+                  CSC_IDENTITY_AUTO_DISCOVERY: 'false'
+              run: npm run build && npx electron-builder --mac --${{ matrix.arch }}
+
             - name: Create Linux Builds
               if: ${{ matrix.os == 'ubuntu-latest' }}
-              run: npm run build && npx electron-builder --linux --${{ matrix.arch }}
+              run: |
+                  npm run build
+                  if [ "${{ steps.flatpak.outcome }}" == "success" ]; then
+                    npx electron-builder --linux --${{ matrix.arch }}
+                  else
+                    echo "Flatpak not available, building without flatpak"
+                    npx electron-builder --linux AppImage deb snap --${{ matrix.arch }}
+                  fi
 
             # Sign Windows executable after build
             - name: Azure Trusted Signing (Windows Only)
