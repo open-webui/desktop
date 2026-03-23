@@ -28,6 +28,7 @@
   let loaded = $state(false)
   let deleting = $state<string | null>(null)
   let searchError = $state('')
+  let modelsDir = $state('')
 
   // Search state
   let searchQuery = $state('')
@@ -45,6 +46,7 @@
 
   onMount(async () => {
     models = await window.electronAPI.listHfModels()
+    modelsDir = await window.electronAPI.getHfModelsDir() || ''
     loaded = true
 
     window.electronAPI.onData((data: any) => {
@@ -164,6 +166,20 @@
 {:else}
 <div class="flex flex-col divide-y divide-white/[0.04]">
 
+  <!-- Models directory -->
+  <div class="py-4 flex items-center justify-between gap-4">
+    <div class="shrink-0">
+      <div class="text-[13px] opacity-70">{$i18n.t('settings.models.modelsDirectory')}</div>
+      <div class="text-[11px] opacity-25 mt-0.5">{$i18n.t('settings.models.modelsHint')}</div>
+    </div>
+    <button class="text-[12px] font-mono hover:opacity-80 transition bg-transparent border-none text-[#1d1d1f] dark:text-[#fafafa] p-0 underline decoration-dotted underline-offset-2 cursor-pointer flex items-center gap-1.5 min-w-0 truncate" onclick={() => { if (modelsDir) window.electronAPI.openPath(modelsDir) }}>
+      <span class="truncate">{modelsDir || '…'}</span>
+      <svg class="w-3 h-3 shrink-0" fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="1.5">
+        <path stroke-linecap="round" stroke-linejoin="round" d="M13.5 6H5.25A2.25 2.25 0 003 8.25v10.5A2.25 2.25 0 005.25 21h10.5A2.25 2.25 0 0018 18.75V10.5m-10.5 6L21 3m0 0h-5.25M21 3v5.25" />
+      </svg>
+    </button>
+  </div>
+
   <!-- Downloaded models + active download -->
   <div class="py-4">
     <div class="text-[12px] opacity-50 mb-2">{$i18n.t('settings.models.downloadedModels')}</div>
@@ -223,7 +239,7 @@
         {/each}
       </div>
     {:else}
-      <div class="text-[11px] opacity-20 text-center py-3">{$i18n.t('settings.models.noModels')}</div>
+      <div class="text-[11px] opacity-40 py-3">{$i18n.t('settings.models.noModels')}</div>
     {/if}
   </div>
 

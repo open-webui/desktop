@@ -55,6 +55,67 @@ interface ReleaseAsset {
 }
 
 /**
+ * Detect the best GPU variant for the current platform.
+ * Returns the variant string (e.g. 'cuda-12.4', 'vulkan', 'rocm', 'cpu').
+ */
+const detectBestVariant = (): string => {
+  const platform = process.platform
+
+  // macOS: Metal is baked into the macOS binary; no variant choice needed.
+  if (platform === 'darwin') return 'cpu'
+
+  // Check for NVIDIA GPU (CUDA)
+  try {
+    execFileSync('nvidia-smi', ['--query-gpu=name', '--format=csv,noheader'], {
+      timeout: 5000,
+      stdio: 'pipe'
+    })
+    // NVIDIA GPU detected
+    if (platform === 'win32') return 'cuda-12.4'
+    // Linux: no CUDA asset currently available, fall through to other checks
+  } catch {
+    // nvidia-smi not available or no NVIDIA GPU
+  }
+
+  // Check for Vulkan support
+  try {
+    if (platform === 'win32') {
+      execFileSync('vulkaninfo', ['--summary'], { timeout: 5000, stdio: 'pipe' })
+    } else {
+      execFileSync('vulkaninfo', ['--summary'], { timeout: 5000, stdio: 'pipe' })
+    }
+    return 'vulkan'
+  } catch {
+    // Vulkan not available
+  }
+
+  // Linux: check for ROCm (AMD GPU)
+  if (platform === 'linux') {
+    try {
+      if (fs.existsSync('/opt/rocm') || fs.existsSync('/usr/lib/rocm')) {
+        return 'rocm'
+      }
+    } catch {
+      // ROCm not available
+    }
+  }
+
+  return 'cpu'
+}
+
+/**
+ * Resolve the variant — if 'auto' or empty, detect the best one.
+ */
+const resolveVariant = (variant: string | undefined): string => {
+  if (!variant || variant === 'auto') {
+    const detected = detectBestVariant()
+    log.info(`Auto-detected variant: ${detected}`)
+    return detected
+  }
+  return variant
+}
+
+/**
  * Determine the correct release asset name for this platform/arch/variant.
  */
 const getAssetPattern = (tag: string, variant: string): { pattern: string; isZip: boolean } => {
@@ -130,7 +191,7 @@ export const setupLlamaCpp = async (
   const config = await getConfig()
   const llamaConfig = config.llamaCpp ?? {}
   const version = llamaConfig.version || 'latest'
-  const variant = llamaConfig.variant || 'cpu'
+  const variant = resolveVariant(llamaConfig.variant)
 
   const cacheBase = path.join(getUserDataPath(), 'llama.cpp')
   if (!fs.existsSync(cacheBase)) {
@@ -324,7 +385,7 @@ export const startLlamaCpp = async (
   const llamaConfig = config.llamaCpp ?? {}
   const host = '127.0.0.1'
 
-  let desiredPort = llamaConfig.port || 8081
+  let desiredPort = llamaConfig.port || 18881
   let availablePort = desiredPort
   while (await portInUse(availablePort, host)) {
     availablePort++
@@ -443,4 +504,19 @@ export const validateLlamaCppProcess = (): boolean => {
   status = null
   lock.release()
   return false
+}
+
+/**
+ * Uninstall llama.cpp — stop the server and remove all downloaded binaries.
+ */
+export const uninstallLlamaCpp = async (): Promise<void> => {
+  await stopLlamaCpp()
+
+  const cacheBase = path.join(getUserDataPath(), 'llama.cpp')
+  if (fs.existsSync(cacheBase)) {
+    fs.rmSync(cacheBase, { recursive: true, force: true })
+    log.info('Removed llama.cpp directory:', cacheBase)
+  }
+
+  binaryPath = null
 }

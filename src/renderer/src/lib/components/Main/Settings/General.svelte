@@ -8,6 +8,7 @@
   let runInBackground = $state(true)
   let resetting = $state(false)
   let theme = $state<string>('system')
+  let advancedOpen = $state(false)
 
   // Env vars editor state
   let envEntries = $state<{ key: string; value: string }[]>([])
@@ -302,88 +303,108 @@
     </div>
   </div>
 
-  <!-- Environment variables -->
+  <!-- Advanced (collapsed by default) -->
   <div class="py-4">
-    <div class="flex items-center justify-between mb-3">
-      <div>
-        <div class="text-[13px] opacity-70">{$i18n.t('settings.general.environmentVariables')}</div>
-        <div class="text-[11px] opacity-25 mt-0.5">{$i18n.t('settings.general.environmentVariablesDesc')}</div>
-      </div>
-      <button
-        class="text-[11px] opacity-30 hover:opacity-60 transition bg-transparent border-none text-[#1d1d1f] dark:text-[#fafafa]"
-        onclick={addEnvVar}
+    <button
+      class="flex items-center gap-1.5 bg-transparent border-none text-[#1d1d1f] dark:text-[#fafafa] p-0 cursor-pointer"
+      onclick={() => { advancedOpen = !advancedOpen }}
+    >
+      <svg
+        class="w-3 h-3 opacity-30 transition-transform duration-200 {advancedOpen ? 'rotate-90' : ''}"
+        fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="2"
       >
-        {$i18n.t('common.add')}
-      </button>
-    </div>
+        <path stroke-linecap="round" stroke-linejoin="round" d="M9 5l7 7-7 7" />
+      </svg>
+      <span class="text-[13px] opacity-50">{$i18n.t('common.advanced')}</span>
+    </button>
 
-    {#if envEntries.length > 0}
-      <div class="flex flex-col gap-2">
-        {#each envEntries as entry, i}
-          <div class="flex items-center gap-2">
-            <input
-              type="text"
-              placeholder={$i18n.t('settings.general.keyPlaceholder')}
-              class="bg-black/[0.04] dark:bg-white/[0.06] text-[12px] text-[#1d1d1f] dark:text-[#fafafa] px-2.5 py-1.5 border-none outline-none rounded-lg opacity-60 flex-1 min-w-0 font-mono"
-              value={entry.key}
-              oninput={(e) => { envEntries[i].key = (e.target as HTMLInputElement).value }}
-              onblur={saveEnvVars}
-            />
-            <span class="text-[11px] opacity-20">=</span>
-            <input
-              type="text"
-              placeholder="value"
-              class="bg-black/[0.04] dark:bg-white/[0.06] text-[12px] text-[#1d1d1f] dark:text-[#fafafa] px-2.5 py-1.5 border-none outline-none rounded-lg opacity-60 flex-[2] min-w-0 font-mono"
-              value={entry.value}
-              oninput={(e) => { envEntries[i].value = (e.target as HTMLInputElement).value }}
-              onblur={saveEnvVars}
-            />
+    {#if advancedOpen}
+      <div class="flex flex-col divide-y divide-white/[0.04] mt-1">
+        <!-- Environment variables -->
+        <div class="py-4">
+          <div class="flex items-center justify-between mb-3">
+            <div>
+              <div class="text-[13px] opacity-70">{$i18n.t('settings.general.environmentVariables')}</div>
+              <div class="text-[11px] opacity-25 mt-0.5">{$i18n.t('settings.general.environmentVariablesDesc')}</div>
+            </div>
             <button
-              class="opacity-20 hover:opacity-50 transition bg-transparent border-none text-[#1d1d1f] dark:text-[#fafafa] p-0.5 shrink-0"
-              onclick={() => removeEnvVar(i)}
+              class="text-[11px] opacity-30 hover:opacity-60 transition bg-transparent border-none text-[#1d1d1f] dark:text-[#fafafa]"
+              onclick={addEnvVar}
             >
-              <svg class="w-3 h-3" fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="1.5">
-                <path stroke-linecap="round" stroke-linejoin="round" d="M6 18L18 6M6 6l12 12" />
-              </svg>
+              {$i18n.t('common.add')}
             </button>
           </div>
-        {/each}
-      </div>
-    {:else}
-      <div class="text-[11px] opacity-15">{$i18n.t('settings.general.noEnvVars')}</div>
-    {/if}
-  </div>
 
-  <div class="py-4 flex items-center justify-between">
-    <div>
-      <div class="text-[13px] opacity-70">{$i18n.t('settings.general.factoryReset')}</div>
-      <div class="text-[11px] opacity-25 mt-0.5">
-        {$i18n.t('settings.general.factoryResetDesc')}
+          {#if envEntries.length > 0}
+            <div class="flex flex-col gap-2">
+              {#each envEntries as entry, i}
+                <div class="flex items-center gap-2">
+                  <input
+                    type="text"
+                    placeholder={$i18n.t('settings.general.keyPlaceholder')}
+                    class="bg-black/[0.04] dark:bg-white/[0.06] text-[12px] text-[#1d1d1f] dark:text-[#fafafa] px-2.5 py-1.5 border-none outline-none rounded-lg opacity-60 flex-1 min-w-0 font-mono"
+                    value={entry.key}
+                    oninput={(e) => { envEntries[i].key = (e.target as HTMLInputElement).value }}
+                    onblur={saveEnvVars}
+                  />
+                  <span class="text-[11px] opacity-20">=</span>
+                  <input
+                    type="text"
+                    placeholder="value"
+                    class="bg-black/[0.04] dark:bg-white/[0.06] text-[12px] text-[#1d1d1f] dark:text-[#fafafa] px-2.5 py-1.5 border-none outline-none rounded-lg opacity-60 flex-[2] min-w-0 font-mono"
+                    value={entry.value}
+                    oninput={(e) => { envEntries[i].value = (e.target as HTMLInputElement).value }}
+                    onblur={saveEnvVars}
+                  />
+                  <button
+                    class="opacity-20 hover:opacity-50 transition bg-transparent border-none text-[#1d1d1f] dark:text-[#fafafa] p-0.5 shrink-0"
+                    onclick={() => removeEnvVar(i)}
+                  >
+                    <svg class="w-3 h-3" fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="1.5">
+                      <path stroke-linecap="round" stroke-linejoin="round" d="M6 18L18 6M6 6l12 12" />
+                    </svg>
+                  </button>
+                </div>
+              {/each}
+            </div>
+          {:else}
+            <div class="text-[11px] opacity-15">{$i18n.t('settings.general.noEnvVars')}</div>
+          {/if}
+        </div>
+
+        <div class="py-4 flex items-center justify-between">
+          <div>
+            <div class="text-[13px] opacity-70">{$i18n.t('settings.general.factoryReset')}</div>
+            <div class="text-[11px] opacity-25 mt-0.5">
+              {$i18n.t('settings.general.factoryResetDesc')}
+            </div>
+          </div>
+          <button
+            class="text-[12px] opacity-40 hover:opacity-70 px-3 py-1.5 bg-black/[0.04] dark:bg-white/[0.06] transition border-none text-[#1d1d1f] dark:text-[#fafafa] rounded-xl flex items-center gap-1.5 {resetting ? 'pointer-events-none opacity-30' : ''}"
+            disabled={resetting}
+            onclick={async () => {
+              if (
+                confirm(
+                  $i18n.t('settings.general.factoryResetConfirm')
+                )
+              ) {
+                resetting = true
+                await window.electronAPI.resetApp()
+                window.location.reload()
+              }
+            }}
+          >
+            {#if resetting}
+              <svg class="w-3 h-3 animate-spin" viewBox="0 0 24 24" fill="none">
+                <circle cx="12" cy="12" r="10" stroke="currentColor" stroke-width="3" stroke-dasharray="31.4 31.4" stroke-linecap="round" />
+              </svg>
+              {$i18n.t('common.resetting')}
+            {:else}
+              {$i18n.t('common.reset')}
+            {/if}
+          </button>
+        </div>
       </div>
-    </div>
-    <button
-      class="text-[12px] opacity-40 hover:opacity-70 px-3 py-1.5 bg-black/[0.04] dark:bg-white/[0.06] transition border-none text-[#1d1d1f] dark:text-[#fafafa] rounded-xl flex items-center gap-1.5 {resetting ? 'pointer-events-none opacity-30' : ''}"
-      disabled={resetting}
-      onclick={async () => {
-        if (
-          confirm(
-            $i18n.t('settings.general.factoryResetConfirm')
-          )
-        ) {
-          resetting = true
-          await window.electronAPI.resetApp()
-          window.location.reload()
-        }
-      }}
-    >
-      {#if resetting}
-        <svg class="w-3 h-3 animate-spin" viewBox="0 0 24 24" fill="none">
-          <circle cx="12" cy="12" r="10" stroke="currentColor" stroke-width="3" stroke-dasharray="31.4 31.4" stroke-linecap="round" />
-        </svg>
-        {$i18n.t('common.resetting')}
-      {:else}
-        {$i18n.t('common.reset')}
-      {/if}
-    </button>
+    {/if}
   </div>
 </div>

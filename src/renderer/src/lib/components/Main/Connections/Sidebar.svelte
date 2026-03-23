@@ -73,7 +73,6 @@
     <button
       class="opacity-25 hover:opacity-60 transition bg-transparent border-none text-[#1d1d1f] dark:text-[#fafafa] leading-none"
       onclick={() => {
-        onDisconnect()
         onAddView()
       }}
       title={$i18n.t('sidebar.addConnection')}

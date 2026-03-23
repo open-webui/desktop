@@ -10,6 +10,7 @@ jobs:
         name: Build and Package
         runs-on: ${{ matrix.os }}
         strategy:
+            fail-fast: false
             matrix:
                 include:
                     - os: ubuntu-latest
@@ -44,6 +45,7 @@ jobs:
 
             - name: Install Apple codesigning certificate
               if: ${{ matrix.os == 'macos-latest' }}
+              continue-on-error: true
               env:
                   BUILD_CERTIFICATE_BASE64: ${{ secrets.BUILD_CERTIFICATE_BASE64 }}
                   P12_PASSWORD: ${{ secrets.P12_PASSWORD }}
@@ -78,6 +80,7 @@ jobs:
             # Sign Windows executable after build
             - name: Azure Trusted Signing (Windows Only)
               if: ${{ matrix.os == 'windows-latest' }}
+              continue-on-error: true
               uses: azure/trusted-signing-action@v0.5.1
               with:
                   azure-tenant-id: ${{ secrets.AZURE_TENANT_ID }}
@@ -116,8 +119,8 @@ jobs:
 
     release:
         needs: build
+        if: always() && github.event_name == 'push' && github.ref == 'refs/heads/release'
         runs-on: ubuntu-latest
-        if: github.event_name == 'push' && github.ref == 'refs/heads/release'
         permissions:
             contents: write
         steps:

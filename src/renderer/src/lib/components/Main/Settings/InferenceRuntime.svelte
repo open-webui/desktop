@@ -11,6 +11,8 @@
   let settingUp = $state(false)
   let loaded = $state(false)
   let setupStatus = $state('')
+  let uninstalling = $state(false)
+  let installing = $state(false)
 
   type UpdateStatus = 'idle' | 'checking' | 'available' | 'updating' | 'up-to-date' | 'error'
   let updateStatus = $state<UpdateStatus>('idle')
@@ -52,14 +54,17 @@
   })())
 
   const variantOptions = $derived((() => {
-    if (platform === 'darwin') return [{ value: 'cpu', label: $i18n.t('settings.inference.variantDefaultMetal') }]
+    const autoOption = { value: 'auto', label: $i18n.t('settings.inference.variantAuto') }
+    if (platform === 'darwin') return [autoOption, { value: 'cpu', label: $i18n.t('settings.inference.variantDefaultMetal') }]
     if (platform === 'win32') return [
+      autoOption,
       { value: 'cpu', label: $i18n.t('settings.inference.variantCPU') },
       { value: 'cuda-12.4', label: 'CUDA 12.4' },
       { value: 'cuda-13.1', label: 'CUDA 13.1' },
       { value: 'vulkan', label: 'Vulkan' }
     ]
     return [
+      autoOption,
       { value: 'cpu', label: $i18n.t('settings.inference.variantCPU') },
       { value: 'vulkan', label: 'Vulkan' },
       { value: 'rocm', label: 'ROCm' }
@@ -163,6 +168,8 @@
     deleting = null
   }
 
+  const installed = $derived(!!lsInfo?.binaryPath)
+
   const formatSize = (bytes: number): string => {
     if (bytes < 1024) return `${bytes} B`
     if (bytes < 1024 * 1024) return `${(bytes / 1024).toFixed(1)} KB`
@@ -173,13 +180,77 @@
 
 {#if !loaded}
   <div class="py-6 text-[12px] opacity-20 text-center">{$i18n.t('common.loading')}</div>
+{:else if !installed}
+  <div class="py-4 flex items-center justify-between">
+    <div>
+      <div class="text-[13px] opacity-40 flex items-center gap-1.5">
+        {$i18n.t('settings.inference.notInstalled')}
+        <span class="text-[9px] opacity-30 uppercase tracking-wide">{$i18n.t('common.experimental')}</span>
+      </div>
+      <div class="text-[11px] opacity-20 mt-0.5">{$i18n.t('settings.inference.notInstalledDesc')}</div>
+    </div>
+    <button
+      class="text-[12px] opacity-40 hover:opacity-70 px-3 py-1.5 bg-black/[0.04] dark:bg-white/[0.06] transition border-none text-[#1d1d1f] dark:text-[#fafafa] rounded-xl flex items-center gap-1.5 {installing ? 'pointer-events-none opacity-20' : ''}"
+      disabled={installing}
+      onclick={async () => {
+        installing = true
+        try {
+          await window.electronAPI.startLlamaCpp()
+          lsInfo = await window.electronAPI.getLlamaCppInfo()
+        } catch (e) {
+          console.error('Failed to install:', e)
+        }
+        installing = false
+      }}
+    >
+      {#if installing}
+        <div class="w-2.5 h-2.5 rounded-full border-[1.5px] border-black/20 dark:border-white/30 border-t-transparent animate-spin"></div>
+        {$i18n.t('common.installing')}
+      {:else}
+        {$i18n.t('common.install')}
+      {/if}
+    </button>
+  </div>
+
+  <!-- Version -->
+  <div class="py-4 flex items-center justify-between border-t border-white/[0.04]">
+    <div>
+      <div class="text-[13px] opacity-70">{$i18n.t('settings.inference.version')}</div>
+      <div class="text-[11px] opacity-25 mt-0.5">{$i18n.t('settings.inference.versionDesc')}</div>
+    </div>
+    <input
+      type="text"
+      class="bg-black/[0.04] dark:bg-white/[0.06] text-[12px] text-[#1d1d1f] dark:text-[#fafafa] px-3 py-1.5 border-none outline-none rounded-xl opacity-60 w-24 text-right font-mono"
+      value={$config?.llamaCpp?.version ?? 'latest'}
+      onchange={(e) => updateConfig('version', (e.target as HTMLInputElement).value.trim() || 'latest')}
+    />
+  </div>
+
+  <!-- Variant -->
+  <div class="py-4 flex items-center justify-between border-t border-white/[0.04]">
+    <div>
+      <div class="text-[13px] opacity-70">{$i18n.t('settings.inference.variant')}</div>
+      <div class="text-[11px] opacity-25 mt-0.5">{$i18n.t('settings.inference.variantDesc')}</div>
+    </div>
+    <select
+      class="bg-black/[0.04] dark:bg-white/[0.06] text-[12px] text-[#1d1d1f] dark:text-[#fafafa] px-3 py-1.5 border-none outline-none rounded-xl opacity-60"
+      onchange={(e) => updateConfig('variant', (e.target as HTMLSelectElement).value)}
+    >
+      {#each variantOptions as opt}
+        <option value={opt.value} selected={($config?.llamaCpp?.variant ?? 'auto') === opt.value}>{opt.label}</option>
+      {/each}
+    </select>
+  </div>
 {:else}
 <div class="flex flex-col divide-y divide-white/[0.04]">
   <!-- Server status & controls -->
   <div class="py-4">
     <div class="flex items-center justify-between mb-3">
       <div>
-        <div class="text-[13px] opacity-70">{$i18n.t('settings.inference.llamaServer')}</div>
+        <div class="text-[13px] opacity-70 flex items-center gap-1.5">
+          {$i18n.t('settings.inference.llamaServer')}
+          <span class="text-[9px] opacity-30 uppercase tracking-wide">{$i18n.t('common.experimental')}</span>
+        </div>
         <div class="text-[11px] opacity-25 mt-0.5">
           {$i18n.t('settings.inference.llamaServerDesc')}
         </div>
@@ -387,7 +458,7 @@
       onchange={(e) => updateConfig('variant', (e.target as HTMLSelectElement).value)}
     >
       {#each variantOptions as opt}
-        <option value={opt.value} selected={($config?.llamaCpp?.variant ?? 'cpu') === opt.value}>{opt.label}</option>
+        <option value={opt.value} selected={($config?.llamaCpp?.variant ?? 'auto') === opt.value}>{opt.label}</option>
       {/each}
     </select>
   </div>
@@ -401,8 +472,8 @@
     <input
       type="number"
       class="bg-black/[0.04] dark:bg-white/[0.06] text-[12px] text-[#1d1d1f] dark:text-[#fafafa] px-3 py-1.5 border-none outline-none rounded-xl opacity-60 w-20 text-right"
-      value={$config?.llamaCpp?.port ?? 8081}
-      onchange={(e) => updateConfig('port', parseInt((e.target as HTMLInputElement).value) || 8081)}
+      value={$config?.llamaCpp?.port ?? 18881}
+      onchange={(e) => updateConfig('port', parseInt((e.target as HTMLInputElement).value) || 18881)}
     />
   </div>
 
@@ -423,6 +494,39 @@
       }}
     />
   </div>
+
+  <!-- Uninstall -->
+  {#if lsInfo?.binaryPath}
+  <div class="py-4 flex items-center justify-between">
+    <div>
+      <div class="text-[13px] opacity-70">{$i18n.t('settings.inference.uninstall')}</div>
+      <div class="text-[11px] opacity-25 mt-0.5">{$i18n.t('settings.inference.uninstallDesc')}</div>
+    </div>
+    <button
+      class="text-[12px] opacity-40 hover:opacity-70 px-3 py-1.5 bg-black/[0.04] dark:bg-white/[0.06] transition border-none text-[#1d1d1f] dark:text-[#fafafa] rounded-xl flex items-center gap-1.5 {uninstalling ? 'pointer-events-none opacity-20' : ''}"
+      disabled={uninstalling}
+      onclick={async () => {
+        if (confirm($i18n.t('settings.inference.uninstallConfirm'))) {
+          uninstalling = true
+          try {
+            await window.electronAPI.uninstallLlamaCpp()
+            lsInfo = await window.electronAPI.getLlamaCppInfo()
+          } catch (e) {
+            console.error('Failed to uninstall llama.cpp:', e)
+          }
+          uninstalling = false
+        }
+      }}
+    >
+      {#if uninstalling}
+        <div class="w-2.5 h-2.5 rounded-full border-[1.5px] border-black/20 dark:border-white/30 border-t-transparent animate-spin"></div>
+        {$i18n.t('common.uninstalling')}
+      {:else}
+        {$i18n.t('common.uninstall')}
+      {/if}
+    </button>
+  </div>
+  {/if}
 
 </div>
 {/if}

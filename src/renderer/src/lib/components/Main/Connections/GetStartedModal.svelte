@@ -65,7 +65,10 @@
 
       <div class="py-3.5 flex items-center justify-between gap-4">
         <div>
-          <div class="text-[13px] font-medium text-gray-700 dark:text-gray-300">{$i18n.t('main.getStarted.llamaCpp')}</div>
+          <div class="text-[13px] font-medium text-gray-700 dark:text-gray-300 flex items-center gap-1.5">
+            {$i18n.t('main.getStarted.llamaCpp')}
+            <span class="text-[9px] opacity-30 uppercase tracking-wide">{$i18n.t('common.experimental')}</span>
+          </div>
           <div class="text-[11px] text-gray-400 dark:text-gray-500 mt-0.5">{$i18n.t('main.getStarted.llamaCppDesc')}</div>
         </div>
         <Switch

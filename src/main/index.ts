@@ -65,7 +65,8 @@ import {
   getLlamaCppPty,
   validateLlamaCppProcess,
   checkLlamaCppUpdate,
-  updateLlamaCpp
+  updateLlamaCpp,
+  uninstallLlamaCpp
 } from './utils/llamacpp'
 
 import {
@@ -313,6 +314,22 @@ const connectTo = async (connection: Connection) => {
       if (!started) return null
     }
     url = SERVER_URL || connection.url
+
+    // Wait for the server to actually be reachable before opening the view.
+    // startServerHandler returns as soon as the process spawns, but the HTTP
+    // endpoint might not be ready yet (especially on first launch).
+    if (!SERVER_REACHABLE) {
+      const maxWait = 120_000
+      const poll = 2_000
+      const t0 = Date.now()
+      while (!SERVER_REACHABLE && Date.now() - t0 < maxWait) {
+        await new Promise((r) => setTimeout(r, poll))
+      }
+      if (!SERVER_REACHABLE) {
+        log.warn('connectTo: server did not become reachable within timeout')
+        return null
+      }
+    }
   }
 
   // Normalize URL
@@ -538,8 +555,16 @@ const resetAppHandler = async () => {
     } catch (e) {
       log.warn('Failed to stop Open Terminal during reset:', e)
     }
+    // Stop and uninstall llama.cpp if running
+    try {
+      await uninstallLlamaCpp()
+      sendToRenderer('status:llamacpp', null)
+    } catch (e) {
+      log.warn('Failed to uninstall llama.cpp during reset:', e)
+    }
     await new Promise((resolve) => setTimeout(resolve, 1000))
     await resetApp()
+    CONFIG = await getConfig() // reload from defaults since config.json was deleted
     new Notification({ title: 'Open WebUI', body: 'Application has been reset.' }).show()
   } catch (error) {
     log.error('Failed to reset:', error)
@@ -900,6 +925,28 @@ if (!gotTheLock) {
     ipcMain.handle('llamacpp:logs', () => getLlamaCppLog())
     ipcMain.handle('llamacpp:pty:connect', () => connectLlamaCppPtyPort())
 
+    ipcMain.handle('llamacpp:uninstall', async () => {
+      try {
+        const info = getLlamaCppInfo()
+        await uninstallLlamaCpp()
+        sendToRenderer('status:llamacpp', null)
+        // Unregister OpenAI endpoint if it was running
+        if (info.url) {
+          sendToRenderer('connections:openai', {
+            action: 'remove',
+            url: `${info.url}/v1`
+          })
+          setTimeout(() => sendToRenderer('models:refresh'), 500)
+        }
+        await setConfig({ llamaCpp: { ...CONFIG?.llamaCpp, enabled: false } })
+        CONFIG = await getConfig()
+        return true
+      } catch (error) {
+        log.error('Failed to uninstall llamacpp:', error)
+        return false
+      }
+    })
+
     // Hugging Face models
     ipcMain.handle('huggingface:models:list', () => listModels())
     ipcMain.handle('huggingface:models:dir', () => getModelsDir())
@@ -964,6 +1011,11 @@ if (!gotTheLock) {
         normalizedUrl = normalizedUrl.replace('http://0.0.0.0', 'http://localhost')
       }
       await openUrl(normalizedUrl)
+    })
+
+    ipcMain.handle('open:path', async (_event, folderPath: string) => {
+      if (!folderPath) throw new Error('No path provided')
+      await shell.openPath(folderPath)
     })
 
     ipcMain.handle('notification', async (_event, { title, body }) => {

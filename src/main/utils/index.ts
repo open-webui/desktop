@@ -815,12 +815,10 @@ const DEFAULT_CONFIG: AppConfig = {
   },
   openTerminal: {
     enabled: false,
-    port: 8000,
     cwd: ''
   },
   llamaCpp: {
     enabled: false,
-    port: 8081,
     version: 'latest',
     variant: 'cpu',
     extraArgs: []
@@ -842,7 +840,15 @@ export const getConfig = async (): Promise<AppConfig> => {
   }
 }
 
+let configWriteLock: Promise<void> = Promise.resolve()
+
 export const setConfig = async (config: Partial<AppConfig>): Promise<void> => {
+  // Serialize writes so concurrent callers don't race on the tmp file
+  const previous = configWriteLock
+  let resolve: () => void
+  configWriteLock = new Promise<void>((r) => { resolve = r })
+  await previous
+
   const configPath = path.join(getUserDataPath(), 'config.json')
   const tmpPath = configPath + '.tmp'
   try {
@@ -857,6 +863,8 @@ export const setConfig = async (config: Partial<AppConfig>): Promise<void> => {
       if (fs.existsSync(tmpPath)) fs.unlinkSync(tmpPath)
     } catch {}
     throw error
+  } finally {
+    resolve!()
   }
 }
 
@@ -889,5 +897,48 @@ export const resetApp = async (): Promise<void> => {
     } catch (error) {
       log.error('Failed to remove data directory:', error)
     }
+  }
+
+  // Remove llama.cpp binaries
+  const llamaCppPath = path.join(getUserDataPath(), 'llama.cpp')
+  if (fs.existsSync(llamaCppPath)) {
+    try {
+      fs.rmSync(llamaCppPath, { recursive: true, force: true })
+      log.info('Removed llama.cpp directory')
+    } catch (error) {
+      log.error('Failed to remove llama.cpp directory:', error)
+    }
+  }
+
+  // Remove downloaded models (huggingface + any user-added models)
+  const modelsPath = path.join(getUserDataPath(), 'models')
+  if (fs.existsSync(modelsPath)) {
+    try {
+      fs.rmSync(modelsPath, { recursive: true, force: true })
+      log.info('Removed models directory')
+    } catch (error) {
+      log.error('Failed to remove models directory:', error)
+    }
+  }
+
+  // Remove service lock files
+  const locksPath = path.join(getUserDataPath(), 'locks')
+  if (fs.existsSync(locksPath)) {
+    try {
+      fs.rmSync(locksPath, { recursive: true, force: true })
+      log.info('Removed service locks')
+    } catch (error) {
+      log.error('Failed to remove locks directory:', error)
+    }
+  }
+
+  // Clear Electron session data (localStorage, cookies, cache, etc.)
+  try {
+    const { session } = require('electron')
+    await session.defaultSession.clearStorageData()
+    await session.defaultSession.clearCache()
+    log.info('Cleared Electron session data')
+  } catch (error) {
+    log.error('Failed to clear Electron session data:', error)
   }
 }

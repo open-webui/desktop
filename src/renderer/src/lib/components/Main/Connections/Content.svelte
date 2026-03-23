@@ -5,6 +5,7 @@
   import i18n from '../../../i18n'
   import LocalInstall from '../../Setup/LocalInstall.svelte'
   import GetStartedModal from './GetStartedModal.svelte'
+  import AddConnectionModal from './AddConnectionModal.svelte'
   import landingVideo from '../../../../assets/landing.mp4'
 
   interface Props {
@@ -27,6 +28,7 @@
     onStartInstall: (options?: { installOpenTerminal?: boolean; installLlamaCpp?: boolean }) => void
     onAddConnection: () => void
     onSetView: (v: string) => void
+    showAddConnectionModal: boolean
   }
 
   let {
@@ -48,7 +50,8 @@
     autoInstall = $bindable(false),
     onStartInstall,
     onAddConnection,
-    onSetView
+    onSetView,
+    showAddConnectionModal = $bindable(false)
   }: Props = $props()
 
   let showGetStartedModal = $state(false)
@@ -317,14 +320,16 @@
                   {/if}
                 {/if}
 
+                {#if installPhase !== 'working'}
                 <div class="mt-6">
                   <button
                     class="text-sm opacity-40 hover:opacity-70 transition bg-transparent border-none text-[#1d1d1f] dark:text-[#fafafa]"
-                    onclick={() => onSetView('add')}
+                    onclick={() => { showAddConnectionModal = true }}
                   >
                     {$i18n.t('setup.connectToServer')}
                   </button>
                 </div>
+                {/if}
               </div>
             </div>
           </div>
@@ -340,44 +345,6 @@
             {installError}
           </div>
         {/if}
-      {:else if view === 'add'}
-        <div class="w-full max-w-[260px]" in:fade={{ duration: 150 }}>
-          <div class="text-base opacity-70 mb-4">{$i18n.t('setup.newConnection')}</div>
-
-          <div class="flex flex-col gap-2.5">
-            <input
-              type="text"
-              bind:value={url}
-              placeholder={$i18n.t('setup.urlPlaceholder')}
-              class="w-full px-4 py-2.5 rounded-xl bg-black/[0.04] dark:bg-white/[0.06] text-[13px] text-[#1d1d1f] dark:text-[#fafafa] placeholder:opacity-20 outline-none focus:bg-black/[0.06] dark:focus:bg-white/[0.1] transition no-drag border-none"
-              onkeydown={(e) => e.key === 'Enter' && onAddConnection()}
-            />
-
-            {#if error}
-              <p class="text-[11px] opacity-60">{error}</p>
-            {/if}
-
-            <div class="flex items-center gap-3 mt-1">
-              <button
-                class="inline-flex items-center gap-2 bg-black dark:bg-white px-5 py-2 rounded-xl text-white dark:text-black text-[13px] transition hover:bg-gray-800 dark:hover:bg-gray-100 disabled:opacity-30 border-none"
-                onclick={onAddConnection}
-                disabled={connecting || !url.trim()}
-              >
-                {connecting ? $i18n.t('common.connecting') : $i18n.t('common.connect')}
-              </button>
-
-              <button
-                class="text-[12px] opacity-30 hover:opacity-60 transition bg-transparent border-none text-[#1d1d1f] dark:text-[#fafafa]"
-                onclick={() => {
-                  onSetView('welcome')
-                  error = ''
-                }}
-              >
-                {$i18n.t('common.cancel')}
-              </button>
-            </div>
-          </div>
-        </div>
       {:else if view === 'install'}
         <div class="w-full max-w-[260px]">
           <LocalInstall
@@ -401,6 +368,21 @@
         onStartInstall(options)
       }}
       onCancel={() => { showGetStartedModal = false }}
+    />
+  {/if}
+
+  {#if showAddConnectionModal}
+    <AddConnectionModal
+      bind:url
+      bind:connecting
+      bind:error
+      onConnect={() => {
+        onAddConnection()
+      }}
+      onCancel={() => {
+        showAddConnectionModal = false
+        error = ''
+      }}
     />
   {/if}
 </div>

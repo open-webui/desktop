@@ -27,7 +27,7 @@
   let url = $state('')
   let connecting = $state(false)
   let error = $state('')
-  let view = $state('welcome') // welcome | add | install | connected
+  let view = $state('welcome') // welcome | install | connected
   let autoInstall = $state(false)
   let installPhase = $state('idle') // idle | working | error
   let installError = $state('')
@@ -40,6 +40,8 @@
   let connectingId = $state('')
   let openConnections: Map<string, string> = $state(new Map())
   let localInstalled = $state(false)
+  let openTerminalInstalled = $state(false)
+  let showAddConnectionModal = $state(false)
 
   // Active log panel
   let activeLog = $state<'server' | 'open-terminal' | 'llama-server' | null>(null)
@@ -82,16 +84,17 @@
         if (!pythonOk) throw new Error('Failed to install Python. Please try again.')
       }
 
-      // Start optional services in parallel — they don't depend on Open WebUI
+      const ok = await window.electronAPI.installPackage()
+      if (!ok) throw new Error($i18n.t('error.installFailedGeneric'))
+
+      // Start optional services after packages are installed to avoid
+      // concurrent uv installs fighting over the lockfile
       if (options?.installOpenTerminal) {
         toggleOpenTerminal()
       }
       if (options?.installLlamaCpp) {
         toggleLlamaCpp()
       }
-
-      const ok = await window.electronAPI.installPackage()
-      if (!ok) throw new Error($i18n.t('error.installFailedGeneric'))
 
       installStatus = $i18n.t('main.install.startingServer')
       await window.electronAPI.startServer()
@@ -113,17 +116,25 @@
       const maxWait = 120000
       const pollInterval = 2000
       const startTime = Date.now()
+      let reachable = false
       while (Date.now() - startTime < maxWait) {
         const si = await window.electronAPI.getServerInfo()
-        if (si?.reachable) break
+        if (si?.reachable) {
+          reachable = true
+          break
+        }
         await new Promise((r) => setTimeout(r, pollInterval))
+      }
+
+      if (!reachable) {
+        throw new Error('Server did not become reachable. Please try again.')
       }
 
       // Now connect — the server is ready
       installStatus = ''
-      installPhase = 'idle'
       localInstalled = true
       await connect('local')
+      installPhase = 'idle'
     } catch (e: any) {
       installPhase = 'error'
       installError = e?.message || $i18n.t('error.somethingWentWrong')
@@ -138,6 +149,12 @@
     let u = url.trim()
     if (!u.startsWith('http')) u = 'https://' + u
     error = ''
+    try {
+      new URL(u)
+    } catch {
+      error = $i18n.t('setup.invalidUrl')
+      return
+    }
     connecting = true
     try {
       const valid = await window.electronAPI.validateUrl(u)
@@ -156,6 +173,7 @@
       config.set(await window.electronAPI.getConfig())
       url = ''
       error = ''
+      showAddConnectionModal = false
       view = 'welcome'
     } catch {
       error = $i18n.t('setup.connectionFailed')
@@ -292,7 +310,11 @@
         openConnections = new Map(openConnections)
         connectedUrl = data.data.url
         activeConnectionId = connId
-        view = 'connected'
+        // Don't switch to connected view during active install — the install
+        // flow handles its own transition after confirming reachability.
+        if (installPhase !== 'working') {
+          view = 'connected'
+        }
       }
       if (data.type === 'status:open-terminal') {
         openTerminalStatus = data.data
@@ -325,6 +347,11 @@
       }
     })
 
+    // Check if Open Terminal package is installed
+    window.electronAPI.getOpenTerminalStatus().then((installed: boolean) => {
+      openTerminalInstalled = installed
+    })
+
     // Check if Open WebUI package is installed
     window.electronAPI.getPackageVersion('open-webui').then((v: string | null) => {
       localInstalled = v !== null
@@ -334,6 +361,8 @@
     window.electronAPI.getLlamaCppInfo().then((info: any) => {
       if (info?.status) {
         llamaCppStatus = info.status
+      }
+      if (info?.binaryPath || info?.status) {
         llamaCppInfo = info
       }
     })
@@ -394,7 +423,7 @@
         bind:settingsOpen
         onConnect={connect}
         onDisconnect={disconnect}
-        onAddView={() => { disconnect(); view = 'add' }}
+        onAddView={() => { showAddConnectionModal = true }}
         {onOpenSettings}
         onRename={async (id, name) => {
           await window.electronAPI.updateConnection(id, { name })
@@ -421,6 +450,7 @@
       bind:url
       bind:connecting
       bind:error
+      bind:showAddConnectionModal
       bind:autoInstall
       onStartInstall={startInstall}
       onAddConnection={addConnection}
@@ -439,13 +469,14 @@
       statusText={activeLog === 'server'
         ? (serverStatus === 'starting' ? 'Starting Open WebUI…' : serverStatus === 'running' && !serverReachable ? 'Waiting for server…' : installStatus || '')
         : activeLog === 'open-terminal'
-          ? (openTerminalStatus === 'starting' ? 'Starting Open Terminal…' : '')
-          : (llamaCppSetupStatus || (llamaCppStatus === 'starting' ? 'Starting llama-server…' : llamaCppStatus === 'setting-up' ? 'Setting up llama.cpp…' : ''))}
+          ? (openTerminalStatus === 'stopping' ? 'Stopping Open Terminal…' : openTerminalStatus === 'starting' ? 'Starting Open Terminal…' : '')
+          : (llamaCppStatus === 'stopping' ? 'Stopping llama-server…' : llamaCppSetupStatus || (llamaCppStatus === 'starting' ? 'Starting llama-server…' : llamaCppStatus === 'setting-up' ? 'Setting up llama.cpp…' : ''))}
       connectPty={getConnectPty(activeLog)}
       disconnectPty={getDisconnectPty(activeLog)}
       readonly={activeLog !== 'server'}
       onWrite={getOnWrite(activeLog)}
       onResize={getOnResize(activeLog)}
+      onStop={activeLog === 'open-terminal' ? toggleOpenTerminal : activeLog === 'llama-server' ? toggleLlamaCpp : undefined}
       onClose={() => { activeLog = null; showingLogs = false }}
     />
   {/if}
@@ -455,6 +486,9 @@
     {serverReachable}
     {openTerminalStatus}
     {llamaCppStatus}
+    openWebuiInstalled={localInstalled}
+    {openTerminalInstalled}
+    llamaCppInstalled={!!llamaCppInfo?.binaryPath}
     {activeLog}
     onSelectLog={selectLog}
     onStartServer={async () => {
