@@ -6,8 +6,35 @@ on:
             - release
 
 jobs:
-    build:
-        name: Build and Package
+    compile:
+        name: Compile (Typecheck + Vite Build)
+        runs-on: ubuntu-latest
+        steps:
+            - name: Checkout Repository
+              uses: actions/checkout@v4
+
+            - name: Setup Node.js
+              uses: actions/setup-node@v4
+              with:
+                  node-version: 22
+                  cache: 'npm'
+
+            - name: Install Dependencies
+              run: npm ci
+
+            - name: Typecheck and Build
+              run: npm run build
+
+            - name: Upload Compiled Output
+              uses: actions/upload-artifact@v4
+              with:
+                  name: compiled-output
+                  path: out/
+                  retention-days: 1
+
+    package:
+        name: Package (${{ matrix.os }}-${{ matrix.arch }})
+        needs: compile
         runs-on: ${{ matrix.os }}
         strategy:
             fail-fast: false
@@ -29,14 +56,28 @@ jobs:
               uses: actions/setup-node@v4
               with:
                   node-version: 22
-                  cache: "npm"
+                  cache: 'npm'
 
             - name: Install Dependencies
               run: npm ci
 
+            - name: Download Compiled Output
+              uses: actions/download-artifact@v4
+              with:
+                  name: compiled-output
+                  path: out/
+
+            # ── Flatpak setup (Linux only) ──
+            - name: Cache Flatpak SDKs
+              if: matrix.os == 'ubuntu-latest'
+              uses: actions/cache@v4
+              with:
+                  path: ~/.local/share/flatpak
+                  key: flatpak-sdk-23.08-electron2-${{ runner.os }}
+
             - name: Install Flatpak build tools
               id: flatpak
-              if: ${{ matrix.os == 'ubuntu-latest' }}
+              if: matrix.os == 'ubuntu-latest'
               continue-on-error: true
               run: |
                   sudo apt-get update
@@ -45,9 +86,10 @@ jobs:
                   flatpak install --user -y flathub org.freedesktop.Platform//23.08 org.freedesktop.Sdk//23.08
                   flatpak install --user -y flathub org.electronjs.Electron2.BaseApp//23.08
 
+            # ── Apple codesigning (macOS only) ──
             - name: Install Apple codesigning certificate
               id: apple_cert
-              if: ${{ matrix.os == 'macos-latest' }}
+              if: matrix.os == 'macos-latest'
               continue-on-error: true
               env:
                   BUILD_CERTIFICATE_BASE64: ${{ secrets.BUILD_CERTIFICATE_BASE64 }}
@@ -67,44 +109,43 @@ jobs:
                   security import $CERTIFICATE_PATH -P "$P12_PASSWORD" -A -t cert -f pkcs12 -k $KEYCHAIN_PATH
                   security list-keychain -d user -s $KEYCHAIN_PATH
 
-            # Build commands — use electron-builder directly to pass arch flags
-            - name: Create Windows Builds
+            # ── Platform packaging ──
+            - name: Package for Windows
               id: win_build
-              if: ${{ matrix.os == 'windows-latest' }}
+              if: matrix.os == 'windows-latest'
               continue-on-error: true
-              run: npm run build && npx electron-builder --win --${{ matrix.arch }} --publish never
+              run: npx electron-builder --win --${{ matrix.arch }} --publish never
 
-            - name: Create Windows Builds (unsigned fallback)
-              if: ${{ matrix.os == 'windows-latest' && steps.win_build.outcome == 'failure' }}
+            - name: Package for Windows (unsigned fallback)
+              if: matrix.os == 'windows-latest' && steps.win_build.outcome == 'failure'
               env:
                   WIN_CSC_LINK: ''
                   CSC_IDENTITY_AUTO_DISCOVERY: 'false'
               run: |
                   rm -rf dist/
-                  npm run build && npx electron-builder --win --${{ matrix.arch }} --publish never
+                  npx electron-builder --win --${{ matrix.arch }} --publish never
 
-            - name: Create macOS Builds (signed + notarized)
+            - name: Package for macOS (signed + notarized)
               id: mac_build_signed
-              if: ${{ matrix.os == 'macos-latest' && steps.apple_cert.outcome == 'success' }}
+              if: matrix.os == 'macos-latest' && steps.apple_cert.outcome == 'success'
               continue-on-error: true
               env:
                   APPLE_ID: ${{ secrets.APPLE_ID }}
                   APPLE_APP_SPECIFIC_PASSWORD: ${{ secrets.APPLE_PASSWORD }}
                   APPLE_TEAM_ID: ${{ secrets.APPLE_TEAM_ID }}
-              run: npm run build && npx electron-builder --mac --${{ matrix.arch }} --publish never
+              run: npx electron-builder --mac --${{ matrix.arch }} --publish never
 
-            - name: Create macOS Builds (unsigned fallback)
-              if: ${{ matrix.os == 'macos-latest' && (steps.apple_cert.outcome != 'success' || steps.mac_build_signed.outcome == 'failure') }}
+            - name: Package for macOS (unsigned fallback)
+              if: matrix.os == 'macos-latest' && (steps.apple_cert.outcome != 'success' || steps.mac_build_signed.outcome == 'failure')
               env:
                   CSC_IDENTITY_AUTO_DISCOVERY: 'false'
               run: |
                   rm -rf dist/
-                  npm run build && npx electron-builder --mac --${{ matrix.arch }} -c.mac.notarize=null --publish never
+                  npx electron-builder --mac --${{ matrix.arch }} -c.mac.notarize=null --publish never
 
-            - name: Create Linux Builds
-              if: ${{ matrix.os == 'ubuntu-latest' }}
+            - name: Package for Linux
+              if: matrix.os == 'ubuntu-latest'
               run: |
-                  npm run build
                   if [ "${{ steps.flatpak.outcome }}" == "success" ]; then
                     npx electron-builder --linux --${{ matrix.arch }} --publish never
                   else
@@ -112,9 +153,9 @@ jobs:
                     npx electron-builder --linux AppImage deb snap --${{ matrix.arch }} --publish never
                   fi
 
-            # Sign Windows executable after build
+            # ── Windows code signing ──
             - name: Azure Trusted Signing (Windows Only)
-              if: ${{ matrix.os == 'windows-latest' }}
+              if: matrix.os == 'windows-latest'
               continue-on-error: true
               uses: azure/trusted-signing-action@v0.5.1
               with:
@@ -127,12 +168,7 @@ jobs:
                   files-folder: dist
                   files-folder-filter: exe
 
-            - name: List files for debugging
-              shell: bash
-              run: |
-                  echo "Files in dist directory:"
-                  ls -la dist/ || echo "dist directory not found"
-
+            # ── Upload release artifacts ──
             - name: Upload Artifacts
               uses: actions/upload-artifact@v4
               with:
@@ -153,14 +189,24 @@ jobs:
                   if-no-files-found: warn
 
     release:
-        needs: build
-        if: always() && github.event_name == 'push' && github.ref == 'refs/heads/release'
+        name: Create GitHub Release
+        needs: package
+        if: >-
+            github.event_name == 'push' &&
+            github.ref == 'refs/heads/release' &&
+            !cancelled() &&
+            needs.package.result != 'failure'
         runs-on: ubuntu-latest
         permissions:
             contents: write
         steps:
             - name: Checkout Repository
               uses: actions/checkout@v4
+              with:
+                  sparse-checkout: |
+                      package.json
+                      CHANGELOG.md
+                  sparse-checkout-cone-mode: false
 
             - name: Get version from package.json
               id: version
@@ -186,16 +232,12 @@ jobs:
 
             - name: Download Artifacts
               uses: actions/download-artifact@v4
-
-            - name: List downloaded artifacts
-              run: |
-                  echo "Downloaded artifacts:"
-                  find . -type f | grep -E "\.(exe|zip|dmg|pkg|deb|rpm|AppImage|flatpak|tar\.gz|yml|blockmap)$" || echo "No package files found"
-                  ls -laR
+              with:
+                  pattern: '*-*'
+                  merge-multiple: false
 
             - name: Create Release
-              id: create_release
-              uses: softprops/action-gh-release@v1
+              uses: softprops/action-gh-release@v2
               env:
                   GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
               with:
