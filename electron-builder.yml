@@ -26,13 +26,14 @@ mac:
   target:
     - dmg
     - zip
+  entitlements: build/entitlements.mac.plist
   entitlementsInherit: build/entitlements.mac.plist
   extendInfo:
     - NSCameraUsageDescription: Application requests access to the device's camera.
     - NSMicrophoneUsageDescription: Application requests access to the device's microphone.
     - NSDocumentsFolderUsageDescription: Application requests access to the user's Documents folder.
     - NSDownloadsFolderUsageDescription: Application requests access to the user's Downloads folder.
-  notarize: true
+  notarize: false
 dmg:
   background: build/dmg-background.png
   artifactName: ${name}-${version}.${ext}
@@ -72,6 +73,7 @@ flatpak:
     - --filesystem=home
     - --talk-name=org.freedesktop.Notifications
 npmRebuild: false
+afterSign: build/after-sign-mac.js
 publish:
   provider: github
   owner: open-webui
