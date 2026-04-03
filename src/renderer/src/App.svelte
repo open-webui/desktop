@@ -30,27 +30,9 @@
       }
     })
 
-    // Install python in the background — don't block UI
-    const pythonReady = await api.getPythonStatus()
-    if (!pythonReady) {
-      // Check disk space before installing
-      const MINIMUM_DISK_BYTES = 5 * 1024 * 1024 * 1024 // 5 GB
-      const disk = await api.getDiskSpace()
-      if (disk?.free >= 0 && disk.free < MINIMUM_DISK_BYTES) {
-        const availableGB = (disk.free / (1024 * 1024 * 1024)).toFixed(1)
-        appState.set(`insufficient-storage:${availableGB}`)
-        return
-      }
-
-      appState.set('initializing')
-      api.installPython().then(async () => {
-        appState.set('ready')
-      }).catch((e: any) => {
-        appState.set(`install-failed:${e?.message || 'Python installation failed. Please try again.'}`)
-      })
-    } else {
-      appState.set('ready')
-    }
+    // Don't auto-install anything — the user must explicitly choose
+    // "Get Started" (local install) which handles Python/uv as a prerequisite.
+    appState.set('ready')
 
     setInterval(async () => {
       serverInfo.set(await api.getServerInfo())

@@ -24,7 +24,7 @@
   <div class="absolute inset-0 bg-black/50 backdrop-blur-sm"></div>
 
   <div
-    class="relative mx-4 w-full max-w-lg overflow-hidden rounded-3xl bg-white shadow-2xl dark:bg-gray-950"
+    class="relative mx-4 w-full max-w-xl overflow-hidden rounded-3xl bg-white shadow-2xl dark:bg-gray-950"
     transition:scale={{ start: 0.97, duration: 180 }}
     onmousedown={(e) => e.stopPropagation()}
   >
@@ -51,7 +51,7 @@
     </div>
 
     <!-- Options -->
-    <div class="px-6 py-4 flex flex-col divide-y divide-gray-100 dark:divide-gray-800/60">
+    <div class="px-6 py-4 flex flex-col divide-y divide-gray-100/30 dark:divide-gray-800/15">
       <div class="py-3.5 flex items-center justify-between gap-4">
         <div>
           <div class="text-[13px] font-medium text-gray-700 dark:text-gray-300">{$i18n.t('main.getStarted.openTerminal')}</div>
@@ -95,3 +95,4 @@
     </div>
   </div>
 </div>
+
