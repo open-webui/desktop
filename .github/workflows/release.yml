@@ -133,15 +133,13 @@ jobs:
                   APPLE_ID: ${{ secrets.APPLE_ID }}
                   APPLE_APP_SPECIFIC_PASSWORD: ${{ secrets.APPLE_PASSWORD }}
                   APPLE_TEAM_ID: ${{ secrets.APPLE_TEAM_ID }}
-              run: npx electron-builder --mac --${{ matrix.arch }} --publish never
+              run: npx electron-builder --mac --${{ matrix.arch }} -c.mac.identity=auto -c.mac.notarize=true --publish never
 
             - name: Package for macOS (unsigned fallback)
               if: matrix.os == 'macos-latest' && (steps.apple_cert.outcome != 'success' || steps.mac_build_signed.outcome == 'failure')
-              env:
-                  CSC_IDENTITY_AUTO_DISCOVERY: 'false'
               run: |
                   rm -rf dist/
-                  npx electron-builder --mac --${{ matrix.arch }} -c.mac.notarize=null --publish never
+                  npx electron-builder --mac --${{ matrix.arch }} --publish never
 
             - name: Package for Linux
               if: matrix.os == 'ubuntu-latest'
