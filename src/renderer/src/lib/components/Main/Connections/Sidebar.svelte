@@ -69,7 +69,9 @@
 >
   <!-- Connections header -->
   <div class="flex items-center justify-between px-4 pt-2 pb-1.5">
-    <span class="text-[10px] tracking-wider uppercase opacity-60">{$i18n.t('sidebar.connections')}</span>
+    <span class="text-[10px] tracking-wider uppercase opacity-60"
+      >{$i18n.t('sidebar.connections')}</span
+    >
     <button
       class="opacity-25 hover:opacity-60 transition bg-transparent border-none text-[#1d1d1f] dark:text-[#fafafa] leading-none"
       onclick={() => {
@@ -93,13 +95,16 @@
   <div class="flex-1 min-h-0 overflow-y-auto px-2">
     <!-- Pinned: Open WebUI (local) -->
     {#if localConn && localInstalled}
-      {@const isServerLoading = connectingId === localConn.id || serverStatus === 'starting' || (serverStatus === 'running' && !serverReachable)}
+      {@const isServerLoading =
+        connectingId === localConn.id ||
+        serverStatus === 'starting' ||
+        (serverStatus === 'running' && !serverReachable)}
       {@const isLocalDisabled = !serverReachable && !isServerLoading}
       <div
-        class="w-full px-2 py-[6px] rounded-xl group flex items-center gap-2 transition-colors {isLocalDisabled
+        class="w-full px-2.5 py-1.5 rounded-xl group flex items-center gap-2 transition-colors {isLocalDisabled
           ? 'opacity-40 cursor-default'
           : 'cursor-pointer'} {activeConnectionId === localConn.id || isServerLoading
-          ? 'bg-black/[0.06] dark:bg-white/[0.08]'
+          ? 'bg-black/[0.06] dark:bg-white/[0.06]'
           : isLocalDisabled
             ? ''
             : 'hover:bg-black/[0.03] dark:bg-white/[0.05]'}"
@@ -238,9 +243,9 @@
 
     {#each remoteConnections as conn (conn.id)}
       <div
-        class="w-full px-2 py-[6px] rounded-xl group flex items-center gap-2 transition-colors cursor-pointer {activeConnectionId ===
+        class="w-full px-2.5 py-1.5 rounded-xl group flex items-center gap-2 transition-colors cursor-pointer {activeConnectionId ===
         conn.id
-          ? 'bg-black/[0.06] dark:bg-white/[0.08]'
+          ? 'bg-black/[0.06] dark:bg-white/[0.06]'
           : 'hover:bg-black/[0.03] dark:bg-white/[0.05]'}"
         role="button"
         tabindex="0"
