@@ -126,23 +126,13 @@ jobs:
                   npx electron-builder --win --${{ matrix.arch }} --publish never
 
             - name: Package for macOS (signed + notarized)
-              id: mac_build_signed
-              if: matrix.os == 'macos-latest' && steps.apple_cert.outcome == 'success'
-              continue-on-error: true
+              if: matrix.os == 'macos-latest'
               env:
                   APPLE_ID: ${{ secrets.APPLE_ID }}
                   APPLE_APP_SPECIFIC_PASSWORD: ${{ secrets.APPLE_PASSWORD }}
                   APPLE_TEAM_ID: ${{ secrets.APPLE_TEAM_ID }}
                   ELECTRON_BUILDER_BINARIES_MIRROR: https://github.com/electron-userland/electron-builder-binaries/releases/download/
               run: npx electron-builder --mac --${{ matrix.arch }} -c.mac.identity=auto -c.mac.notarize=true --publish never
-
-            - name: Package for macOS (unsigned fallback)
-              if: matrix.os == 'macos-latest' && (steps.apple_cert.outcome != 'success' || steps.mac_build_signed.outcome == 'failure')
-              env:
-                  ELECTRON_BUILDER_BINARIES_MIRROR: https://github.com/electron-userland/electron-builder-binaries/releases/download/
-              run: |
-                  rm -rf dist/
-                  npx electron-builder --mac --${{ matrix.arch }} -c.mac.notarize=false --publish never
 
             - name: Package for Linux
               if: matrix.os == 'ubuntu-latest'
