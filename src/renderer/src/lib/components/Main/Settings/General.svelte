@@ -76,10 +76,21 @@
   let recording = $state(false)
   let shortcutInputEl = $state<HTMLButtonElement | null>(null)
 
+  // Spotlight shortcut recorder
+  let spotlightShortcutValue = $state('')
+  let spotlightRecording = $state(false)
+  let spotlightShortcutInputEl = $state<HTMLButtonElement | null>(null)
+
   // Keep shortcut value in sync with config store
   $effect(() => {
     if ($config?.globalShortcut !== undefined) {
       shortcutValue = $config.globalShortcut ?? ''
+    }
+  })
+
+  $effect(() => {
+    if ($config?.spotlightShortcut !== undefined) {
+      spotlightShortcutValue = $config.spotlightShortcut ?? ''
     }
   })
 
@@ -139,6 +150,32 @@
       shortcutValue = accel
       recording = false
       await window.electronAPI.setConfig({ globalShortcut: accel })
+      config.set(await window.electronAPI.getConfig())
+    }
+  }
+
+  const handleSpotlightShortcutKeydown = async (e: KeyboardEvent) => {
+    e.preventDefault()
+    e.stopPropagation()
+
+    if (e.key === 'Escape') {
+      spotlightRecording = false
+      return
+    }
+
+    if (e.key === 'Backspace' || e.key === 'Delete') {
+      spotlightShortcutValue = ''
+      spotlightRecording = false
+      await window.electronAPI.setConfig({ spotlightShortcut: '' })
+      config.set(await window.electronAPI.getConfig())
+      return
+    }
+
+    const accel = keyToElectron(e)
+    if (accel) {
+      spotlightShortcutValue = accel
+      spotlightRecording = false
+      await window.electronAPI.setConfig({ spotlightShortcut: accel })
       config.set(await window.electronAPI.getConfig())
     }
   }
@@ -292,6 +329,60 @@
           onclick={async () => {
             shortcutValue = ''
             await window.electronAPI.setConfig({ globalShortcut: '' })
+            config.set(await window.electronAPI.getConfig())
+          }}
+        >
+          <svg class="w-3 h-3" fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="1.5">
+            <path stroke-linecap="round" stroke-linejoin="round" d="M6 18L18 6M6 6l12 12" />
+          </svg>
+        </button>
+      {/if}
+    </div>
+  </div>
+
+  <div class="py-4 flex items-center justify-between">
+    <div>
+      <div class="text-[13px] opacity-70">{$i18n.t('settings.general.spotlightShortcut')}</div>
+      <div class="text-[11px] opacity-25 mt-0.5">
+        {#if spotlightRecording}
+          {$i18n.t('settings.general.globalShortcutRecording')}
+        {:else}
+          {$i18n.t('settings.general.spotlightShortcutDesc')}
+        {/if}
+      </div>
+    </div>
+    <div class="flex items-center gap-1.5">
+      <button
+        bind:this={spotlightShortcutInputEl}
+        class="text-[12px] px-3 py-1.5 border-none outline-none rounded-xl transition min-w-[80px] text-center
+          {spotlightRecording
+            ? 'bg-black/[0.08] dark:bg-white/[0.10] text-[#1d1d1f] dark:text-[#fafafa] opacity-80 animate-pulse'
+            : 'bg-black/[0.04] dark:bg-white/[0.06] text-[#1d1d1f] dark:text-[#fafafa] opacity-60 hover:opacity-80'}"
+        onclick={() => {
+          spotlightRecording = true
+          spotlightShortcutInputEl?.focus()
+        }}
+        onkeydown={(e) => {
+          if (spotlightRecording) handleSpotlightShortcutKeydown(e)
+        }}
+        onblur={() => {
+          spotlightRecording = false
+        }}
+      >
+        {#if spotlightRecording}
+          <span class="text-[11px]">{$i18n.t('settings.general.pressShortcut')}</span>
+        {:else if spotlightShortcutValue}
+          {displayShortcut(spotlightShortcutValue)}
+        {:else}
+          <span class="opacity-40">{$i18n.t('common.disabled')}</span>
+        {/if}
+      </button>
+      {#if spotlightShortcutValue && !spotlightRecording}
+        <button
+          class="opacity-20 hover:opacity-50 transition bg-transparent border-none text-[#1d1d1f] dark:text-[#fafafa] p-0.5 shrink-0"
+          onclick={async () => {
+            spotlightShortcutValue = ''
+            await window.electronAPI.setConfig({ spotlightShortcut: '' })
             config.set(await window.electronAPI.getConfig())
           }}
         >

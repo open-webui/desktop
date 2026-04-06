@@ -1,9 +1,21 @@
 <script lang="ts">
-  import { onMount } from 'svelte'
+  import { onMount, onDestroy } from 'svelte'
   import { fade } from 'svelte/transition'
   import { appInfo, config, connections, serverInfo, appState } from './lib/stores'
 
   import Main from './lib/components/Main.svelte'
+
+  let themeMediaQuery: MediaQueryList
+  let themeChangeHandler: ((e: MediaQueryListEvent) => void) | null = null
+
+  const applyResolvedTheme = (theme: string) => {
+    let resolved = theme
+    if (theme === 'system') {
+      resolved = window.matchMedia('(prefers-color-scheme: dark)').matches ? 'dark' : 'light'
+    }
+    document.documentElement.classList.remove('light', 'dark')
+    document.documentElement.classList.add(resolved)
+  }
 
   onMount(async () => {
     const api = window?.electronAPI
@@ -15,11 +27,17 @@
 
     // Apply saved theme
     const savedTheme = (await api.getConfig())?.theme ?? 'system'
-    let resolved = savedTheme
-    if (savedTheme === 'system') {
-      resolved = window.matchMedia('(prefers-color-scheme: dark)').matches ? 'dark' : 'light'
+    applyResolvedTheme(savedTheme)
+
+    // Listen for OS theme changes so "system" mode reacts in real-time
+    themeMediaQuery = window.matchMedia('(prefers-color-scheme: dark)')
+    themeChangeHandler = () => {
+      const currentTheme = $config?.theme ?? 'system'
+      if (currentTheme === 'system') {
+        applyResolvedTheme('system')
+      }
     }
-    document.documentElement.classList.add(resolved)
+    themeMediaQuery.addEventListener('change', themeChangeHandler)
 
     api.onData((data: any) => {
       if (data.type === 'status:server') {
@@ -30,31 +48,19 @@
       }
     })
 
-    // Install python in the background — don't block UI
-    const pythonReady = await api.getPythonStatus()
-    if (!pythonReady) {
-      // Check disk space before installing
-      const MINIMUM_DISK_BYTES = 5 * 1024 * 1024 * 1024 // 5 GB
-      const disk = await api.getDiskSpace()
-      if (disk?.free >= 0 && disk.free < MINIMUM_DISK_BYTES) {
-        const availableGB = (disk.free / (1024 * 1024 * 1024)).toFixed(1)
-        appState.set(`insufficient-storage:${availableGB}`)
-        return
-      }
-
-      appState.set('initializing')
-      api.installPython().then(async () => {
-        appState.set('ready')
-      }).catch((e: any) => {
-        appState.set(`install-failed:${e?.message || 'Python installation failed. Please try again.'}`)
-      })
-    } else {
-      appState.set('ready')
-    }
+    // Don't auto-install anything — the user must explicitly choose
+    // "Get Started" (local install) which handles Python/uv as a prerequisite.
+    appState.set('ready')
 
     setInterval(async () => {
       serverInfo.set(await api.getServerInfo())
     }, 3000)
+  })
+
+  onDestroy(() => {
+    if (themeMediaQuery && themeChangeHandler) {
+      themeMediaQuery.removeEventListener('change', themeChangeHandler)
+    }
   })
 </script>
 

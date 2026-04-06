@@ -14,11 +14,18 @@
 
   onMount(async () => {
     connections.set(await window.electronAPI.getConnections())
-    config.set(await window.electronAPI.getConfig())
+    const cfg = await window.electronAPI.getConfig()
+    config.set(cfg)
+    sidebarOpen = cfg?.showSidebar ?? true
     setTimeout(() => {
       visible = true
     }, 50)
   })
+
+  const toggleSidebar = () => {
+    sidebarOpen = !sidebarOpen
+    window.electronAPI.setConfig({ showSidebar: sidebarOpen })
+  }
 </script>
 
 {#if visible}
@@ -33,13 +40,13 @@
         : 'h-8'}"
     >
       <div
-        class="flex items-center {$appInfo?.platform === 'darwin'
+        class="flex items-center gap-3 {$appInfo?.platform === 'darwin'
           ? 'pl-25'
           : 'pl-3'} pr-2 shrink-0 translate-y-[0.5px]"
       >
         <button
           class="opacity-70 hover:opacity-100 transition bg-transparent border-none text-[#1d1d1f] dark:text-[#fafafa] no-drag"
-          onclick={() => (sidebarOpen = !sidebarOpen)}
+          onclick={toggleSidebar}
           use:tooltip={sidebarOpen ? $i18n.t('sidebar.tooltip.closeSidebar') : $i18n.t('sidebar.tooltip.openSidebar')}
         >
           <svg
@@ -56,6 +63,31 @@
             />
           </svg>
         </button>
+
+        {#if activeConnectionName}
+          <button
+            class="opacity-40 hover:opacity-80 transition bg-transparent border-none text-[#1d1d1f] dark:text-[#fafafa] no-drag cursor-pointer"
+            onclick={() => {
+              const wv = document.querySelector('webview[style*="display: flex"]') as any
+              if (wv?.goBack) wv.goBack()
+            }}
+          >
+            <svg class="w-[13px] h-[13px]" fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="2">
+              <path stroke-linecap="round" stroke-linejoin="round" d="M15.75 19.5L8.25 12l7.5-7.5" />
+            </svg>
+          </button>
+          <button
+            class="opacity-40 hover:opacity-80 transition bg-transparent border-none text-[#1d1d1f] dark:text-[#fafafa] no-drag cursor-pointer"
+            onclick={() => {
+              const wv = document.querySelector('webview[style*="display: flex"]') as any
+              if (wv?.goForward) wv.goForward()
+            }}
+          >
+            <svg class="w-[13px] h-[13px]" fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="2">
+              <path stroke-linecap="round" stroke-linejoin="round" d="M8.25 4.5l7.5 7.5-7.5 7.5" />
+            </svg>
+          </button>
+        {/if}
       </div>
       <div class="flex-1 flex items-center justify-center">
         <span class="text-[11px] opacity-80">{activeConnectionName || $i18n.t('app.name')}</span>

@@ -37,12 +37,24 @@
     <div
       class="relative flex h-36 items-center justify-center overflow-hidden bg-gradient-to-br from-gray-900 via-gray-800 to-black dark:from-white dark:via-gray-100 dark:to-gray-200"
     >
-      <div class="absolute inset-0 bg-gradient-to-r from-transparent via-white/5 to-transparent"></div>
+      <div
+        class="absolute inset-0 bg-gradient-to-r from-transparent via-white/5 to-transparent"
+      ></div>
       <div class="relative z-10 text-center">
         <div class="mb-2.5 flex justify-center">
           <div class="rounded-full bg-white/10 p-3 dark:bg-black/10">
-            <svg class="w-6 h-6 text-white dark:text-gray-900" fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="1.5">
-              <path stroke-linecap="round" stroke-linejoin="round" d="M12 21a9.004 9.004 0 008.716-6.747M12 21a9.004 9.004 0 01-8.716-6.747M12 21c2.485 0 4.5-4.03 4.5-9S14.485 3 12 3m0 18c-2.485 0-4.5-4.03-4.5-9S9.515 3 12 3m0 0a8.997 8.997 0 017.843 4.582M12 3a8.997 8.997 0 00-7.843 4.582m15.686 0A11.953 11.953 0 0112 10.5c-2.998 0-5.74-1.1-7.843-2.918m15.686 0A8.959 8.959 0 0121 12c0 .778-.099 1.533-.284 2.253m0 0A17.919 17.919 0 0112 16.5a17.92 17.92 0 01-8.716-2.247m0 0A9.015 9.015 0 013 12c0-1.605.42-3.113 1.157-4.418" />
+            <svg
+              class="w-6 h-6 text-white dark:text-gray-900"
+              fill="none"
+              viewBox="0 0 24 24"
+              stroke="currentColor"
+              stroke-width="1.5"
+            >
+              <path
+                stroke-linecap="round"
+                stroke-linejoin="round"
+                d="M12 21a9.004 9.004 0 008.716-6.747M12 21a9.004 9.004 0 01-8.716-6.747M12 21c2.485 0 4.5-4.03 4.5-9S14.485 3 12 3m0 18c-2.485 0-4.5-4.03-4.5-9S9.515 3 12 3m0 0a8.997 8.997 0 017.843 4.582M12 3a8.997 8.997 0 00-7.843 4.582m15.686 0A11.953 11.953 0 0112 10.5c-2.998 0-5.74-1.1-7.843-2.918m15.686 0A8.959 8.959 0 0121 12c0 .778-.099 1.533-.284 2.253m0 0A17.919 17.919 0 0112 16.5a17.92 17.92 0 01-8.716-2.247m0 0A9.015 9.015 0 013 12c0-1.605.42-3.113 1.157-4.418"
+              />
             </svg>
           </div>
         </div>
@@ -57,11 +69,14 @@
 
     <!-- Body -->
     <div class="px-6 py-5">
+      <label class="block text-[11px] text-gray-400 dark:text-gray-500"
+        >{$i18n.t('setup.connectionManager.serverUrl')}</label
+      >
       <input
         type="text"
         bind:value={url}
-        placeholder={$i18n.t('setup.urlPlaceholder')}
-        class="w-full px-4 py-2.5 rounded-xl bg-black/[0.015] dark:bg-white/[0.02] text-[13px] text-[#1d1d1f] dark:text-[#fafafa] placeholder:opacity-25 outline-none focus:bg-black/[0.03] dark:focus:bg-white/[0.04] transition border border-black/[0.06] dark:border-white/[0.06]"
+        placeholder="https://"
+        class="w-full py-2 text-[14px] text-[#1d1d1f] dark:text-[#fafafa] placeholder:opacity-20 outline-none bg-transparent border-none border-b border-black/[0.08] dark:border-white/[0.08]"
         onkeydown={(e) => e.key === 'Enter' && onConnect()}
       />
 
@@ -79,7 +94,9 @@
       >
         {#if connecting}
           <span class="inline-flex items-center gap-2">
-            <span class="w-3.5 h-3.5 rounded-full border-2 border-white/30 dark:border-black/30 border-t-white dark:border-t-black animate-spin inline-block"></span>
+            <span
+              class="w-3.5 h-3.5 rounded-full border-2 border-white/30 dark:border-black/30 border-t-white dark:border-t-black animate-spin inline-block"
+            ></span>
             {$i18n.t('common.connecting')}
           </span>
         {:else}

@@ -152,6 +152,8 @@
   "settings.general.globalShortcutDesc": "Bring the app to the foreground from anywhere",
   "settings.general.globalShortcutRecording": "Press a key combination… (Esc to cancel, Del to clear)",
   "settings.general.pressShortcut": "Press shortcut…",
+  "settings.general.spotlightShortcut": "Spotlight shortcut",
+  "settings.general.spotlightShortcutDesc": "Open the quick-chat input bar from anywhere",
   "settings.general.appearance": "Appearance",
   "settings.general.appearanceDesc": "Choose light, dark, or system default",
   "settings.general.language": "Language",
