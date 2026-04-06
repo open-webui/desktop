@@ -306,10 +306,32 @@
     window.electronAPI.onData((data: any) => {
       if (data.type === 'connection:open' && data.data?.url) {
         const connId = data.data.connectionId ?? ''
-        openConnections.set(connId, data.data.url)
+        const incomingUrl = data.data.url
+        const alreadyOpen = openConnections.has(connId)
+
+        openConnections.set(connId, incomingUrl)
         openConnections = new Map(openConnections)
-        connectedUrl = data.data.url
+        connectedUrl = incomingUrl
         activeConnectionId = connId
+
+        // If the webview for this connection already exists in the DOM,
+        // updating the map value won't cause it to re-navigate (Electron
+        // webview `src` changes on an existing element are ignored). We
+        // need to explicitly call loadURL so that e.g. the spotlight ?q=
+        // parameter actually reaches the Open WebUI instance.
+        if (alreadyOpen) {
+          requestAnimationFrame(() => {
+            const container = document.querySelector('.content-webview-container')
+            if (!container) return
+            const wv = container.querySelector(
+              `webview[partition="persist:connection-${connId}"]`
+            ) as any
+            if (wv?.loadURL) {
+              wv.loadURL(incomingUrl)
+            }
+          })
+        }
+
         // Don't switch to connected view during active install — the install
         // flow handles its own transition after confirming reachability.
         if (installPhase !== 'working') {

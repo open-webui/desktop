@@ -180,6 +180,7 @@ function createSpotlightWindow(): BrowserWindow {
     resizable: false,
     hasShadow: false,
     show: false,
+    focusable: true,
     icon: path.join(__dirname, 'assets/icon.png'),
     webPreferences: {
       preload: join(__dirname, '../preload/spotlight-preload.js'),
@@ -206,8 +207,21 @@ function createSpotlightWindow(): BrowserWindow {
     }
   })
 
+  // Hide on blur — but only when the window was truly visible and settled.
+  // Without the guard the blur fires during the show→focus transition and
+  // the window disappears immediately (especially when the user had been
+  // interacting with the main window / webview).
+  let blurArmed = false
+  spotlightWindow.on('focus', () => {
+    blurArmed = false
+    setTimeout(() => {
+      blurArmed = true
+    }, 200)
+  })
   spotlightWindow.on('blur', () => {
-    spotlightWindow?.hide()
+    if (blurArmed) {
+      spotlightWindow?.hide()
+    }
   })
 
   spotlightWindow.on('closed', () => {
@@ -217,26 +231,42 @@ function createSpotlightWindow(): BrowserWindow {
   return spotlightWindow
 }
 
+function showAndFocusSpotlight(win: BrowserWindow): void {
+  // On macOS the app may not be the "active" application when the global
+  // shortcut fires (e.g. user clicked into a webview which is a separate
+  // render process).  Calling app.focus() first ensures macOS brings the
+  // app to the foreground so the subsequent window.focus() actually works.
+  if (process.platform === 'darwin') {
+    app.focus({ steal: true })
+  }
+
+  // Restore to saved position, or default if none saved
+  if (spotlightPosition) {
+    win.setPosition(spotlightPosition.x, spotlightPosition.y)
+  } else {
+    const pos = getDefaultSpotlightPosition()
+    win.setPosition(pos.x, pos.y)
+  }
+
+  win.show()
+  win.focus()
+
+  // Tell the renderer to focus the input field (belt-and-suspenders —
+  // the renderer also listens for the 'focus' window event)
+  win.webContents.focus()
+}
+
 function toggleSpotlight(): void {
   if (spotlightWindow && !spotlightWindow.isDestroyed()) {
     if (spotlightWindow.isVisible()) {
       spotlightWindow.hide()
     } else {
-      // Restore to saved position, or default if none saved
-      if (spotlightPosition) {
-        spotlightWindow.setPosition(spotlightPosition.x, spotlightPosition.y)
-      } else {
-        const pos = getDefaultSpotlightPosition()
-        spotlightWindow.setPosition(pos.x, pos.y)
-      }
-      spotlightWindow.show()
-      spotlightWindow.focus()
+      showAndFocusSpotlight(spotlightWindow)
     }
   } else {
     const win = createSpotlightWindow()
     win.once('ready-to-show', () => {
-      win.show()
-      win.focus()
+      showAndFocusSpotlight(win)
     })
   }
 }

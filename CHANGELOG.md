@@ -7,6 +7,13 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+## [0.0.3] - 2026-04-06
+
+### Fixed
+
+- **Spotlight Focus** — Spotlight now reliably appears after interacting with the main window or webview (fixed blur-during-show race condition on macOS)
+- **Spotlight Query Passthrough** — The `?q=` search parameter from spotlight now correctly navigates already-open webviews instead of being silently ignored
+
 ## [0.0.2] - 2026-04-06
 
 ### Added
