@@ -237,6 +237,33 @@ jobs:
                   pattern: '*-*'
                   merge-multiple: false
 
+            - name: Merge macOS latest-mac.yml (x64 + arm64)
+              run: |
+                  # Each macOS arch build produces its own latest-mac.yml with only
+                  # that arch's entry. Merge them so electron-updater works for both.
+                  X64_YML="macos-latest-x64/latest-mac.yml"
+                  ARM_YML="macos-latest-arm64/latest-mac.yml"
+
+                  if [ -f "$X64_YML" ] && [ -f "$ARM_YML" ]; then
+                    echo "Merging latest-mac.yml from both architectures"
+                    npm install --no-save js-yaml
+                    node -e "
+                      const fs = require('fs');
+                      const yaml = require('js-yaml');
+                      const x64 = yaml.load(fs.readFileSync('$X64_YML', 'utf8'));
+                      const arm = yaml.load(fs.readFileSync('$ARM_YML', 'utf8'));
+                      x64.files = [...(x64.files || []), ...(arm.files || [])];
+                      const out = yaml.dump(x64, { lineWidth: -1 });
+                      fs.writeFileSync('$X64_YML', out);
+                      console.log(out);
+                    "
+                    # Remove duplicate so only one latest-mac.yml is uploaded
+                    rm -f "$ARM_YML"
+                  else
+                    echo "Skipping merge — need both $X64_YML and $ARM_YML"
+                    ls -la macos-latest-*/latest-mac.yml 2>/dev/null || true
+                  fi
+
             - name: Create Release
               uses: softprops/action-gh-release@v2
               env:
