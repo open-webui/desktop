@@ -18,6 +18,7 @@ import {
 } from 'electron'
 import path, { join } from 'path'
 import { readFile, statfs } from 'fs/promises'
+
 import { electronApp, optimizer, is } from '@electron-toolkit/utils'
 
 import {
@@ -129,7 +130,8 @@ const registerShortcuts = (globalAccel?: string, spotlightAccel?: string): void 
   if (spotlightAccel) {
     try {
       globalShortcut.register(spotlightAccel, () => {
-        toggleSpotlight()
+        const text = clipboard.readText()?.trim() || ''
+        toggleSpotlight(text)
       })
     } catch (error) {
       log.warn('Failed to register spotlight shortcut:', spotlightAccel, error)
@@ -138,8 +140,6 @@ const registerShortcuts = (globalAccel?: string, spotlightAccel?: string): void 
 }
 
 // ─── Spotlight Window ───────────────────────────────────
-
-// Remember where the user dragged the spotlight
 let spotlightPosition: { x: number; y: number } | null = null
 
 // Load persisted spotlight position from config (call after CONFIG is loaded)
@@ -231,7 +231,7 @@ function createSpotlightWindow(): BrowserWindow {
   return spotlightWindow
 }
 
-function showAndFocusSpotlight(win: BrowserWindow): void {
+function showAndFocusSpotlight(win: BrowserWindow, initialQuery?: string): void {
   // On macOS the app may not be the "active" application when the global
   // shortcut fires (e.g. user clicked into a webview which is a separate
   // render process).  Calling app.focus() first ensures macOS brings the
@@ -254,19 +254,24 @@ function showAndFocusSpotlight(win: BrowserWindow): void {
   // Tell the renderer to focus the input field (belt-and-suspenders —
   // the renderer also listens for the 'focus' window event)
   win.webContents.focus()
+
+  // Pre-fill the input with selected text if any
+  if (initialQuery) {
+    win.webContents.send('spotlight:initialQuery', initialQuery)
+  }
 }
 
-function toggleSpotlight(): void {
+function toggleSpotlight(selectedText?: string): void {
   if (spotlightWindow && !spotlightWindow.isDestroyed()) {
     if (spotlightWindow.isVisible()) {
       spotlightWindow.hide()
     } else {
-      showAndFocusSpotlight(spotlightWindow)
+      showAndFocusSpotlight(spotlightWindow, selectedText)
     }
   } else {
     const win = createSpotlightWindow()
     win.once('ready-to-show', () => {
-      showAndFocusSpotlight(win)
+      showAndFocusSpotlight(win, selectedText)
     })
   }
 }

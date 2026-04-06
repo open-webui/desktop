@@ -17,8 +17,16 @@
   onMount(() => {
     inputEl?.focus()
     window.addEventListener('focus', () => {
-      query = ''
       inputEl?.focus()
+    })
+
+    // Pre-fill with selected text sent from the main process
+    api?.onInitialQuery?.((text: string) => {
+      if (text) {
+        query = text
+        // Select all so user can easily replace or just hit Enter
+        requestAnimationFrame(() => inputEl?.select())
+      }
     })
   })
 </script>

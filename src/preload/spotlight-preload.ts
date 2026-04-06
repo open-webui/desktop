@@ -6,6 +6,11 @@ const api = {
   },
   closeSpotlight: (): void => {
     ipcRenderer.invoke('spotlight:close')
+  },
+  onInitialQuery: (callback: (query: string) => void): void => {
+    ipcRenderer.on('spotlight:initialQuery', (_event, query: string) => {
+      callback(query)
+    })
   }
 }
 
