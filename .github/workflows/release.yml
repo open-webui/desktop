@@ -107,6 +107,7 @@ jobs:
                   security set-keychain-settings -lut 21600 $KEYCHAIN_PATH
                   security unlock-keychain -p "$KEYCHAIN_PASSWORD" $KEYCHAIN_PATH
                   security import $CERTIFICATE_PATH -P "$P12_PASSWORD" -A -t cert -f pkcs12 -k $KEYCHAIN_PATH
+                  security set-key-partition-list -S apple-tool:,apple:,codesign: -s -k "$KEYCHAIN_PASSWORD" $KEYCHAIN_PATH
                   security list-keychain -d user -s $KEYCHAIN_PATH
 
             # ── Platform packaging ──
@@ -126,13 +127,22 @@ jobs:
                   npx electron-builder --win --${{ matrix.arch }} --publish never
 
             - name: Package for macOS (signed + notarized)
-              if: matrix.os == 'macos-latest'
+              id: mac_build
+              if: matrix.os == 'macos-latest' && steps.apple_cert.outcome == 'success'
+              continue-on-error: true
               env:
                   APPLE_ID: ${{ secrets.APPLE_ID }}
                   APPLE_APP_SPECIFIC_PASSWORD: ${{ secrets.APPLE_PASSWORD }}
                   APPLE_TEAM_ID: ${{ secrets.APPLE_TEAM_ID }}
-                  ELECTRON_BUILDER_BINARIES_MIRROR: https://github.com/electron-userland/electron-builder-binaries/releases/download/
               run: npx electron-builder --mac --${{ matrix.arch }} -c.mac.identity=auto -c.mac.notarize=true --publish never
+
+            - name: Package for macOS (unsigned fallback)
+              if: matrix.os == 'macos-latest' && (steps.apple_cert.outcome != 'success' || steps.mac_build.outcome == 'failure')
+              env:
+                  CSC_IDENTITY_AUTO_DISCOVERY: 'false'
+              run: |
+                  rm -rf dist/
+                  npx electron-builder --mac --${{ matrix.arch }} --publish never
 
             - name: Package for Linux
               if: matrix.os == 'ubuntu-latest'
