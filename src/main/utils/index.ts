@@ -780,6 +780,7 @@ export interface AppConfig {
   connections: Connection[]
   runInBackground: boolean
   globalShortcut: string
+  spotlightShortcut: string
   dataDir: string
   localServer: {
     port: number
@@ -800,6 +801,7 @@ export interface AppConfig {
   }
   envVars: Record<string, string>
   showSidebar: boolean
+  spotlightPosition: { x: number; y: number } | null
 }
 
 const DEFAULT_CONFIG: AppConfig = {
@@ -808,6 +810,7 @@ const DEFAULT_CONFIG: AppConfig = {
   connections: [],
   runInBackground: true,
   globalShortcut: 'Alt+CommandOrControl+O',
+  spotlightShortcut: 'Shift+CommandOrControl+I',
   dataDir: '',
   localServer: {
     port: 8080,
@@ -825,7 +828,8 @@ const DEFAULT_CONFIG: AppConfig = {
     extraArgs: []
   },
   envVars: {},
-  showSidebar: true
+  showSidebar: true,
+  spotlightPosition: null
 }
 
 export const getConfig = async (): Promise<AppConfig> => {

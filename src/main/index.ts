@@ -94,6 +94,7 @@ if (process.platform === 'linux') {
 
 let mainWindow: BrowserWindow | null = null
 let contentWindow: BrowserWindow | null = null
+let spotlightWindow: BrowserWindow | null = null
 let tray: Tray | null = null
 let isQuiting = false
 
@@ -103,23 +104,140 @@ let SERVER_STATUS: string | null = null
 let SERVER_REACHABLE = false
 let SERVER_PID: number | null = null
 
-// ─── Global Shortcut ────────────────────────────────────
+// ─── Global Shortcuts ───────────────────────────────────
 
-const registerGlobalShortcut = (accelerator?: string): void => {
+const registerShortcuts = (globalAccel?: string, spotlightAccel?: string): void => {
   globalShortcut.unregisterAll()
-  if (!accelerator) return
-  try {
-    globalShortcut.register(accelerator, () => {
-      if (contentWindow && !contentWindow.isDestroyed()) {
-        contentWindow.show()
-        contentWindow.focus()
+
+  // Global shortcut – bring main window to foreground
+  if (globalAccel) {
+    try {
+      globalShortcut.register(globalAccel, () => {
+        if (mainWindow) {
+          mainWindow.show()
+          mainWindow.focus()
+        } else {
+          createMainWindow()
+        }
+      })
+    } catch (error) {
+      log.warn('Failed to register global shortcut:', globalAccel, error)
+    }
+  }
+
+  // Spotlight shortcut – toggle the spotlight input bar
+  if (spotlightAccel) {
+    try {
+      globalShortcut.register(spotlightAccel, () => {
+        toggleSpotlight()
+      })
+    } catch (error) {
+      log.warn('Failed to register spotlight shortcut:', spotlightAccel, error)
+    }
+  }
+}
+
+// ─── Spotlight Window ───────────────────────────────────
+
+// Remember where the user dragged the spotlight
+let spotlightPosition: { x: number; y: number } | null = null
+
+// Load persisted spotlight position from config (call after CONFIG is loaded)
+function loadSpotlightPosition(): void {
+  if (CONFIG?.spotlightPosition) {
+    spotlightPosition = { ...CONFIG.spotlightPosition }
+  }
+}
+
+function getDefaultSpotlightPosition(): { x: number; y: number } {
+  const { screen } = require('electron')
+  const cursorPoint = screen.getCursorScreenPoint()
+  const activeDisplay = screen.getDisplayNearestPoint(cursorPoint)
+  const { width: screenW } = activeDisplay.workAreaSize
+  const { x: screenX, y: screenY } = activeDisplay.workArea
+  const winW = 748
+  return {
+    x: Math.round(screenX + (screenW - winW) / 2),
+    y: Math.round(screenY + 160)
+  }
+}
+
+function createSpotlightWindow(): BrowserWindow {
+  const pos = spotlightPosition || getDefaultSpotlightPosition()
+
+  const winW = 748
+  const winH = 86
+
+  spotlightWindow = new BrowserWindow({
+    width: winW,
+    height: winH,
+    x: pos.x,
+    y: pos.y,
+    frame: false,
+    transparent: true,
+    alwaysOnTop: true,
+    skipTaskbar: true,
+    resizable: false,
+    hasShadow: false,
+    show: false,
+    icon: path.join(__dirname, 'assets/icon.png'),
+    webPreferences: {
+      preload: join(__dirname, '../preload/spotlight-preload.js'),
+      sandbox: false,
+      webviewTag: false
+    }
+  })
+
+  if (is.dev && process.env['ELECTRON_RENDERER_URL']) {
+    spotlightWindow.loadURL(`${process.env['ELECTRON_RENDERER_URL']}/spotlight.html`)
+  } else {
+    spotlightWindow.loadFile(join(__dirname, '../renderer/spotlight.html'))
+  }
+
+  // Save position when user drags to a new spot
+  spotlightWindow.on('moved', () => {
+    if (spotlightWindow && !spotlightWindow.isDestroyed()) {
+      const [x, y] = spotlightWindow.getPosition()
+      spotlightPosition = { x, y }
+      // Persist to config for cross-session recall
+      setConfig({ spotlightPosition: { x, y } }).catch((err) =>
+        log.warn('Failed to persist spotlight position:', err)
+      )
+    }
+  })
+
+  spotlightWindow.on('blur', () => {
+    spotlightWindow?.hide()
+  })
+
+  spotlightWindow.on('closed', () => {
+    spotlightWindow = null
+  })
+
+  return spotlightWindow
+}
+
+function toggleSpotlight(): void {
+  if (spotlightWindow && !spotlightWindow.isDestroyed()) {
+    if (spotlightWindow.isVisible()) {
+      spotlightWindow.hide()
+    } else {
+      // Restore to saved position, or default if none saved
+      if (spotlightPosition) {
+        spotlightWindow.setPosition(spotlightPosition.x, spotlightPosition.y)
       } else {
-        mainWindow?.show()
-        mainWindow?.focus()
+        const pos = getDefaultSpotlightPosition()
+        spotlightWindow.setPosition(pos.x, pos.y)
       }
+      spotlightWindow.show()
+      spotlightWindow.focus()
+    }
+  } else {
+    const win = createSpotlightWindow()
+    win.once('ready-to-show', () => {
+      win.show()
+      win.focus()
     })
-  } catch (error) {
-    log.warn('Failed to register global shortcut:', accelerator, error)
   }
 }
 
@@ -127,10 +245,10 @@ const registerGlobalShortcut = (accelerator?: string): void => {
 
 function createMainWindow(show = true): void {
   mainWindow = new BrowserWindow({
-    width: 1100,
-    height: 700,
-    minWidth: 900,
-    minHeight: 560,
+    width: 1280,
+    height: 800,
+    minWidth: 1280,
+    minHeight: 800,
     icon: path.join(__dirname, 'assets/icon.png'),
     show: false,
     titleBarStyle: process.platform === 'win32' ? 'default' : 'hidden',
@@ -192,10 +310,10 @@ function createContentWindow(url: string, connectionId: string): BrowserWindow {
   }
 
   contentWindow = new BrowserWindow({
-    width: 1200,
+    width: 1280,
     height: 800,
-    minWidth: 900,
-    minHeight: 560,
+    minWidth: 1280,
+    minHeight: 800,
     icon: path.join(__dirname, 'assets/icon.png'),
     show: false,
     titleBarStyle: process.platform === 'win32' ? 'default' : 'hidden',
@@ -603,6 +721,7 @@ if (!gotTheLock) {
 
   app.whenReady().then(async () => {
     CONFIG = await getConfig()
+    loadSpotlightPosition()
     log.info('Config:', CONFIG)
 
     app.name = 'Open WebUI'
@@ -649,7 +768,7 @@ if (!gotTheLock) {
       await setConfig(config)
       CONFIG = await getConfig()
       updateTray()
-      registerGlobalShortcut(CONFIG.globalShortcut)
+      registerShortcuts(CONFIG.globalShortcut, CONFIG.spotlightShortcut)
     })
 
     // Python/uv
@@ -802,6 +921,43 @@ if (!gotTheLock) {
 
     // Misc
     ipcMain.handle('app:reset', () => resetAppHandler())
+
+    // Spotlight
+    ipcMain.handle('spotlight:submit', async (_event, query: string) => {
+      const config = await getConfig()
+      if (!config.defaultConnectionId || config.connections.length === 0) {
+        // No default connection — just show main window
+        mainWindow?.show()
+        mainWindow?.focus()
+        return
+      }
+      const conn = config.connections.find((c) => c.id === config.defaultConnectionId)
+      if (!conn) {
+        mainWindow?.show()
+        mainWindow?.focus()
+        return
+      }
+
+      let url = conn.url
+      if (conn.type === 'local' && SERVER_URL) {
+        url = SERVER_URL
+      }
+      if (url.startsWith('http://0.0.0.0')) {
+        url = url.replace('http://0.0.0.0', 'http://localhost')
+      }
+
+      // Navigate to the connection URL with query
+      const targetUrl = `${url}/?q=${encodeURIComponent(query)}`
+      sendToRenderer('connection:open', { url: targetUrl, connectionId: conn.id })
+
+      // Show main window and hide spotlight
+      mainWindow?.show()
+      mainWindow?.focus()
+      spotlightWindow?.hide()
+    })
+    ipcMain.handle('spotlight:close', () => {
+      spotlightWindow?.hide()
+    })
 
     // Open Terminal
     ipcMain.handle('open-terminal:start', async () => {
@@ -1058,7 +1214,7 @@ if (!gotTheLock) {
 
 
     // Global shortcut
-    registerGlobalShortcut(CONFIG.globalShortcut)
+    registerShortcuts(CONFIG.globalShortcut, CONFIG.spotlightShortcut)
 
     // Enable screen capture
     session.defaultSession.setDisplayMediaRequestHandler(
@@ -1145,6 +1301,10 @@ if (!gotTheLock) {
     globalShortcut.unregisterAll()
     mainWindow = null
     contentWindow = null
+    if (spotlightWindow && !spotlightWindow.isDestroyed()) {
+      spotlightWindow.destroy()
+    }
+    spotlightWindow = null
     tray?.destroy()
     tray = null
   })

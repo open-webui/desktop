@@ -14,12 +14,21 @@ export default defineConfig({
       rollupOptions: {
         input: {
           index: resolve(__dirname, 'src/preload/index.ts'),
-          'content-preload': resolve(__dirname, 'src/preload/content-preload.ts')
+          'content-preload': resolve(__dirname, 'src/preload/content-preload.ts'),
+          'spotlight-preload': resolve(__dirname, 'src/preload/spotlight-preload.ts')
         }
       }
     }
   },
   renderer: {
+    build: {
+      rollupOptions: {
+        input: {
+          index: resolve(__dirname, 'src/renderer/index.html'),
+          spotlight: resolve(__dirname, 'src/renderer/spotlight.html')
+        }
+      }
+    },
     plugins: [tailwindcss(), svelte()]
   }
 })

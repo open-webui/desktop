@@ -5,6 +5,23 @@ All notable changes to this project will be documented in this file.
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/),
 and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
+## [Unreleased]
+
+## [0.0.2] - 2026-04-06
+
+### Added
+
+- **Spotlight Input Bar** — Lightweight quick-chat bar (⇧⌘I) for submitting queries without opening the full app
+- **Spotlight Shortcut** — Dedicated configurable shortcut for the spotlight, independent from the global app shortcut
+- **Draggable Spotlight** — Spotlight bar can be dragged to any position on screen
+- **Persistent Spotlight Position** — Spotlight position is saved to config and restored across app restarts
+- **Spotlight Settings** — Shortcut recorder in Settings → General for the spotlight shortcut
+
+
+### Fixed
+
+- **System Theme Sync** — App now listens for OS dark/light mode changes in real-time when set to "Auto" (previously only checked once at startup)
+
 ## [0.0.1] - 2026-03-20
 
 ### Added
