@@ -131,10 +131,12 @@ jobs:
               if: matrix.os == 'macos-latest' && steps.apple_cert.outcome == 'success'
               continue-on-error: true
               env:
+                  CSC_LINK: ${{ secrets.BUILD_CERTIFICATE_BASE64 }}
+                  CSC_KEY_PASSWORD: ${{ secrets.P12_PASSWORD }}
                   APPLE_ID: ${{ secrets.APPLE_ID }}
                   APPLE_APP_SPECIFIC_PASSWORD: ${{ secrets.APPLE_PASSWORD }}
                   APPLE_TEAM_ID: ${{ secrets.APPLE_TEAM_ID }}
-              run: npx electron-builder --mac --${{ matrix.arch }} -c.mac.identity=auto -c.mac.notarize=true --publish never
+              run: npx electron-builder --mac --${{ matrix.arch }} -c.mac.notarize=true --publish never
 
             - name: Package for macOS (unsigned fallback)
               if: matrix.os == 'macos-latest' && (steps.apple_cert.outcome != 'success' || steps.mac_build.outcome == 'failure')
