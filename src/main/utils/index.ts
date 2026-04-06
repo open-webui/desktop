@@ -828,7 +828,7 @@ const DEFAULT_CONFIG: AppConfig = {
     extraArgs: []
   },
   envVars: {},
-  showSidebar: true,
+  showSidebar: false,
   spotlightPosition: null
 }
 
