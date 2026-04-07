@@ -15,23 +15,23 @@ Grab the installer for your platform and you're good to go. An internet connecti
 
 | Chip | Installer |
 |------|-----------|
-| Apple Silicon (M1/M2/M3/M4) | [**Download .dmg**](https://github.com/open-webui/desktop/releases/latest/download/open-webui-0.0.3-arm64.dmg) |
-| Intel | [**Download .dmg**](https://github.com/open-webui/desktop/releases/latest/download/open-webui-0.0.3-x64.dmg) |
+| Apple Silicon | [**Download .dmg**](https://github.com/open-webui/desktop/releases/latest/download/open-webui-arm64.dmg) |
+| Intel | [**Download .dmg**](https://github.com/open-webui/desktop/releases/latest/download/open-webui-x64.dmg) |
 
 ### Windows
 
 | Architecture | Installer |
 |--------------|-----------|
-| x64 | [**Download .exe**](https://github.com/open-webui/desktop/releases/latest/download/open-webui-0.0.3-setup.exe) |
+| x64 | [**Download .exe**](https://github.com/open-webui/desktop/releases/latest/download/open-webui-setup.exe) |
 
 ### Linux
 
 | Format | Installer |
 |--------|-----------|
-| AppImage | [**Download .AppImage**](https://github.com/open-webui/desktop/releases/latest/download/open-webui-0.0.3.AppImage) |
-| Debian / Ubuntu | [**Download .deb**](https://github.com/open-webui/desktop/releases/latest/download/open-webui_0.0.3_amd64.deb) |
-| Snap | [**Download .snap**](https://github.com/open-webui/desktop/releases/latest/download/open-webui_0.0.3_amd64.snap) |
-| Flatpak | [**Download .flatpak**](https://github.com/open-webui/desktop/releases/latest/download/open-webui-0.0.3.flatpak) |
+| AppImage | [**Download .AppImage**](https://github.com/open-webui/desktop/releases/latest/download/open-webui.AppImage) |
+| Debian / Ubuntu | [**Download .deb**](https://github.com/open-webui/desktop/releases/latest/download/open-webui_amd64.deb) |
+| Snap | [**Download .snap**](https://github.com/open-webui/desktop/releases/latest/download/open-webui_amd64.snap) |
+| Flatpak | [**Download .flatpak**](https://github.com/open-webui/desktop/releases/latest/download/open-webui.flatpak) |
 
 > Looking for an older version? Check the [releases page](https://github.com/open-webui/desktop/releases).
 
