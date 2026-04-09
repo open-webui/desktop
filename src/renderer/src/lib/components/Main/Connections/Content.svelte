@@ -93,20 +93,6 @@
     // Fetch the content preload path once
     contentPreloadPath = await window.electronAPI.getContentPreloadPath()
 
-    // Forward main:data events from the main process into all active webviews
-    window.electronAPI.onData((data: any) => {
-      const container = document.querySelector('.content-webview-container')
-      if (!container) return
-      const webviews = container.querySelectorAll('webview')
-      webviews.forEach((wv: any) => {
-        try {
-          wv.send('desktop:event', data)
-        } catch (_) {
-          // webview may not be ready yet
-        }
-      })
-    })
-
     const observer = new MutationObserver(() => {
       const container = document.querySelector('.content-webview-container')
       if (!container) return

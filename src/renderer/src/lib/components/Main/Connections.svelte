@@ -329,9 +329,35 @@
     activeLog = activeLog === log ? null : (log as typeof activeLog)
   }
 
+  // ── Webview event delivery ─────────────────────────────
+  // Single path: all events from the main process flow through here.
+  // Query events target a specific webview; everything else broadcasts.
+  const sendToWebview = (event: any, connId?: string) => {
+    const container = document.querySelector('.content-webview-container')
+    if (!container) return
+
+    const webviews = connId
+      ? [container.querySelector(`webview[partition="persist:connection-${connId}"]`) as any].filter(Boolean)
+      : Array.from(container.querySelectorAll('webview'))
+
+    for (const wv of webviews) {
+      const deliver = () => {
+        try { wv.send('desktop:event', event) } catch (_) {}
+      }
+
+      if (!wv.isLoading?.()) {
+        deliver()
+      } else {
+        const onStop = () => { wv.removeEventListener('did-stop-loading', onStop); deliver() }
+        wv.addEventListener('did-stop-loading', onStop)
+      }
+    }
+  }
+
   // Listen for events from main process
   onMount(() => {
     window.electronAPI.onData((data: any) => {
+      // ── Connection opened (startup, tray click) ───────
       if (data.type === 'connection:open' && data.data?.url) {
         const connId = data.data.connectionId ?? ''
         const incomingUrl = data.data.url
@@ -341,88 +367,47 @@
           openConnections = new Map(openConnections)
         }
 
-        // Only auto-switch if no connection is currently active.
-        // This handles startup auto-connect and tray clicks when on the welcome screen,
-        // without overriding a connection the user is already viewing.
         if (view !== 'connected') {
           connectedUrl = openConnections.get(connId) ?? incomingUrl
           activeConnectionId = connId
-
-          if (installPhase !== 'working') {
-            view = 'connected'
-          }
+          if (installPhase !== 'working') view = 'connected'
         }
+        return
       }
-      // Desktop query — for new connections, bake ?q= into the initial URL.
-      // For already-open connections, the event flows through to the webview
-      // where Open WebUI's Chat.svelte handles it via electronAPI.onEvent.
-      // Fall back to loadURL for old Open WebUI versions without the handler.
+
+      // ── Spotlight / desktop query ─────────────────────
       if (data.type === 'query' && data.data?.query) {
         const connId = data.data.connectionId ?? ''
         const query = data.data.query
         const baseUrl = data.data.url ?? ''
 
         if (!openConnections.has(connId)) {
-          const initialUrl = `${baseUrl}/?q=${encodeURIComponent(query)}`
-          openConnections.set(connId, initialUrl)
+          openConnections.set(connId, baseUrl)
           openConnections = new Map(openConnections)
-          connectedUrl = initialUrl
-          activeConnectionId = connId
-          if (installPhase !== 'working') {
-            view = 'connected'
-          }
-          return
+          connectedUrl = baseUrl
+        } else {
+          connectedUrl = openConnections.get(connId)!
         }
-
         activeConnectionId = connId
-        connectedUrl = openConnections.get(connId)!
-        if (installPhase !== 'working') {
-          view = 'connected'
-        }
+        if (installPhase !== 'working') view = 'connected'
 
-        // Check if Open WebUI supports the query event (version >= 0.6.6).
-        // If not, fall back to full URL navigation.
-        requestAnimationFrame(async () => {
-          const container = document.querySelector('.content-webview-container')
-          if (!container) return
-          const wv = container.querySelector(
-            `webview[partition="persist:connection-${connId}"]`
-          ) as any
-          if (!wv) return
-
-          try {
-            const ver = await wv.executeJavaScript('window.WEBUI_VERSION || ""')
-            if (!ver) {
-              // Old Open WebUI — fall back to ?q= navigation
-              wv.loadURL(`${baseUrl}/?q=${encodeURIComponent(query)}`)
-            }
-            // New Open WebUI — event already forwarded by Content.svelte
-          } catch {
-            wv.loadURL(`${baseUrl}/?q=${encodeURIComponent(query)}`)
-          }
+        // Targeted delivery — wait a frame for the webview DOM to exist
+        requestAnimationFrame(() => {
+          sendToWebview({ type: 'query', data: { query } }, connId)
         })
+        return
       }
-      if (data.type === 'status:open-terminal') {
-        openTerminalStatus = data.data
-      }
-      if (data.type === 'open-terminal:ready') {
-        openTerminalInfo = data.data
-        openTerminalStatus = 'started'
-      }
-      if (data.type === 'status:llamacpp') {
-        llamaCppStatus = data.data
-      }
-      if (data.type === 'status:llamacpp-setup') {
-        llamaCppSetupStatus = data.data ?? ''
-      }
-      if (data.type === 'llamacpp:ready') {
-        llamaCppInfo = data.data
-        llamaCppStatus = 'started'
-        llamaCppSetupStatus = ''
-      }
-      if (data.type === 'status:install') {
-        installStatus = data.data ?? ''
-      }
+
+      // ── Desktop-only state (not forwarded to webviews) ─
+      if (data.type === 'status:open-terminal') { openTerminalStatus = data.data; return }
+      if (data.type === 'open-terminal:ready') { openTerminalInfo = data.data; openTerminalStatus = 'started'; return }
+      if (data.type === 'status:llamacpp') { llamaCppStatus = data.data; return }
+      if (data.type === 'status:llamacpp-setup') { llamaCppSetupStatus = data.data ?? ''; return }
+      if (data.type === 'llamacpp:ready') { llamaCppInfo = data.data; llamaCppStatus = 'started'; llamaCppSetupStatus = ''; return }
+      if (data.type === 'status:install') { installStatus = data.data ?? ''; return }
+
+      // ── Everything else → broadcast to all webviews ───
+      sendToWebview(data)
     })
 
     // Check current Open Terminal state on mount
