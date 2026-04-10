@@ -22,7 +22,7 @@ Grab the installer for your platform and you're good to go. An internet connecti
 
 | Architecture | Installer |
 |--------------|-----------|
-| x64 | [**Download .exe**](https://github.com/open-webui/desktop/releases/latest/download/open-webui-setup.exe) |
+| x64 | [**Download .exe**](https://github.com/open-webui/desktop/releases/download/v0.0.3/open-webui-0.0.3-setup.exe) |
 
 ### Linux
 
