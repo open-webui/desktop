@@ -63,12 +63,20 @@
   let llamaCppInfo = $state<{ url?: string; pid?: number } | null>(null)
   let llamaCppSetupStatus = $state('')
 
-  const startInstall = async (options?: { installOpenTerminal?: boolean; installLlamaCpp?: boolean }) => {
+  const startInstall = async (options?: { installOpenTerminal?: boolean; installLlamaCpp?: boolean; installDir?: string }) => {
     installPhase = 'working'
     installError = ''
     installStatus = ''
     toastVisible = false
     try {
+      // Save custom install directory before anything else
+      if (options?.installDir) {
+        const currentDir = await window.electronAPI.getInstallDir()
+        if (options.installDir !== currentDir) {
+          await window.electronAPI.setConfig({ installDir: options.installDir })
+        }
+      }
+
       // Check disk space before installing (minimum 5 GB)
       const MINIMUM_DISK_BYTES = 5 * 1024 * 1024 * 1024
       const disk = await window.electronAPI.getDiskSpace()
@@ -133,7 +141,7 @@
       // Now connect — the server is ready
       installStatus = ''
       localInstalled = true
-      await connect('local')
+      connect('local')
       installPhase = 'idle'
     } catch (e: any) {
       installPhase = 'error'
@@ -182,33 +190,61 @@
     }
   }
 
-  const connect = async (id: string) => {
+  const connect = (id: string) => {
     showingLogs = false
     // Toggle: clicking the active connection unselects it
     if (activeConnectionId === id && view === 'connected') {
+      connectingId = ''
       activeConnectionId = ''
       connectedUrl = ''
       view = 'welcome'
       return
     }
+    // Persist as default so spotlight/startup always use the last-selected connection
+    window.electronAPI.setDefaultConnection(id)
+    // Already-open connection — just switch to it
     if (openConnections.has(id)) {
+      connectingId = ''
       activeConnectionId = id
       connectedUrl = openConnections.get(id)!
       view = 'connected'
       return
     }
-    connectingId = id
-    try {
-      const result = await window.electronAPI.connectTo(id)
-      if (result?.url) {
-        openConnections.set(result.connectionId, result.url)
-        openConnections = new Map(openConnections) // trigger reactivity
-        connectedUrl = result.url
-        activeConnectionId = result.connectionId
-        view = 'connected'
-      }
-    } finally {
+
+    const conn = ($connections ?? []).find((c) => c.id === id)
+    if (!conn) return
+
+    activeConnectionId = id
+
+    if (conn.type === 'local') {
+      // Local needs server start — use IPC
+      connectingId = id
+      view = 'welcome'
+      window.electronAPI.connectTo(id).then((result: any) => {
+        if (!result?.url) {
+          if (connectingId === id) connectingId = ''
+          return
+        }
+        if (!openConnections.has(result.connectionId)) {
+          openConnections.set(result.connectionId, result.url)
+          openConnections = new Map(openConnections)
+        }
+        if (connectingId === id) {
+          connectedUrl = result.url
+          activeConnectionId = result.connectionId
+          connectingId = ''
+          if (installPhase !== 'working') {
+            view = 'connected'
+          }
+        }
+      })
+    } else {
+      // Remote — open immediately, no IPC needed
       connectingId = ''
+      openConnections.set(id, conn.url)
+      openConnections = new Map(openConnections)
+      connectedUrl = conn.url
+      view = 'connected'
     }
   }
 
@@ -301,63 +337,94 @@
     activeLog = activeLog === log ? null : (log as typeof activeLog)
   }
 
+  // ── Webview event delivery ─────────────────────────────
+  // Single path: all events from the main process flow through here.
+  // Query events target a specific webview; everything else broadcasts.
+  const sendToWebview = (event: any, connId?: string) => {
+    const container = document.querySelector('.content-webview-container')
+    if (!container) return
+
+    const webviews = connId
+      ? [container.querySelector(`webview[partition="persist:connection-${connId}"]`) as any].filter(Boolean)
+      : Array.from(container.querySelectorAll('webview'))
+
+    for (const wv of webviews) {
+      try {
+        // Attempt to send — throws if webview hasn't fired dom-ready yet
+        wv.send('desktop:event', event)
+      } catch {
+        // Webview not ready — queue delivery until dom-ready
+        const onReady = () => {
+          wv.removeEventListener('dom-ready', onReady)
+          try { wv.send('desktop:event', event) } catch (_) {}
+        }
+        wv.addEventListener('dom-ready', onReady)
+      }
+    }
+  }
+
   // Listen for events from main process
   onMount(() => {
     window.electronAPI.onData((data: any) => {
+      // ── Connection opened (startup, tray click) ───────
       if (data.type === 'connection:open' && data.data?.url) {
         const connId = data.data.connectionId ?? ''
         const incomingUrl = data.data.url
-        const alreadyOpen = openConnections.has(connId)
 
-        openConnections.set(connId, incomingUrl)
-        openConnections = new Map(openConnections)
-        connectedUrl = incomingUrl
+        if (!openConnections.has(connId)) {
+          openConnections.set(connId, incomingUrl)
+          openConnections = new Map(openConnections)
+        }
+
+        if (view !== 'connected') {
+          connectedUrl = openConnections.get(connId) ?? incomingUrl
+          activeConnectionId = connId
+          if (installPhase !== 'working') view = 'connected'
+        }
+        return
+      }
+
+      // ── Spotlight / desktop query ─────────────────────
+      if (data.type === 'query' && (data.data?.query || data.data?.files?.length)) {
+        const connId = data.data.connectionId ?? ''
+        const query = data.data.query
+        const files = data.data.files
+        const baseUrl = data.data.url ?? ''
+
+        if (!openConnections.has(connId)) {
+          openConnections.set(connId, baseUrl)
+          openConnections = new Map(openConnections)
+          connectedUrl = baseUrl
+        } else {
+          connectedUrl = openConnections.get(connId)!
+        }
         activeConnectionId = connId
+        if (installPhase !== 'working') view = 'connected'
 
-        // If the webview for this connection already exists in the DOM,
-        // updating the map value won't cause it to re-navigate (Electron
-        // webview `src` changes on an existing element are ignored). We
-        // need to explicitly call loadURL so that e.g. the spotlight ?q=
-        // parameter actually reaches the Open WebUI instance.
-        if (alreadyOpen) {
-          requestAnimationFrame(() => {
-            const container = document.querySelector('.content-webview-container')
-            if (!container) return
-            const wv = container.querySelector(
-              `webview[partition="persist:connection-${connId}"]`
-            ) as any
-            if (wv?.loadURL) {
-              wv.loadURL(incomingUrl)
-            }
-          })
-        }
+        // Targeted delivery — wait a frame for the webview DOM to exist
+        requestAnimationFrame(() => {
+          sendToWebview({ type: 'query', data: { query, files } }, connId)
+        })
+        return
+      }
 
-        // Don't switch to connected view during active install — the install
-        // flow handles its own transition after confirming reachability.
-        if (installPhase !== 'working') {
-          view = 'connected'
-        }
-      }
-      if (data.type === 'status:open-terminal') {
-        openTerminalStatus = data.data
-      }
-      if (data.type === 'open-terminal:ready') {
-        openTerminalInfo = data.data
-        openTerminalStatus = 'started'
-      }
-      if (data.type === 'status:llamacpp') {
-        llamaCppStatus = data.data
-      }
-      if (data.type === 'status:llamacpp-setup') {
-        llamaCppSetupStatus = data.data ?? ''
-      }
-      if (data.type === 'llamacpp:ready') {
-        llamaCppInfo = data.data
-        llamaCppStatus = 'started'
-        llamaCppSetupStatus = ''
-      }
-      if (data.type === 'status:install') {
-        installStatus = data.data ?? ''
+      // ── Desktop-only state (not forwarded to webviews) ─
+      if (data.type === 'status:open-terminal') { openTerminalStatus = data.data; return }
+      if (data.type === 'open-terminal:ready') { openTerminalInfo = data.data; openTerminalStatus = 'started'; return }
+      if (data.type === 'status:llamacpp') { llamaCppStatus = data.data; return }
+      if (data.type === 'status:llamacpp-setup') { llamaCppSetupStatus = data.data ?? ''; return }
+      if (data.type === 'llamacpp:ready') { llamaCppInfo = data.data; llamaCppStatus = 'started'; llamaCppSetupStatus = ''; return }
+      if (data.type === 'status:install') { installStatus = data.data ?? ''; return }
+
+      // ── Everything else → broadcast to all webviews ───
+      sendToWebview(data)
+    })
+
+    // Auto-connect to the default connection on startup so the webview
+    // is pre-loaded and ready for spotlight queries.
+    window.electronAPI.getConfig().then((cfg: any) => {
+      if (cfg?.defaultConnectionId && !activeConnectionId) {
+        connect(cfg.defaultConnectionId)
       }
     })
 

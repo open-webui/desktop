@@ -1,54 +1,87 @@
-# Open WebUI Desktop 🌐
+# Open WebUI Desktop
 
-![App Demo](./demo.png)
+![Open WebUI Desktop](./demo.png)
 
-**Open WebUI Desktop** is a cross-platform desktop application for [Open WebUI](https://github.com/open-webui/open-webui). It brings the _full-featured Open WebUI experience_ directly to your device, effectively transforming it into a powerful server—without the complexities of manual setup.
-
-> [!WARNING]
-> This project is currently in **alpha** and under active development. 🛠️ Expect frequent updates and potential changes as we refine the application.
-
-## Download 📥
+Your AI, right on your desktop. **Open WebUI Desktop** wraps the full [Open WebUI](https://github.com/open-webui/open-webui) experience into a native app you can install in seconds, with no Docker, terminal, or manual setup required. Just download, launch, and start chatting with local or remote models.
 
 > [!NOTE]
-> An internet connection is required for initial setup, but afterwards the application can be used completely offline.
+> Open WebUI Desktop is in **early alpha**. Things are moving fast and we'd love your feedback! Drop into the [Discord](https://discord.gg/5rJgQTnV4s) or open an issue if you hit a snag.
 
-Get the latest alpha release from our [releases page](https://github.com/open-webui/desktop/releases).
+## Download
 
-## Features
+Grab the installer for your platform and you're good to go. An internet connection is needed the first time you launch; after that the app works fully offline.
 
-- **One-Click Installation**: Quickly and effortlessly install and set up Open WebUI with all its dependencies. This feature is fully functional and ready to make your setup a breeze.
-- **Cross-Platform Support**: Compatible with Windows, macOS, and Linux to ensure broad accessibility.
-- **Offline Capability**: After initial setup, use the application completely offline for enhanced privacy and reliability.
+### macOS
 
-## Project Setup
+| Chip | Installer |
+|------|-----------|
+| Apple Silicon | [**Download .dmg**](https://github.com/open-webui/desktop/releases/latest/download/open-webui-arm64.dmg) |
+| Intel | [**Download .dmg**](https://github.com/open-webui/desktop/releases/latest/download/open-webui-x64.dmg) |
 
-### Install
+### Windows
+
+| Architecture | Installer |
+|--------------|-----------|
+| x64 | [**Download .exe**](https://github.com/open-webui/desktop/releases/latest/download/open-webui-setup.exe) |
+
+### Linux
+
+| Format | Installer |
+|--------|-----------|
+| AppImage | [**Download .AppImage**](https://github.com/open-webui/desktop/releases/latest/download/open-webui.AppImage) |
+| Debian / Ubuntu | [**Download .deb**](https://github.com/open-webui/desktop/releases/latest/download/open-webui_amd64.deb) |
+| Snap | [**Download .snap**](https://github.com/open-webui/desktop/releases/latest/download/open-webui_amd64.snap) |
+| Flatpak | [**Download .flatpak**](https://github.com/open-webui/desktop/releases/latest/download/open-webui.flatpak) |
+
+> Looking for an older version? Check the [releases page](https://github.com/open-webui/desktop/releases).
+
+## Highlights
+
+- **One-click setup.** Open WebUI and all its dependencies install automatically, no terminal required.
+- **Spotlight quick-chat.** Press `⇧⌘I` to pop up a lightweight input bar and fire off a prompt from anywhere on your desktop.
+- **Local inference.** The built-in llama.cpp integration lets you download and run models directly on your machine.
+- **Connect anywhere.** Point the app at any remote Open WebUI server, or run one locally and switch between connections in the sidebar.
+- **Offline-ready.** After the first launch, everything runs without an internet connection.
+- **Cross-platform.** Available for macOS (Apple Silicon + Intel), Windows, and Linux.
+- **Auto-updates.** New releases are detected and installed automatically.
+
+## System Requirements
+
+| | Minimum |
+|--|---------|
+| **Disk** | 5 GB free space |
+| **OS** | macOS 12+, Windows 10+, or a modern Linux distro |
+| **RAM** | 8 GB recommended (more is better for local models) |
+
+## Contributing
+
+Want to hack on the desktop app? Here's how to get a dev build running:
 
 ```bash
+# Install dependencies
 npm install
-```
 
-### Development
-
-```bash
+# Start the dev server with hot-reload
 npm run dev
 ```
 
-### Build
+### Building for production
 
 ```bash
-# For windows
-npm run build:win
-# For macOS
+# macOS
 npm run build:mac
-# For Linux
+
+# Windows
+npm run build:win
+
+# Linux
 npm run build:linux
 ```
 
-## License 📜
+## License
 
-This project is licensed under the **AGPL-3.0**. For details, see [LICENSE](LICENSE).
+This project is licensed under **AGPL-3.0**. See [LICENSE](LICENSE) for details.
 
-## Stay Tuned! 🌟
+## Community
 
-We're actively developing Open WebUI. Follow [Open WebUI](https://github.com/open-webui/open-webui) for updates, and join the [community on Discord](https://discord.gg/5rJgQTnV4s) to stay involved.
+We'd love to have you around! Star the repo, join the [Discord](https://discord.gg/5rJgQTnV4s), or follow [Open WebUI on GitHub](https://github.com/open-webui/open-webui) for the latest updates.

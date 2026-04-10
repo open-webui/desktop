@@ -51,6 +51,31 @@ export const getUserDataPath = (): string => {
   return path.normalize(userDataDir)
 }
 
+/**
+ * Root directory for heavyweight data (Python, models, llama.cpp).
+ * Reads `installDir` from config.json synchronously so it's available
+ * before any async init. Falls back to `getUserDataPath()`.
+ */
+export const getInstallDir = (): string => {
+  const configPath = path.join(getUserDataPath(), 'config.json')
+  let customDir = ''
+  try {
+    if (fs.existsSync(configPath)) {
+      const data = JSON.parse(fs.readFileSync(configPath, 'utf8'))
+      customDir = data.installDir || ''
+    }
+  } catch {}
+  const installDir = customDir || getUserDataPath()
+  if (!fs.existsSync(installDir)) {
+    try {
+      fs.mkdirSync(installDir, { recursive: true })
+    } catch (error) {
+      log.error(error)
+    }
+  }
+  return path.normalize(installDir)
+}
+
 export const getOpenWebUIDataPath = (): string => {
   // Check config for custom data directory
   const configPath = path.join(getUserDataPath(), 'config.json')
@@ -61,7 +86,7 @@ export const getOpenWebUIDataPath = (): string => {
       customDir = data.dataDir || ''
     }
   } catch {}
-  const openWebUIDataDir = customDir || path.join(getUserDataPath(), 'data')
+  const openWebUIDataDir = customDir || path.join(getInstallDir(), 'data')
   if (!fs.existsSync(openWebUIDataDir)) {
     try {
       fs.mkdirSync(openWebUIDataDir, { recursive: true })
@@ -194,15 +219,15 @@ export const getPythonDownloadPath = (): string => {
 }
 
 export const getPythonInstallationDir = (): string => {
-  const installDir = path.join(app.getPath('userData'), 'python')
-  if (!fs.existsSync(installDir)) {
+  const pythonDir = path.join(getInstallDir(), 'python')
+  if (!fs.existsSync(pythonDir)) {
     try {
-      fs.mkdirSync(installDir, { recursive: true })
+      fs.mkdirSync(pythonDir, { recursive: true })
     } catch (error) {
       log.error(error)
     }
   }
-  return path.normalize(installDir)
+  return path.normalize(pythonDir)
 }
 
 const downloadPython = async (onProgress = null) => {
@@ -266,8 +291,8 @@ export const installPython = async (installationDir?: string, onStatus?: (status
 
   try {
     onStatus?.('Extracting Python…')
-    const userDataPath = getUserDataPath()
-    await tar.x({ cwd: userDataPath, file: pythonDownloadPath })
+    const installBase = getInstallDir()
+    await tar.x({ cwd: installBase, file: pythonDownloadPath })
   } catch (error) {
     log.error(error)
     // Remove possibly-corrupted download so next retry re-downloads
@@ -781,6 +806,7 @@ export interface AppConfig {
   runInBackground: boolean
   globalShortcut: string
   spotlightShortcut: string
+  installDir: string
   dataDir: string
   localServer: {
     port: number
@@ -811,6 +837,7 @@ const DEFAULT_CONFIG: AppConfig = {
   runInBackground: true,
   globalShortcut: 'Alt+CommandOrControl+O',
   spotlightShortcut: 'Shift+CommandOrControl+I',
+  installDir: '',
   dataDir: '',
   localServer: {
     port: 8080,
@@ -906,7 +933,7 @@ export const resetApp = async (): Promise<void> => {
   }
 
   // Remove llama.cpp binaries
-  const llamaCppPath = path.join(getUserDataPath(), 'llama.cpp')
+  const llamaCppPath = path.join(getInstallDir(), 'llama.cpp')
   if (fs.existsSync(llamaCppPath)) {
     try {
       fs.rmSync(llamaCppPath, { recursive: true, force: true })
@@ -917,7 +944,7 @@ export const resetApp = async (): Promise<void> => {
   }
 
   // Remove downloaded models (huggingface + any user-added models)
-  const modelsPath = path.join(getUserDataPath(), 'models')
+  const modelsPath = path.join(getInstallDir(), 'models')
   if (fs.existsSync(modelsPath)) {
     try {
       fs.rmSync(modelsPath, { recursive: true, force: true })

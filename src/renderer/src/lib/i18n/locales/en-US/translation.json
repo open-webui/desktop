@@ -66,6 +66,9 @@
   "setup.install.mightTakeMinutes": "This might take a few minutes",
   "setup.install.failed": "Install failed",
   "setup.install.somethingWentWrong": "Something went wrong",
+  "setup.install.installLocation": "Install location",
+  "setup.install.installLocationDesc": "Where data, models, and runtimes will be stored",
+  "setup.install.changeLocation": "Change",
 
   "error.notEnoughDiskSpace": "Not enough disk space",
   "error.diskSpaceDetail": "At least 5 GB is required. Only {{available}} GB available.",
@@ -169,6 +172,9 @@
   "settings.general.light": "Light",
   "settings.general.dark": "Dark",
   "settings.general.keyPlaceholder": "KEY",
+  "settings.general.installLocation": "Install location",
+  "settings.general.installLocationDesc": "Root directory for Python, models, and runtimes",
+  "settings.general.installLocationNote": "Changing this requires reinstalling components",
 
   "settings.openwebui.notInstalled": "Not installed",
   "settings.openwebui.notInstalledDesc": "Set up a local Open WebUI server",

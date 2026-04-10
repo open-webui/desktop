@@ -1,10 +1,11 @@
 <script lang="ts">
+  import { onMount } from 'svelte'
   import { fade, scale } from 'svelte/transition'
   import i18n from '../../../i18n'
   import Switch from '../../common/Switch.svelte'
 
   interface Props {
-    onContinue: (options: { installOpenTerminal: boolean; installLlamaCpp: boolean }) => void
+    onContinue: (options: { installOpenTerminal: boolean; installLlamaCpp: boolean; installDir: string }) => void
     onCancel: () => void
   }
 
@@ -12,6 +13,21 @@
 
   let installOpenTerminal = $state(true)
   let installLlamaCpp = $state(true)
+  let installDir = $state('')
+  let defaultInstallDir = $state('')
+  let advancedOpen = $state(false)
+
+  onMount(async () => {
+    defaultInstallDir = await window.electronAPI.getInstallDir()
+    installDir = defaultInstallDir
+  })
+
+  const changeInstallDir = async () => {
+    const folder = await window.electronAPI.selectFolder()
+    if (folder) {
+      installDir = folder
+    }
+  }
 </script>
 
 <!-- svelte-ignore a11y_click_events_have_key_events -->
@@ -78,11 +94,48 @@
       </div>
     </div>
 
+    <!-- Advanced (collapsed) -->
+    <div class="px-6 pb-4">
+      <button
+        class="flex items-center gap-1.5 bg-transparent border-none p-0 cursor-pointer"
+        onclick={() => { advancedOpen = !advancedOpen }}
+      >
+        <svg
+          class="w-2.5 h-2.5 text-gray-400 dark:text-gray-500 transition-transform duration-200 {advancedOpen ? 'rotate-90' : ''}"
+          fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="2"
+        >
+          <path stroke-linecap="round" stroke-linejoin="round" d="M9 5l7 7-7 7" />
+        </svg>
+        <span class="text-[11px] text-gray-400 dark:text-gray-500">{$i18n.t('common.advanced')}</span>
+      </button>
+
+      {#if advancedOpen}
+        <div class="mt-3">
+          <div class="text-[11px] text-gray-400 dark:text-gray-500 mb-1.5">{$i18n.t('setup.install.installLocation')}</div>
+          <div class="flex items-center gap-2">
+            <div
+              class="flex-1 min-w-0 px-3 py-2 bg-gray-50 dark:bg-gray-900 text-[11px] text-gray-500 dark:text-gray-400 font-mono truncate rounded-xl"
+              title={installDir}
+            >
+              {installDir || '…'}
+            </div>
+            <button
+              class="shrink-0 text-[11px] text-gray-400 dark:text-gray-500 hover:text-gray-600 dark:hover:text-gray-300 px-3 py-2 bg-gray-50 dark:bg-gray-900 rounded-xl transition border-none cursor-pointer"
+              onclick={changeInstallDir}
+            >
+              {$i18n.t('setup.install.changeLocation')}
+            </button>
+          </div>
+          <div class="text-[10px] text-gray-300 dark:text-gray-600 mt-1">{$i18n.t('setup.install.installLocationDesc')}</div>
+        </div>
+      {/if}
+    </div>
+
     <!-- Footer -->
-    <div class="px-5 pb-5 flex flex-col gap-2">
+    <div class="px-5 pb-5 pt-1 flex flex-col gap-2">
       <button
         class="w-full rounded-xl bg-gray-900 dark:bg-white px-4 py-2.5 text-sm font-medium text-white dark:text-gray-900 transition-all duration-200 hover:bg-gray-800 dark:hover:bg-gray-100 active:scale-[0.98] border-none cursor-pointer"
-        onclick={() => onContinue({ installOpenTerminal, installLlamaCpp })}
+        onclick={() => onContinue({ installOpenTerminal, installLlamaCpp, installDir })}
       >
         {$i18n.t('main.getStarted.continue')}
       </button>

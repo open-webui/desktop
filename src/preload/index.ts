@@ -1,20 +1,8 @@
 import { ipcRenderer, contextBridge } from 'electron'
 import { electronAPI } from '@electron-toolkit/preload'
 
-window.addEventListener('DOMContentLoaded', () => {
-  ipcRenderer.on('main:data', (_event, data) => {
-    window.postMessage(
-      {
-        ...data,
-        type: `electron:${data.type}`
-      },
-      window.location.origin
-    )
-  })
-})
-
 // ─── PTY MessagePort ────────────────────────────────────
-// The MessagePort stays in the preload (cannot cross contextBridge).
+// MessagePorts stay in the preload (cannot cross contextBridge).
 // We expose simple functions so the renderer never touches the port.
 let activePtyPort: MessagePort | null = null
 let ptyOutputCallback: ((data: string) => void) | null = null
@@ -22,17 +10,10 @@ let ptyOutputCallback: ((data: string) => void) | null = null
 ipcRenderer.on('pty:port', (event, _data) => {
   const [port] = event.ports
   if (!port) return
-
-  // Clean up previous port
-  if (activePtyPort) {
-    activePtyPort.close()
-  }
+  if (activePtyPort) activePtyPort.close()
   activePtyPort = port
-
   port.onmessage = (ev: MessageEvent) => {
-    if (ev.data?.type === 'output' && ptyOutputCallback) {
-      ptyOutputCallback(ev.data.data)
-    }
+    if (ev.data?.type === 'output' && ptyOutputCallback) ptyOutputCallback(ev.data.data)
   }
   port.start()
 })
@@ -44,37 +25,25 @@ let otPtyOutputCallback: ((data: string) => void) | null = null
 ipcRenderer.on('open-terminal:pty:port', (event, _data) => {
   const [port] = event.ports
   if (!port) return
-
-  if (activeOtPtyPort) {
-    activeOtPtyPort.close()
-  }
+  if (activeOtPtyPort) activeOtPtyPort.close()
   activeOtPtyPort = port
-
   port.onmessage = (ev: MessageEvent) => {
-    if (ev.data?.type === 'output' && otPtyOutputCallback) {
-      otPtyOutputCallback(ev.data.data)
-    }
+    if (ev.data?.type === 'output' && otPtyOutputCallback) otPtyOutputCallback(ev.data.data)
   }
   port.start()
 })
 
-// ─── llama.cpp PTY MessagePort ───────────────────────
+// ─── llama.cpp PTY MessagePort ──────────────────────────
 let activeLsCppPtyPort: MessagePort | null = null
 let lsCppPtyOutputCallback: ((data: string) => void) | null = null
 
 ipcRenderer.on('llamacpp:pty:port', (event, _data) => {
   const [port] = event.ports
   if (!port) return
-
-  if (activeLsCppPtyPort) {
-    activeLsCppPtyPort.close()
-  }
+  if (activeLsCppPtyPort) activeLsCppPtyPort.close()
   activeLsCppPtyPort = port
-
   port.onmessage = (ev: MessageEvent) => {
-    if (ev.data?.type === 'output' && lsCppPtyOutputCallback) {
-      lsCppPtyOutputCallback(ev.data.data)
-    }
+    if (ev.data?.type === 'output' && lsCppPtyOutputCallback) lsCppPtyOutputCallback(ev.data.data)
   }
   port.start()
 })
@@ -91,6 +60,7 @@ const api = {
   getVersion: () => ipcRenderer.invoke('get:version'),
   resetApp: () => ipcRenderer.invoke('app:reset'),
   getDefaultDataPath: () => ipcRenderer.invoke('app:defaultDataPath'),
+  getInstallDir: () => ipcRenderer.invoke('app:installDir'),
   getContentPreloadPath: () => ipcRenderer.invoke('app:contentPreloadPath'),
   getDiskSpace: () => ipcRenderer.invoke('system:diskSpace'),
   getLaunchAtLogin: () => ipcRenderer.invoke('app:launchAtLogin:get'),

@@ -12,7 +12,7 @@ import * as fs from 'fs'
 import * as path from 'path'
 import log from 'electron-log'
 
-import { getUserDataPath, downloadFileWithProgress } from './index'
+import { getInstallDir, downloadFileWithProgress } from './index'
 
 // ─── Types ──────────────────────────────────────────────
 
@@ -33,7 +33,7 @@ export interface HfDownloadProgress {
 // ─── Paths ──────────────────────────────────────────────
 
 const getHfCacheDir = (): string => {
-  const dir = path.join(getUserDataPath(), 'models', 'huggingface')
+  const dir = path.join(getInstallDir(), 'models', 'huggingface')
   if (!fs.existsSync(dir)) {
     fs.mkdirSync(dir, { recursive: true })
   }
@@ -87,7 +87,7 @@ export const listModels = (): HfModel[] => {
  * Get the cache directory path (so runtimes can reference it).
  */
 export const getModelsDir = (): string => {
-  const dir = path.join(getUserDataPath(), 'models')
+  const dir = path.join(getInstallDir(), 'models')
   if (!fs.existsSync(dir)) {
     fs.mkdirSync(dir, { recursive: true })
   }

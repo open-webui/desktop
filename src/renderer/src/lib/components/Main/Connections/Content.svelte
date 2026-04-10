@@ -25,7 +25,7 @@
     connecting: boolean
     error: string
     autoInstall: boolean
-    onStartInstall: (options?: { installOpenTerminal?: boolean; installLlamaCpp?: boolean }) => void
+    onStartInstall: (options?: { installOpenTerminal?: boolean; installLlamaCpp?: boolean; installDir?: string }) => void
     onAddConnection: () => void
     onSetView: (v: string) => void
     showAddConnectionModal: boolean
@@ -85,28 +85,13 @@
 
   const isLoading = $derived(
     connectingId !== '' ||
-    serverStarting ||
-    (view === 'connected' && activeConnectionId && (webviewLoading.get(activeConnectionId) ?? true))
+    (serverStarting && activeConnectionId === localConn?.id)
   )
 
   // Attach load event listeners and IPC forwarding to webviews
   onMount(async () => {
     // Fetch the content preload path once
     contentPreloadPath = await window.electronAPI.getContentPreloadPath()
-
-    // Forward main:data events from the main process into all active webviews
-    window.electronAPI.onData((data: any) => {
-      const container = document.querySelector('.content-webview-container')
-      if (!container) return
-      const webviews = container.querySelectorAll('webview')
-      webviews.forEach((wv: any) => {
-        try {
-          wv.send('desktop:event', data)
-        } catch (_) {
-          // webview may not be ready yet
-        }
-      })
-    })
 
     const observer = new MutationObserver(() => {
       const container = document.querySelector('.content-webview-container')
@@ -149,6 +134,35 @@
           } else if (event.channel === 'webview:load') {
             const page = event.args?.[0]
             if (page) onSetView(page === 'home' ? 'welcome' : page)
+          } else if (event.channel === 'webview:event') {
+            const payload = event.args?.[0]
+            if (!payload?.type) return
+
+            if (payload.type === 'theme:update') {
+              const webuiTheme = payload.data?.theme ?? 'system'
+
+              // Map Open WebUI theme names to desktop-compatible values
+              let desktopTheme: string
+              if (webuiTheme === 'system') {
+                desktopTheme = 'system'
+              } else if (webuiTheme.includes('dark')) {
+                desktopTheme = 'dark'
+              } else {
+                desktopTheme = 'light'
+              }
+
+              // Resolve and apply CSS class
+              let resolved = desktopTheme
+              if (desktopTheme === 'system') {
+                resolved = window.matchMedia('(prefers-color-scheme: dark)').matches ? 'dark' : 'light'
+              }
+              document.documentElement.classList.remove('light', 'dark')
+              document.documentElement.classList.add(resolved)
+
+              // Persist to desktop config
+              await window.electronAPI.setConfig({ theme: desktopTheme })
+              config.set(await window.electronAPI.getConfig())
+            }
           }
         })
       })

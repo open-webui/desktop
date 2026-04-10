@@ -9,6 +9,8 @@
   let resetting = $state(false)
   let theme = $state<string>('system')
   let advancedOpen = $state(false)
+  let installDirPath = $state('')
+  let defaultInstallDir = $state('')
 
   // Env vars editor state
   let envEntries = $state<{ key: string; value: string }[]>([])
@@ -25,6 +27,10 @@
     envEntries = Object.entries(vars).map(([key, value]) => ({ key, value: value as string }))
     theme = cfg?.theme ?? 'system'
     applyThemeClass(theme)
+
+    // Load install dir
+    defaultInstallDir = await window.electronAPI.getInstallDir()
+    installDirPath = cfg?.installDir || defaultInstallDir
 
     // Load languages
     languages = await getLanguages()
@@ -45,6 +51,18 @@
     applyThemeClass(newTheme)
     await window.electronAPI.setConfig({ theme: newTheme })
     config.set(await window.electronAPI.getConfig())
+
+    // Push theme to all active Open WebUI webviews
+    const container = document.querySelector('.content-webview-container')
+    if (container) {
+      container.querySelectorAll('webview').forEach((wv: any) => {
+        try {
+          wv.send('desktop:event', { type: 'theme:update', data: { theme: newTheme } })
+        } catch (_) {
+          // webview may not be ready yet
+        }
+      })
+    }
   }
 
   const setDefault = async (id: string) => {
@@ -410,7 +428,43 @@
     </button>
 
     {#if advancedOpen}
-      <div class="flex flex-col divide-y divide-white/[0.04] mt-1">
+        <div class="flex flex-col divide-y divide-white/[0.04] mt-1">
+        <!-- Install location -->
+        <div class="py-4 flex items-center justify-between gap-4">
+          <div class="shrink-0">
+            <div class="text-[13px] opacity-70">{$i18n.t('settings.general.installLocation')}</div>
+            <div class="text-[11px] opacity-25 mt-0.5">{$i18n.t('settings.general.installLocationDesc')}</div>
+            <div class="text-[10px] opacity-15 mt-0.5">{$i18n.t('settings.general.installLocationNote')}</div>
+          </div>
+          <div class="flex items-center gap-1.5 min-w-0 flex-1 max-w-[280px] justify-end">
+            <input
+              type="text"
+              class="bg-black/[0.04] dark:bg-white/[0.06] text-[12px] text-[#1d1d1f] dark:text-[#fafafa] px-3 py-1.5 border-none outline-none rounded-xl opacity-60 min-w-0 flex-1 text-right font-mono"
+              placeholder={defaultInstallDir || 'Default'}
+              value={installDirPath === defaultInstallDir ? '' : installDirPath}
+              onchange={async (e) => {
+                const val = (e.target as HTMLInputElement).value.trim()
+                installDirPath = val || defaultInstallDir
+                await window.electronAPI.setConfig({ installDir: val })
+                config.set(await window.electronAPI.getConfig())
+              }}
+            />
+            <button
+              class="shrink-0 text-[12px] opacity-40 hover:opacity-70 px-2.5 py-1.5 bg-black/[0.04] dark:bg-white/[0.06] transition border-none text-[#1d1d1f] dark:text-[#fafafa] rounded-xl"
+              onclick={async () => {
+                const folder = await window.electronAPI.selectFolder()
+                if (folder) {
+                  installDirPath = folder
+                  await window.electronAPI.setConfig({ installDir: folder })
+                  config.set(await window.electronAPI.getConfig())
+                }
+              }}
+            >
+              {$i18n.t('common.browse')}
+            </button>
+          </div>
+        </div>
+
         <!-- Environment variables -->
         <div class="py-4">
           <div class="flex items-center justify-between mb-3">

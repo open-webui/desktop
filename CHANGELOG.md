@@ -5,47 +5,84 @@ All notable changes to this project will be documented in this file.
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/),
 and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
-## [Unreleased]
+## [0.0.6] - 2026-04-10
+
+### Added
+
+- **Spotlight Screenshot Capture.** Drag anywhere on the Spotlight overlay to select a region of your screen. Screenshots appear as inline thumbnails and are sent alongside your message.
+- **Multiple Screenshots.** Attach several screenshots in a single Spotlight query. Each one can be individually removed before sending.
+- **Click-to-Dismiss Spotlight.** Clicking the background outside the input bar dismisses Spotlight, in addition to pressing Escape.
+- **Screen Recording Permission Prompt (macOS).** If screen capture permission hasn't been granted, a notification guides you to the correct System Settings page.
+- **Screenshot Hint.** A "Drag anywhere to capture a screenshot" hint appears when Spotlight opens.
+- **Offline Mode for llama.cpp.** Previously downloaded llama.cpp binaries are automatically detected on startup, so local models work without an internet connection.
+- **Auto-Connect on Startup.** The app pre-connects to your default connection when launched, so Spotlight queries work immediately.
+
+### Changed
+
+- **Fullscreen Spotlight Overlay.** Spotlight now opens as a fullscreen transparent overlay on your active display rather than a small floating window, enabling screenshot capture and multi-display support.
+- **Faster Remote Connections.** Switching to a remote server is now instant with no loading delay.
+- **Smarter Loading Indicator.** The loading spinner only appears when the local server is actually starting, instead of showing on every connection switch.
+- **Clearer Sidebar Selection.** Active connections are more visually distinct with bolder text and stronger highlights. Inactive connections are subtler for better contrast.
+- **Safer llama.cpp Updates.** The app verifies internet connectivity before removing the current installation, preventing accidental data loss when updating offline.
+
+### Fixed
+
+- **Tray Menu Connections.** Clicking a connection from the system tray menu now correctly opens it in the app.
+- **Dark Mode Context Menus.** Sidebar right-click menus no longer appear incorrectly highlighted in dark mode.
+- **Local Server Always Accessible.** The local connection in the sidebar is no longer grayed out when the server isn't running. Clicking it will start the server.
+- **Open Terminal Install Errors.** If automatic installation of Open Terminal fails, you now see a clear error message instead of a silent failure.
+- **Network Timeout Handling.** Requests for llama.cpp releases now time out after 10 seconds instead of hanging indefinitely on slow networks.
+
+## [0.0.5] - 2026-04-07
+
+### Added
+
+- **Two-Way Theme Sync.** Theme changes in Open WebUI are now mirrored to the desktop app and vice versa, so your light/dark preference stays consistent everywhere.
+- **Seamless Spotlight Queries.** Spotlight prompts now appear directly in your already-open chat without triggering a full page reload.
+
+### Fixed
+
+- **Auto-Default Connection.** Selecting a connection now automatically saves it as your default for Spotlight and app startup.
+- **Smooth Connection Switching.** Switching between already-open connections no longer causes unnecessary page reloads.
+- **Connection Switch Race Condition.** Clicking a remote connection while the local server is still starting no longer gets overridden when the local server finishes loading.
 
 ## [0.0.3] - 2026-04-06
 
 ### Fixed
 
-- **Spotlight Focus** — Spotlight now reliably appears after interacting with the main window or webview (fixed blur-during-show race condition on macOS)
-- **Spotlight Query Passthrough** — The `?q=` search parameter from spotlight now correctly navigates already-open webviews instead of being silently ignored
+- **Spotlight Focus.** Spotlight now reliably appears after interacting with the main window. Previously could fail to show on macOS.
+- **Spotlight Search Passthrough.** Searches submitted from Spotlight now correctly load in already-open connections instead of being silently ignored.
 
 ## [0.0.2] - 2026-04-06
 
 ### Added
 
-- **Spotlight Input Bar** — Lightweight quick-chat bar (⇧⌘I) for submitting queries without opening the full app
-- **Spotlight Shortcut** — Dedicated configurable shortcut for the spotlight, independent from the global app shortcut
-- **Draggable Spotlight** — Spotlight bar can be dragged to any position on screen
-- **Persistent Spotlight Position** — Spotlight position is saved to config and restored across app restarts
-- **Spotlight Settings** — Shortcut recorder in Settings → General for the spotlight shortcut
-
+- **Spotlight Input Bar.** Lightweight quick-chat bar (⇧⌘I) for submitting queries without opening the full app.
+- **Spotlight Shortcut.** Dedicated configurable shortcut for Spotlight, independent from the global app shortcut.
+- **Draggable Spotlight.** Spotlight bar can be dragged to any position on screen.
+- **Persistent Spotlight Position.** Spotlight position is saved and restored across app restarts.
+- **Spotlight Settings.** Shortcut recorder in Settings → General for the Spotlight shortcut.
 
 ### Fixed
 
-- **System Theme Sync** — App now listens for OS dark/light mode changes in real-time when set to "Auto" (previously only checked once at startup)
+- **System Theme Sync.** The app now responds to OS dark/light mode changes in real-time when set to "Auto". Previously only checked once at startup.
 
 ## [0.0.1] - 2026-03-20
 
 ### Added
 
-- **Local Server Management** — Install, start, stop, and restart Open WebUI directly from the desktop app
-- **Connection Manager** — Connect to multiple Open WebUI servers with sidebar quick-switch
-- **Status Bar** — Real-time status indicators for Open WebUI, Open Terminal, and llama.cpp services
-- **Log Panel** — Live PTY-backed terminal log viewer for all services with copy, refresh, and resize
-- **Open Terminal Integration** — Built-in terminal server for AI-powered shell access
-- **llama.cpp Integration** — Local inference runtime with model management and Hugging Face downloads
-- **Settings** — General, Open WebUI, Terminal, Inference, Models, Connections, and About panels
-- **Global Shortcut** — Configurable system-wide hotkey to bring the app to the foreground
-- **Auto-Update** — Built-in software update checker with download and install
-- **Tray Support** — System tray icon with quick actions and optional background execution
-- **Factory Reset** — One-click removal of all installed components, data, and connections
-- **Disk Space Check** — Pre-install validation requiring at least 5 GB of free storage
-- **Internationalization** — i18n support with English, Japanese, Chinese (Simplified & Traditional) translations
-- **Changelog Viewer** — In-app changelog accessible from the About settings page
-- **Singleton Enforcement** — Prevents multiple instances of managed services from running simultaneously
-- **Cross-Platform** — macOS, Windows, and Linux support
+- **Local Server Management.** Install, start, stop, and restart Open WebUI directly from the desktop app.
+- **Connection Manager.** Connect to multiple Open WebUI servers with sidebar quick-switch.
+- **Status Bar.** Real-time status indicators for Open WebUI, Open Terminal, and llama.cpp services.
+- **Log Viewer.** Live terminal log viewer for all services with copy, refresh, and resize.
+- **Open Terminal Integration.** Built-in terminal server for AI-powered shell access.
+- **llama.cpp Integration.** Local inference engine with model management and Hugging Face downloads.
+- **Settings.** General, Open WebUI, Terminal, Inference, Models, Connections, and About panels.
+- **Global Shortcut.** Configurable system-wide hotkey to bring the app to the foreground.
+- **Auto-Update.** Built-in update checker with one-click download and install.
+- **Tray Support.** System tray icon with quick actions and optional background mode.
+- **Factory Reset.** One-click removal of all installed components, data, and connections.
+- **Disk Space Check.** Pre-install check requiring at least 5 GB of free storage.
+- **Internationalization.** English, Japanese, Chinese (Simplified & Traditional) translations.
+- **In-App Changelog.** Accessible from the About settings page.
+- **Cross-Platform.** macOS, Windows, and Linux support.

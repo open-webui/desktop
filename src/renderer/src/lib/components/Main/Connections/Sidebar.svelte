@@ -99,19 +99,14 @@
         connectingId === localConn.id ||
         serverStatus === 'starting' ||
         (serverStatus === 'running' && !serverReachable)}
-      {@const isLocalDisabled = !serverReachable && !isServerLoading}
       <div
-        class="w-full px-2.5 py-1.5 rounded-xl group flex items-center gap-2 transition-colors {isLocalDisabled
-          ? 'opacity-40 cursor-default'
-          : 'cursor-pointer'} {activeConnectionId === localConn.id || isServerLoading
-          ? 'bg-black/[0.06] dark:bg-white/[0.06]'
-          : isLocalDisabled
-            ? ''
-            : 'hover:bg-black/[0.03] dark:bg-white/[0.05]'}"
+        class="w-full px-2.5 py-1.5 rounded-xl group flex items-center gap-2 transition-colors cursor-pointer {activeConnectionId === localConn.id
+          ? 'bg-black/[0.08] dark:bg-white/[0.08]'
+          : 'hover:bg-black/[0.04] dark:hover:bg-white/[0.06]'}"
         role="button"
         tabindex="0"
-        onclick={() => !isLocalDisabled && onConnect(localConn.id)}
-        onkeydown={(e) => e.key === 'Enter' && !isLocalDisabled && onConnect(localConn.id)}
+        onclick={() => onConnect(localConn.id)}
+        onkeydown={(e) => e.key === 'Enter' && onConnect(localConn.id)}
       >
         {#if connectingId === localConn.id || serverStatus === 'starting' || (serverStatus === 'running' && !serverReachable)}
           <div class="w-[14px] h-[14px] shrink-0 flex items-center justify-center">
@@ -149,8 +144,8 @@
         {:else}
           <span
             class="text-[12px] {activeConnectionId === localConn.id
-              ? 'opacity-90'
-              : 'opacity-100'} transition-opacity truncate flex-1 min-w-0"
+              ? 'font-medium opacity-100'
+              : 'opacity-70'} transition-opacity truncate flex-1 min-w-0"
             >{localConn.name ?? 'Open WebUI'}</span
           >
         {/if}
@@ -185,7 +180,7 @@
             >
               <div class="py-1 px-1.5">
                 <button
-                  class="w-full flex items-center gap-2.5 px-3 py-1.5 text-left text-[12px] opacity-50 hover:opacity-90 hover:bg-black/[0.04] dark:bg-white/[0.06] transition bg-transparent border-none text-[#1d1d1f] dark:text-[#fafafa] rounded-xl"
+                  class="w-full flex items-center gap-2.5 px-3 py-1.5 text-left text-[12px] opacity-50 hover:opacity-90 hover:bg-black/[0.04] dark:hover:bg-white/[0.06] transition bg-transparent border-none text-[#1d1d1f] dark:text-[#fafafa] rounded-xl"
                   onclick={(e) => {
                     e.stopPropagation()
                     menuOpenId = null
@@ -208,7 +203,7 @@
                   {$i18n.t('common.rename')}
                 </button>
                 <button
-                  class="w-full flex items-center gap-2.5 px-3 py-1.5 text-left text-[12px] opacity-50 hover:opacity-90 hover:bg-black/[0.04] dark:bg-white/[0.06] transition bg-transparent border-none text-[#1d1d1f] dark:text-[#fafafa] rounded-xl"
+                  class="w-full flex items-center gap-2.5 px-3 py-1.5 text-left text-[12px] opacity-50 hover:opacity-90 hover:bg-black/[0.04] dark:hover:bg-white/[0.06] transition bg-transparent border-none text-[#1d1d1f] dark:text-[#fafafa] rounded-xl"
                   onclick={(e) => {
                     e.stopPropagation()
                     menuOpenId = null
@@ -245,8 +240,8 @@
       <div
         class="w-full px-2.5 py-1.5 rounded-xl group flex items-center gap-2 transition-colors cursor-pointer {activeConnectionId ===
         conn.id
-          ? 'bg-black/[0.06] dark:bg-white/[0.06]'
-          : 'hover:bg-black/[0.03] dark:bg-white/[0.05]'}"
+          ? 'bg-black/[0.08] dark:bg-white/[0.08]'
+          : 'hover:bg-black/[0.04] dark:hover:bg-white/[0.06]'}"
         role="button"
         tabindex="0"
         onclick={() => editingId !== conn.id && onConnect(conn.id)}
@@ -293,8 +288,8 @@
         {:else}
           <span
             class="text-[12px] {activeConnectionId === conn.id
-              ? 'opacity-90'
-              : 'opacity-100'} transition-opacity truncate flex-1 min-w-0">{conn.name}</span
+              ? 'font-medium opacity-100'
+              : 'opacity-70'} transition-opacity truncate flex-1 min-w-0">{conn.name}</span
           >
         {/if}
 
@@ -329,7 +324,7 @@
             >
               <div class="py-1 px-1.5">
                 <button
-                  class="w-full flex items-center gap-2.5 px-3 py-1.5 text-left text-[12px] opacity-50 hover:opacity-90 hover:bg-black/[0.04] dark:bg-white/[0.06] transition bg-transparent border-none text-[#1d1d1f] dark:text-[#fafafa] rounded-xl"
+                  class="w-full flex items-center gap-2.5 px-3 py-1.5 text-left text-[12px] opacity-50 hover:opacity-90 hover:bg-black/[0.04] dark:hover:bg-white/[0.06] transition bg-transparent border-none text-[#1d1d1f] dark:text-[#fafafa] rounded-xl"
                   onclick={(e) => {
                     e.stopPropagation()
                     menuOpenId = null
@@ -352,7 +347,7 @@
                   {$i18n.t('common.rename')}
                 </button>
                 <button
-                  class="w-full flex items-center gap-2.5 px-3 py-1.5 text-left text-[12px] opacity-50 hover:opacity-90 hover:bg-black/[0.04] dark:bg-white/[0.06] transition bg-transparent border-none text-[#1d1d1f] dark:text-[#fafafa] rounded-xl"
+                  class="w-full flex items-center gap-2.5 px-3 py-1.5 text-left text-[12px] opacity-50 hover:opacity-90 hover:bg-black/[0.04] dark:hover:bg-white/[0.06] transition bg-transparent border-none text-[#1d1d1f] dark:text-[#fafafa] rounded-xl"
                   onclick={(e) => {
                     e.stopPropagation()
                     menuOpenId = null

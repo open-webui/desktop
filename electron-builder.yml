@@ -18,7 +18,7 @@ asarUnpack:
 win:
   executableName: open-webui
 nsis:
-  artifactName: ${name}-${version}-setup.${ext}
+  artifactName: ${name}-setup.${ext}
   shortcutName: ${productName}
   uninstallDisplayName: ${productName}
   createDesktopShortcut: always
@@ -35,7 +35,7 @@ mac:
     - NSDownloadsFolderUsageDescription: Application requests access to the user's Downloads folder.
 dmg:
   background: build/dmg-background.png
-  artifactName: ${name}-${version}-${arch}.${ext}
+  artifactName: ${name}-${arch}.${ext}
   title: ${productName}
   contents:
     - x: 225
@@ -53,15 +53,19 @@ linux:
     - flatpak
   maintainer: openwebui.com
   category: Utility
+deb:
+  artifactName: ${name}_${arch}.${ext}
+snap:
+  artifactName: ${name}_${arch}.${ext}
 appImage:
-  artifactName: ${name}-${version}.${ext}
+  artifactName: ${name}.${ext}
 flatpak:
   base: org.electronjs.Electron2.BaseApp
   baseVersion: '23.08'
   runtime: org.freedesktop.Platform
   runtimeVersion: '23.08'
   sdk: org.freedesktop.Sdk
-  artifactName: ${name}-${version}.flatpak
+  artifactName: ${name}.flatpak
   finishArgs:
     - --share=ipc
     - --socket=x11

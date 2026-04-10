@@ -15,6 +15,14 @@ ipcRenderer.on('desktop:event', (_event, data) => {
   eventCallbacks.forEach((cb) => cb(data))
 })
 
+// ─── Theme Sync: Open WebUI → Desktop ───────────────────
+// Open WebUI calls window.applyTheme() after every theme change.
+// We inject this hook so the desktop shell can mirror the theme.
+contextBridge.exposeInMainWorld('applyTheme', () => {
+  const theme = localStorage.getItem('theme') ?? 'system'
+  ipcRenderer.sendToHost('webview:event', { type: 'theme:update', data: { theme } })
+})
+
 // Expose to the Open WebUI page via contextBridge (secure, unforgeable)
 contextBridge.exposeInMainWorld('electronAPI', {
   // Push events: desktop → Open WebUI

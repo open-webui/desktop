@@ -10,10 +10,23 @@
 
   let phase = $state(autoStart ? 'working' : 'ready') // ready | working | done | error
   let errorMsg = $state('')
+  let installDir = $state('')
+  let defaultInstallDir = $state('')
+
+  onMount(async () => {
+    defaultInstallDir = await window.electronAPI.getInstallDir()
+    installDir = defaultInstallDir
+    if (autoStart) install()
+  })
 
   const install = async () => {
     phase = 'working'
     try {
+      // Save custom install directory before installing
+      if (installDir && installDir !== defaultInstallDir) {
+        await window.electronAPI.setConfig({ installDir })
+      }
+
       const ok = await window.electronAPI.installPackage()
       if (!ok) { phase = 'error'; errorMsg = $i18n.t('setup.install.failed'); return }
 
@@ -41,9 +54,12 @@
     }
   }
 
-  onMount(() => {
-    if (autoStart) install()
-  })
+  const changeInstallDir = async () => {
+    const folder = await window.electronAPI.selectFolder()
+    if (folder) {
+      installDir = folder
+    }
+  }
 </script>
 
 <div class="flex flex-col" in:fade={{ duration: 200 }}>
@@ -58,9 +74,29 @@
   {#if phase === 'ready'}
     <div class="mb-1 text-sm font-normal opacity-50">{$i18n.t('app.name')}</div>
     <h1 class="text-2xl font-light tracking-tight mb-2">{$i18n.t('setup.install.title')}</h1>
-    <p class="text-[12px] opacity-30 mb-8 leading-relaxed">
+    <p class="text-[12px] opacity-30 mb-6 leading-relaxed">
       {$i18n.t('setup.install.description')}
     </p>
+
+    <!-- Install location -->
+    <div class="mb-6">
+      <div class="text-[11px] opacity-40 mb-1.5">{$i18n.t('setup.install.installLocation')}</div>
+      <div class="flex items-center gap-2">
+        <div
+          class="flex-1 min-w-0 px-3 py-2 bg-black/[0.04] dark:bg-white/[0.06] text-[12px] text-[#1d1d1f] dark:text-[#fafafa] opacity-50 font-mono truncate rounded-lg"
+          title={installDir}
+        >
+          {installDir || '…'}
+        </div>
+        <button
+          class="shrink-0 text-[11px] opacity-40 hover:opacity-70 px-2.5 py-2 bg-black/[0.04] dark:bg-white/[0.06] transition border-none text-[#1d1d1f] dark:text-[#fafafa] rounded-lg"
+          onclick={changeInstallDir}
+        >
+          {$i18n.t('setup.install.changeLocation')}
+        </button>
+      </div>
+      <div class="text-[10px] opacity-20 mt-1">{$i18n.t('setup.install.installLocationDesc')}</div>
+    </div>
 
     <button
       class="w-fit inline-flex items-center gap-2 bg-white px-8 py-2.5 text-black text-[13px] transition hover:bg-gray-100 border-none"

@@ -7,6 +7,7 @@ import {
   clipboard,
   nativeImage,
   desktopCapturer,
+  systemPreferences,
   BrowserWindow,
   globalShortcut,
   MessageChannelMain,
@@ -18,6 +19,7 @@ import {
 } from 'electron'
 import path, { join } from 'path'
 import { readFile, statfs } from 'fs/promises'
+
 import { electronApp, optimizer, is } from '@electron-toolkit/utils'
 
 import {
@@ -26,6 +28,7 @@ import {
   clearAllServerLogs,
   getConfig,
   getUserDataPath,
+  getInstallDir,
   getServerLog,
   getServerPIDs,
   getServerPty,
@@ -129,7 +132,8 @@ const registerShortcuts = (globalAccel?: string, spotlightAccel?: string): void 
   if (spotlightAccel) {
     try {
       globalShortcut.register(spotlightAccel, () => {
-        toggleSpotlight()
+        const text = clipboard.readText()?.trim() || ''
+        toggleSpotlight(text)
       })
     } catch (error) {
       log.warn('Failed to register spotlight shortcut:', spotlightAccel, error)
@@ -138,41 +142,26 @@ const registerShortcuts = (globalAccel?: string, spotlightAccel?: string): void 
 }
 
 // ─── Spotlight Window ───────────────────────────────────
+// Bar position within the fullscreen window (persisted to config).
+let spotlightBarOffset: { x: number; y: number } | null = null
 
-// Remember where the user dragged the spotlight
-let spotlightPosition: { x: number; y: number } | null = null
-
-// Load persisted spotlight position from config (call after CONFIG is loaded)
 function loadSpotlightPosition(): void {
   if (CONFIG?.spotlightPosition) {
-    spotlightPosition = { ...CONFIG.spotlightPosition }
-  }
-}
-
-function getDefaultSpotlightPosition(): { x: number; y: number } {
-  const { screen } = require('electron')
-  const cursorPoint = screen.getCursorScreenPoint()
-  const activeDisplay = screen.getDisplayNearestPoint(cursorPoint)
-  const { width: screenW } = activeDisplay.workAreaSize
-  const { x: screenX, y: screenY } = activeDisplay.workArea
-  const winW = 748
-  return {
-    x: Math.round(screenX + (screenW - winW) / 2),
-    y: Math.round(screenY + 160)
+    spotlightBarOffset = { ...CONFIG.spotlightPosition }
   }
 }
 
 function createSpotlightWindow(): BrowserWindow {
-  const pos = spotlightPosition || getDefaultSpotlightPosition()
-
-  const winW = 748
-  const winH = 86
+  const { screen } = require('electron')
+  const cursorPoint = screen.getCursorScreenPoint()
+  const activeDisplay = screen.getDisplayNearestPoint(cursorPoint)
+  const { x: sx, y: sy, width: sw, height: sh } = activeDisplay.bounds
 
   spotlightWindow = new BrowserWindow({
-    width: winW,
-    height: winH,
-    x: pos.x,
-    y: pos.y,
+    x: sx,
+    y: sy,
+    width: sw,
+    height: sh,
     frame: false,
     transparent: true,
     alwaysOnTop: true,
@@ -195,22 +184,7 @@ function createSpotlightWindow(): BrowserWindow {
     spotlightWindow.loadFile(join(__dirname, '../renderer/spotlight.html'))
   }
 
-  // Save position when user drags to a new spot
-  spotlightWindow.on('moved', () => {
-    if (spotlightWindow && !spotlightWindow.isDestroyed()) {
-      const [x, y] = spotlightWindow.getPosition()
-      spotlightPosition = { x, y }
-      // Persist to config for cross-session recall
-      setConfig({ spotlightPosition: { x, y } }).catch((err) =>
-        log.warn('Failed to persist spotlight position:', err)
-      )
-    }
-  })
-
   // Hide on blur — but only when the window was truly visible and settled.
-  // Without the guard the blur fires during the show→focus transition and
-  // the window disappears immediately (especially when the user had been
-  // interacting with the main window / webview).
   let blurArmed = false
   spotlightWindow.on('focus', () => {
     blurArmed = false
@@ -221,52 +195,64 @@ function createSpotlightWindow(): BrowserWindow {
   spotlightWindow.on('blur', () => {
     if (blurArmed) {
       spotlightWindow?.hide()
+      // Restore main window when spotlight dismisses
+      if (mainWindow && !mainWindow.isDestroyed()) {
+        mainWindow.show()
+      }
     }
   })
 
   spotlightWindow.on('closed', () => {
+    // Restore main window if spotlight is closed
+    if (mainWindow && !mainWindow.isDestroyed()) {
+      mainWindow.show()
+    }
     spotlightWindow = null
   })
 
   return spotlightWindow
 }
 
-function showAndFocusSpotlight(win: BrowserWindow): void {
-  // On macOS the app may not be the "active" application when the global
-  // shortcut fires (e.g. user clicked into a webview which is a separate
-  // render process).  Calling app.focus() first ensures macOS brings the
-  // app to the foreground so the subsequent window.focus() actually works.
+function showAndFocusSpotlight(win: BrowserWindow, initialQuery?: string): void {
   if (process.platform === 'darwin') {
     app.focus({ steal: true })
   }
 
-  // Restore to saved position, or default if none saved
-  if (spotlightPosition) {
-    win.setPosition(spotlightPosition.x, spotlightPosition.y)
-  } else {
-    const pos = getDefaultSpotlightPosition()
-    win.setPosition(pos.x, pos.y)
+  // Reposition fullscreen window to the active display
+  const { screen } = require('electron')
+  const cursorPoint = screen.getCursorScreenPoint()
+  const activeDisplay = screen.getDisplayNearestPoint(cursorPoint)
+  const { x: sx, y: sy, width: sw, height: sh } = activeDisplay.bounds
+  win.setBounds({ x: sx, y: sy, width: sw, height: sh })
+
+  // Hide main window so it doesn't appear behind the transparent overlay
+  if (mainWindow && !mainWindow.isDestroyed() && mainWindow.isVisible()) {
+    mainWindow.hide()
   }
 
   win.show()
   win.focus()
-
-  // Tell the renderer to focus the input field (belt-and-suspenders —
-  // the renderer also listens for the 'focus' window event)
   win.webContents.focus()
+
+  // Send initial data to the renderer (bar offset + optional query)
+  win.webContents.send('spotlight:init', {
+    barOffset: spotlightBarOffset,
+    screenSize: { width: sw, height: sh },
+    query: initialQuery || ''
+  })
 }
 
-function toggleSpotlight(): void {
+function toggleSpotlight(selectedText?: string): void {
   if (spotlightWindow && !spotlightWindow.isDestroyed()) {
     if (spotlightWindow.isVisible()) {
       spotlightWindow.hide()
     } else {
-      showAndFocusSpotlight(spotlightWindow)
+      showAndFocusSpotlight(spotlightWindow, selectedText)
     }
   } else {
     const win = createSpotlightWindow()
     win.once('ready-to-show', () => {
-      showAndFocusSpotlight(win)
+      showAndFocusSpotlight(win, selectedText)
     })
   }
 }
@@ -405,7 +391,10 @@ const updateTray = () => {
   const connectionItems = (CONFIG.connections || []).map((conn) => ({
     label: `${conn.id === CONFIG.defaultConnectionId ? '★ ' : ''}${conn.name}`,
     sublabel: conn.url,
-    click: () => connectTo(conn)
+    click: async () => {
+      const result = await connectTo(conn)
+      if (result) sendToRenderer('connection:open', result)
+    }
   }))
 
   const trayMenuTemplate = [
@@ -485,7 +474,6 @@ const connectTo = async (connection: Connection) => {
     url = url.replace('http://0.0.0.0', 'http://localhost')
   }
 
-  sendToRenderer('connection:open', { url, connectionId: connection.id })
   return { url, connectionId: connection.id }
 }
 
@@ -783,6 +771,10 @@ if (!gotTheLock) {
       return join(getUserDataPath(), 'data')
     })
 
+    ipcMain.handle('app:installDir', () => {
+      return getInstallDir()
+    })
+
     ipcMain.handle('system:diskSpace', async () => {
       try {
         const stats = await statfs(getUserDataPath())
@@ -953,10 +945,9 @@ if (!gotTheLock) {
     ipcMain.handle('app:reset', () => resetAppHandler())
 
     // Spotlight
-    ipcMain.handle('spotlight:submit', async (_event, query: string) => {
+    ipcMain.handle('spotlight:submit', async (_event, query: string, images?: string[]) => {
       const config = await getConfig()
       if (!config.defaultConnectionId || config.connections.length === 0) {
-        // No default connection — just show main window
         mainWindow?.show()
         mainWindow?.focus()
         return
@@ -976,18 +967,114 @@ if (!gotTheLock) {
         url = url.replace('http://0.0.0.0', 'http://localhost')
       }
 
-      // Navigate to the connection URL with query
-      const targetUrl = `${url}/?q=${encodeURIComponent(query)}`
-      sendToRenderer('connection:open', { url: targetUrl, connectionId: conn.id })
+      // Build files payload from screenshot images
+      const files = images?.map((dataUrl, i) => ({
+        name: `screenshot-${Date.now()}-${i + 1}.png`,
+        mimeType: 'image/png',
+        dataUrl
+      }))
 
-      // Show main window and hide spotlight
-      mainWindow?.show()
-      mainWindow?.focus()
+      sendToRenderer('query', { query, connectionId: conn.id, url, files })
+
+      // Hide spotlight first (blur handler will restore main window)
       spotlightWindow?.hide()
+      // Ensure main window is focused to receive the query
+      if (mainWindow && !mainWindow.isDestroyed()) {
+        mainWindow.show()
+        mainWindow.focus()
+      }
     })
     ipcMain.handle('spotlight:close', () => {
       spotlightWindow?.hide()
+      // blur handler restores main window
     })
+
+    // Persist bar offset within the fullscreen spotlight window
+    ipcMain.handle('spotlight:savePosition', async (_event, offset: { x: number; y: number }) => {
+      spotlightBarOffset = offset
+      setConfig({ spotlightPosition: offset }).catch((err) =>
+        log.warn('Failed to persist spotlight bar position:', err)
+      )
+    })
+
+    // Capture a region of the screen (called from Spotlight renderer after drag)
+    ipcMain.handle(
+      'spotlight:captureRegion',
+      async (_event, rect: { x: number; y: number; width: number; height: number }) => {
+        try {
+          // ── Permission check (macOS) ──
+          if (process.platform === 'darwin') {
+            const status = systemPreferences.getMediaAccessStatus('screen')
+            if (status !== 'granted') {
+              log.warn(`spotlight:captureRegion — screen recording permission: ${status}`)
+              new Notification({
+                title: 'Screen Recording Permission Required',
+                body: 'Open WebUI needs Screen Recording access to capture screenshots. Please enable it in System Settings → Privacy & Security → Screen Recording, then restart the app.'
+              }).show()
+              // Open the correct System Preferences pane
+              shell.openExternal(
+                'x-apple.systempreferences:com.apple.preference.security?Privacy_ScreenCapture'
+              ).catch(() => {})
+              return 'no-permission'
+            }
+          }
+
+          // Make spotlight invisible (but don't hide it — hiding triggers macOS
+          // window activation which brings up the main window behind it)
+          spotlightWindow?.setOpacity(0)
+          // Small delay to let the window fully disappear before capture
+          await new Promise((r) => setTimeout(r, 150))
+
+          const { screen } = require('electron')
+          const cursorPoint = screen.getCursorScreenPoint()
+          const display = screen.getDisplayNearestPoint(cursorPoint)
+          const scaleFactor = display.scaleFactor || 1
+
+          const sources = await desktopCapturer.getSources({
+            types: ['screen'],
+            thumbnailSize: {
+              width: Math.round(display.bounds.width * scaleFactor),
+              height: Math.round(display.bounds.height * scaleFactor)
+            }
+          })
+
+          // Find the source matching this display
+          const source =
+            sources.find((s) => s.display_id === String(display.id)) || sources[0]
+          if (!source) {
+            spotlightWindow?.setOpacity(1)
+            return null
+          }
+
+          const fullImage = source.thumbnail
+          // Validate thumbnail is not empty (can happen without permission)
+          if (fullImage.isEmpty()) {
+            log.warn('spotlight:captureRegion — captured thumbnail is empty (likely no permission)')
+            spotlightWindow?.setOpacity(1)
+            return null
+          }
+
+          const cropped = fullImage.crop({
+            x: Math.round(rect.x * scaleFactor),
+            y: Math.round(rect.y * scaleFactor),
+            width: Math.round(rect.width * scaleFactor),
+            height: Math.round(rect.height * scaleFactor)
+          })
+
+          // Restore spotlight visibility
+          if (spotlightWindow && !spotlightWindow.isDestroyed()) {
+            spotlightWindow.setOpacity(1)
+          }
+
+          return cropped.toDataURL()
+        } catch (err) {
+          log.error('spotlight:captureRegion failed:', err)
+          // Restore spotlight on error
+          spotlightWindow?.setOpacity(1)
+          return null
+        }
+      }
+    )
 
     // Open Terminal
     ipcMain.handle('open-terminal:start', async () => {
@@ -1295,7 +1382,8 @@ if (!gotTheLock) {
       )
       if (defaultConn) {
         createMainWindow()
-        await connectTo(defaultConn)
+        const result = await connectTo(defaultConn)
+        if (result) sendToRenderer('connection:open', result)
       } else {
         createMainWindow()
       }

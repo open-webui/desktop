@@ -47,9 +47,15 @@ export const startOpenTerminal = async (
 
   if (!isPythonInstalled()) throw new Error('Python is not installed')
   if (!isPackageInstalled('open-terminal')) {
-    log.info('open-terminal not installed, installing...')
-    const ok = await installPackage('open-terminal')
-    if (!ok) throw new Error('Failed to install open-terminal')
+    log.info('open-terminal not installed, attempting install...')
+    try {
+      await installPackage('open-terminal')
+    } catch (err) {
+      throw new Error(
+        `Open Terminal is not installed and auto-install failed. ` +
+        `Please connect to the internet and try again. (${err?.message ?? err})`
+      )
+    }
   }
 
   const pythonPath = getPythonPath()
