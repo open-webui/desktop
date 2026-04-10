@@ -33,6 +33,27 @@ let binaryPath: string | null = null
 // ─── Public Getters ─────────────────────────────────────
 
 export const getLlamaCppInfo = () => {
+  // Lazily discover a cached binary on cold boot so the UI never falsely
+  // reports "not installed" when the files are actually on disk.
+  if (!binaryPath) {
+    const cacheBase = path.join(getUserDataPath(), 'llama.cpp')
+    try {
+      if (fs.existsSync(cacheBase)) {
+        const dirs = fs.readdirSync(cacheBase, { withFileTypes: true })
+          .filter((d) => d.isDirectory())
+        for (const d of dirs) {
+          const found = findBinary(path.join(cacheBase, d.name))
+          if (found) {
+            binaryPath = found
+            break
+          }
+        }
+      }
+    } catch {
+      // Ignore — best-effort discovery
+    }
+  }
+
   // Extract version tag from binaryPath — the tag is the directory name
   // directly under the llama.cpp cache dir, e.g. …/llama.cpp/<tag>/bin/llama-server
   let version: string | null = null
@@ -199,6 +220,40 @@ export const setupLlamaCpp = async (
     fs.mkdirSync(cacheBase, { recursive: true })
   }
 
+  // ── Check for existing cached binary before any network request ──
+  // This allows llama.cpp to start offline when previously installed.
+  if (version !== 'latest') {
+    // Pinned version — check its specific directory
+    const pinnedDir = path.join(cacheBase, version)
+    const pinnedBinary = fs.existsSync(pinnedDir) ? findBinary(pinnedDir) : null
+    if (pinnedBinary) {
+      log.info(`Using cached llama-server binary (pinned ${version}): ${pinnedBinary}`)
+      binaryPath = pinnedBinary
+      onStatus?.('Ready')
+      return pinnedBinary
+    }
+  } else {
+    // 'latest' — scan all cached version directories for a usable binary
+    try {
+      const cachedVersions = fs.readdirSync(cacheBase, { withFileTypes: true })
+        .filter((d) => d.isDirectory())
+        .map((d) => d.name)
+
+      for (const cachedTag of cachedVersions) {
+        const cachedBinary = findBinary(path.join(cacheBase, cachedTag))
+        if (cachedBinary) {
+          log.info(`Found cached llama-server binary (${cachedTag}): ${cachedBinary}`)
+          // Still try to fetch release info to see if there's a newer version,
+          // but if the network is unavailable, use the cached binary.
+          binaryPath = cachedBinary
+          break
+        }
+      }
+    } catch {
+      // Cache directory scan failed — proceed to network fetch
+    }
+  }
+
   onStatus?.('Fetching release info…')
   const apiUrl =
     version === 'latest'
@@ -208,14 +263,25 @@ export const setupLlamaCpp = async (
   let releaseData: any
   try {
     const response = await fetch(apiUrl, {
-      headers: { Accept: 'application/vnd.github.v3+json' }
+      headers: { Accept: 'application/vnd.github.v3+json' },
+      signal: AbortSignal.timeout(10000)
     })
     if (!response.ok) {
       throw new Error(`GitHub API returned ${response.status}: ${response.statusText}`)
     }
     releaseData = await response.json()
   } catch (error) {
-    throw new Error(`Failed to fetch release info: ${error?.message ?? error}`)
+    // Network unavailable — fall back to cached binary if we found one
+    if (binaryPath) {
+      log.info('Network unavailable, using cached llama-server binary:', binaryPath)
+      onStatus?.('Ready (offline)')
+      return binaryPath
+    }
+    throw new Error(
+      `Failed to fetch release info (no internet?) and no cached llama.cpp binary found. ` +
+      `Please connect to the internet for the initial llama.cpp installation. ` +
+      `Original error: ${error?.message ?? error}`
+    )
   }
 
   const tag = releaseData.tag_name
@@ -335,10 +401,34 @@ export const checkLlamaCppUpdate = async (): Promise<{ currentVersion: string | 
 export const updateLlamaCpp = async (
   onStatus?: (status: string) => void
 ): Promise<{ url?: string; status?: string; pid?: number; binaryPath?: string; version?: string | null }> => {
-  // 1. Stop if running
+  // 1. Verify network is available BEFORE destructive operations —
+  //    don't delete the old binary if we can't download a replacement.
+  onStatus?.('Checking for updates…')
+  let releaseTag: string
+  try {
+    const response = await fetch(
+      'https://api.github.com/repos/ggml-org/llama.cpp/releases/latest',
+      {
+        headers: { Accept: 'application/vnd.github.v3+json' },
+        signal: AbortSignal.timeout(10000)
+      }
+    )
+    if (!response.ok) {
+      throw new Error(`GitHub API returned ${response.status}: ${response.statusText}`)
+    }
+    const data = await response.json()
+    releaseTag = data.tag_name
+  } catch (error) {
+    throw new Error(
+      `Cannot update llama.cpp: unable to reach GitHub. ` +
+      `Please check your internet connection. (${error?.message ?? error})`
+    )
+  }
+
+  // 2. Stop if running
   await stopLlamaCpp()
   
-  // 2. Clear old cache directory
+  // 3. Clear old cache directory (safe — we verified network above)
   const currentInfo = getLlamaCppInfo()
   if (currentInfo.version) {
     const cacheDir = path.join(getUserDataPath(), 'llama.cpp', currentInfo.version)
@@ -352,11 +442,11 @@ export const updateLlamaCpp = async (
     }
   }
   
-  // 3. Temporarily enforce 'latest' in config so it fetches the newest
+  // 4. Temporarily enforce 'latest' in config so it fetches the newest
   const config = await getConfig()
-  await setConfig({ llamaCpp: { ...config.llamaCpp, version: 'latest' } }) // Assuming setConfig is available, if not we'll modify it
+  await setConfig({ llamaCpp: { ...config.llamaCpp, version: 'latest' } })
   
-  // 4. Download new release
+  // 5. Download new release
   onStatus?.('Downloading update…')
   await setupLlamaCpp(onStatus)
   
