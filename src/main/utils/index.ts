@@ -828,6 +828,8 @@ export interface AppConfig {
   envVars: Record<string, string>
   showSidebar: boolean
   spotlightPosition: { x: number; y: number } | null
+  voiceInputShortcut: string
+  voiceInputEnabled: boolean
 }
 
 const DEFAULT_CONFIG: AppConfig = {
@@ -856,7 +858,9 @@ const DEFAULT_CONFIG: AppConfig = {
   },
   envVars: {},
   showSidebar: false,
-  spotlightPosition: null
+  spotlightPosition: null,
+  voiceInputShortcut: 'Shift+CommandOrControl+Space',
+  voiceInputEnabled: true
 }
 
 export const getConfig = async (): Promise<AppConfig> => {

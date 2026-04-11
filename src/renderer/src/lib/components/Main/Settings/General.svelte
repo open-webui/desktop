@@ -99,6 +99,12 @@
   let spotlightRecording = $state(false)
   let spotlightShortcutInputEl = $state<HTMLButtonElement | null>(null)
 
+  // Voice input shortcut recorder
+  let voiceInputShortcutValue = $state('')
+  let voiceInputRecording = $state(false)
+  let voiceInputShortcutInputEl = $state<HTMLButtonElement | null>(null)
+  let voiceInputEnabled = $state(true)
+
   // Keep shortcut value in sync with config store
   $effect(() => {
     if ($config?.globalShortcut !== undefined) {
@@ -112,6 +118,15 @@
     }
   })
 
+  $effect(() => {
+    if ($config?.voiceInputShortcut !== undefined) {
+      voiceInputShortcutValue = $config.voiceInputShortcut ?? ''
+    }
+    if ($config?.voiceInputEnabled !== undefined) {
+      voiceInputEnabled = $config.voiceInputEnabled ?? true
+    }
+  })
+
   const keyToElectron = (e: KeyboardEvent): string | null => {
     const parts: string[] = []
     if (e.metaKey || e.ctrlKey) parts.push('CommandOrControl')
@@ -122,16 +137,40 @@
     const ignore = ['Control', 'Meta', 'Alt', 'Shift']
     if (ignore.includes(e.key)) return null
 
-    // Map special keys
-    const keyMap: Record<string, string> = {
-      ' ': 'Space',
+    // Use e.code to get the physical key (avoids macOS Alt producing unicode like √ for V)
+    const codeMap: Record<string, string> = {
+      Space: 'Space',
       ArrowUp: 'Up',
       ArrowDown: 'Down',
       ArrowLeft: 'Left',
       ArrowRight: 'Right',
-      Enter: 'Return'
+      Enter: 'Return',
+      Backquote: '`',
+      Minus: '-',
+      Equal: '=',
+      BracketLeft: '[',
+      BracketRight: ']',
+      Backslash: '\\',
+      Semicolon: ';',
+      Quote: "'",
+      Comma: ',',
+      Period: '.',
+      Slash: '/'
     }
-    const key = keyMap[e.key] ?? (e.key.length === 1 ? e.key.toUpperCase() : e.key)
+
+    let key: string
+    if (codeMap[e.code]) {
+      key = codeMap[e.code]
+    } else if (e.code.startsWith('Key')) {
+      key = e.code.slice(3) // KeyA → A
+    } else if (e.code.startsWith('Digit')) {
+      key = e.code.slice(5) // Digit1 → 1
+    } else if (e.code.startsWith('F') && /^F\d+$/.test(e.code)) {
+      key = e.code // F1, F2, etc.
+    } else {
+      key = e.key.length === 1 ? e.key.toUpperCase() : e.key
+    }
+
     parts.push(key)
     return parts.join('+')
   }
@@ -194,6 +233,32 @@
       spotlightShortcutValue = accel
       spotlightRecording = false
       await window.electronAPI.setConfig({ spotlightShortcut: accel })
+      config.set(await window.electronAPI.getConfig())
+    }
+  }
+
+  const handleVoiceInputShortcutKeydown = async (e: KeyboardEvent) => {
+    e.preventDefault()
+    e.stopPropagation()
+
+    if (e.key === 'Escape') {
+      voiceInputRecording = false
+      return
+    }
+
+    if (e.key === 'Backspace' || e.key === 'Delete') {
+      voiceInputShortcutValue = ''
+      voiceInputRecording = false
+      await window.electronAPI.setConfig({ voiceInputShortcut: '' })
+      config.set(await window.electronAPI.getConfig())
+      return
+    }
+
+    const accel = keyToElectron(e)
+    if (accel) {
+      voiceInputShortcutValue = accel
+      voiceInputRecording = false
+      await window.electronAPI.setConfig({ voiceInputShortcut: accel })
       config.set(await window.electronAPI.getConfig())
     }
   }
@@ -411,6 +476,78 @@
       {/if}
     </div>
   </div>
+
+  <div class="py-4 flex items-center justify-between">
+    <div>
+      <div class="text-[13px] opacity-70">Voice Input</div>
+      <div class="text-[11px] opacity-25 mt-0.5">Enable global push-to-talk voice transcription</div>
+    </div>
+    <Switch
+      checked={voiceInputEnabled}
+      label="Toggle voice input"
+      onchange={async (value) => {
+        voiceInputEnabled = value
+        await window.electronAPI.setConfig({ voiceInputEnabled: value })
+        config.set(await window.electronAPI.getConfig())
+      }}
+    />
+  </div>
+
+  {#if voiceInputEnabled}
+  <div class="py-4 flex items-center justify-between">
+    <div>
+      <div class="text-[13px] opacity-70">Voice Input Shortcut</div>
+      <div class="text-[11px] opacity-25 mt-0.5">
+        {#if voiceInputRecording}
+          Press a key combination…
+        {:else}
+          Toggle microphone recording from anywhere
+        {/if}
+      </div>
+    </div>
+    <div class="flex items-center gap-1.5">
+      <button
+        bind:this={voiceInputShortcutInputEl}
+        class="text-[12px] px-3 py-1.5 border-none outline-none rounded-xl transition min-w-[80px] text-center
+          {voiceInputRecording
+            ? 'bg-black/[0.08] dark:bg-white/[0.10] text-[#1d1d1f] dark:text-[#fafafa] opacity-80 animate-pulse'
+            : 'bg-black/[0.04] dark:bg-white/[0.06] text-[#1d1d1f] dark:text-[#fafafa] opacity-60 hover:opacity-80'}"
+        onclick={() => {
+          voiceInputRecording = true
+          voiceInputShortcutInputEl?.focus()
+        }}
+        onkeydown={(e) => {
+          if (voiceInputRecording) handleVoiceInputShortcutKeydown(e)
+        }}
+        onblur={() => {
+          voiceInputRecording = false
+        }}
+      >
+        {#if voiceInputRecording}
+          <span class="text-[11px]">Press keys…</span>
+        {:else if voiceInputShortcutValue}
+          {displayShortcut(voiceInputShortcutValue)}
+        {:else}
+          <span class="opacity-40">Disabled</span>
+        {/if}
+      </button>
+      {#if voiceInputShortcutValue && !voiceInputRecording}
+        <button
+          class="opacity-20 hover:opacity-50 transition bg-transparent border-none text-[#1d1d1f] dark:text-[#fafafa] p-0.5 shrink-0"
+          onclick={async () => {
+            voiceInputShortcutValue = ''
+            await window.electronAPI.setConfig({ voiceInputShortcut: '' })
+            config.set(await window.electronAPI.getConfig())
+          }}
+        >
+          <svg class="w-3 h-3" fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="1.5">
+            <path stroke-linecap="round" stroke-linejoin="round" d="M6 18L18 6M6 6l12 12" />
+          </svg>
+        </button>
+      {/if}
+    </div>
+  </div>
+  {/if}
 
   <!-- Advanced (collapsed by default) -->
   <div class="py-4">
