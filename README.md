@@ -37,6 +37,7 @@ Use both at the same time.
 ## Highlights
 
 - ⚡ **Spotlight.** Hit `Shift+Cmd+I` (macOS) or `Shift+Ctrl+I` (Windows/Linux) to summon a floating chat bar over whatever you're doing. Drag to screenshot anything on screen.
+- 🎙️ **Voice input.** System-wide push-to-talk. Press the shortcut from any app to record, and your speech is transcribed and sent to your chat automatically.
 - 🧠 **Local inference.** Download and run models entirely on your hardware. Your data never leaves your machine.
 - 🎯 **One-click setup.** Everything installs itself. Just click "Get Started."
 - 🔌 **Multiple connections.** Juggle servers and switch between them instantly.
