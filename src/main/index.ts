@@ -112,7 +112,7 @@ let voiceInputRecording = false
 
 // ─── Global Shortcuts ───────────────────────────────────
 
-const registerShortcuts = (globalAccel?: string, spotlightAccel?: string, voiceInputAccel?: string): void => {
+const registerShortcuts = (globalAccel?: string, spotlightAccel?: string, voiceInputAccel?: string, callAccel?: string): void => {
   globalShortcut.unregisterAll()
 
   // Global shortcut – bring main window to foreground
@@ -150,11 +150,45 @@ const registerShortcuts = (globalAccel?: string, spotlightAccel?: string, voiceI
         toggleVoiceInput()
       })
       log.info(`Voice input shortcut "${voiceInputAccel}" registered: ${ok}`)
+      if (!ok) {
+        new Notification({
+          title: 'Voice Input',
+          body: `Could not register shortcut "${voiceInputAccel}". It may be in use by another application.`
+        }).show()
+      }
     } catch (error) {
       log.warn('Failed to register voice input shortcut:', voiceInputAccel, error)
+      new Notification({
+        title: 'Voice Input',
+        body: `Failed to register shortcut "${voiceInputAccel}". It may conflict with another application.`
+      }).show()
     }
   } else {
     log.info(`Voice input shortcut skipped — accel="${voiceInputAccel}", enabled=${CONFIG?.voiceInputEnabled}`)
+  }
+
+  // Call shortcut – open the voice/video call overlay
+  if (callAccel && CONFIG?.callEnabled !== false) {
+    try {
+      const ok = globalShortcut.register(callAccel, () => {
+        toggleCall()
+      })
+      log.info(`Call shortcut "${callAccel}" registered: ${ok}`)
+      if (!ok) {
+        new Notification({
+          title: 'Call',
+          body: `Could not register shortcut "${callAccel}". It may be in use by another application.`
+        }).show()
+      }
+    } catch (error) {
+      log.warn('Failed to register call shortcut:', callAccel, error)
+      new Notification({
+        title: 'Call',
+        body: `Failed to register shortcut "${callAccel}". It may conflict with another application.`
+      }).show()
+    }
+  } else {
+    log.info(`Call shortcut skipped — accel="${callAccel}", enabled=${CONFIG?.callEnabled}`)
   }
 }
 
@@ -370,6 +404,46 @@ async function toggleVoiceInput(): Promise<void> {
     return
   }
 
+  // Pre-flight: check microphone permission on macOS
+  if (process.platform === 'darwin') {
+    const micStatus = systemPreferences.getMediaAccessStatus('microphone')
+    if (micStatus !== 'granted') {
+      const granted = await systemPreferences.askForMediaAccess('microphone')
+      if (!granted) {
+        log.warn('Voice input: microphone permission denied')
+        new Notification({
+          title: 'Voice Input',
+          body: 'Microphone access denied. Enable it in System Settings → Privacy & Security → Microphone, then restart the app.'
+        }).show()
+        return
+      }
+    }
+  }
+
+  // Pre-flight: check a connection is configured
+  try {
+    const config = await getConfig()
+    if (!config.defaultConnectionId || config.connections.length === 0) {
+      log.warn('Voice input: no connection configured')
+      new Notification({
+        title: 'Voice Input',
+        body: 'No connection configured. Set up a connection in Settings before using voice input.'
+      }).show()
+      return
+    }
+    const conn = config.connections.find((c) => c.id === config.defaultConnectionId)
+    if (!conn) {
+      log.warn('Voice input: default connection not found')
+      new Notification({
+        title: 'Voice Input',
+        body: 'Default connection not found. Check your connection settings.'
+      }).show()
+      return
+    }
+  } catch (err: any) {
+    log.warn('Voice input: config check failed:', err)
+  }
+
   // Start recording — chime plays concurrently (separate audio output path from mic input)
   voiceInputRecording = true
   playChime(true)
@@ -387,6 +461,49 @@ async function toggleVoiceInput(): Promise<void> {
         win.webContents.send('voiceInput:state', { recording: true })
       }, 100)
     })
+  }
+}
+
+// ─── Call Shortcut ──────────────────────────────────────
+
+async function toggleCall(): Promise<void> {
+  // Pre-flight: check a connection is configured
+  try {
+    const config = await getConfig()
+    if (!config.defaultConnectionId || config.connections.length === 0) {
+      log.warn('Call: no connection configured')
+      new Notification({
+        title: 'Call',
+        body: 'No connection configured. Set up a connection in Settings before using the call shortcut.'
+      }).show()
+      return
+    }
+    const conn = config.connections.find((c) => c.id === config.defaultConnectionId)
+    if (!conn) {
+      log.warn('Call: default connection not found')
+      new Notification({
+        title: 'Call',
+        body: 'Default connection not found. Check your connection settings.'
+      }).show()
+      return
+    }
+
+    let url = conn.url
+    if (conn.type === 'local' && SERVER_URL) {
+      url = SERVER_URL
+    }
+    if (url.startsWith('http://0.0.0.0')) {
+      url = url.replace('http://0.0.0.0', 'http://localhost')
+    }
+
+    sendToRenderer('call', { connectionId: conn.id, url })
+
+    if (mainWindow && !mainWindow.isDestroyed()) {
+      mainWindow.show()
+      mainWindow.focus()
+    }
+  } catch (err: any) {
+    log.warn('Call: config check failed:', err)
   }
 }
 
@@ -924,7 +1041,7 @@ if (!gotTheLock) {
       CONFIG = await getConfig()
       updateTray()
       voiceInputRecording = false
-      registerShortcuts(CONFIG.globalShortcut, CONFIG.spotlightShortcut, CONFIG.voiceInputShortcut)
+      registerShortcuts(CONFIG.globalShortcut, CONFIG.spotlightShortcut, CONFIG.voiceInputShortcut, CONFIG.callShortcut)
     })
 
     // Python/uv
@@ -1236,10 +1353,10 @@ if (!gotTheLock) {
       try {
         const config = await getConfig()
         if (!config.defaultConnectionId || config.connections.length === 0) {
-          throw new Error('No connection configured')
+          throw new Error('No connection configured. Set up a connection in Settings first.')
         }
         const conn = config.connections.find((c) => c.id === config.defaultConnectionId)
-        if (!conn) throw new Error('Default connection not found')
+        if (!conn) throw new Error('Default connection not found. Check your connection settings.')
 
         let url = conn.url
         if (conn.type === 'local' && SERVER_URL) {
@@ -1274,7 +1391,7 @@ if (!gotTheLock) {
         }
 
         if (!token) {
-          throw new Error('Not authenticated — open a connection first')
+          throw new Error('Not authenticated. Open a connection and sign in before using voice input.')
         }
 
         // Build multipart form data manually using Node.js
@@ -1306,13 +1423,17 @@ if (!gotTheLock) {
 
         if (!response.ok) {
           const text = await response.text().catch(() => '')
-          throw new Error(`Transcription failed (${response.status}): ${text}`)
+          throw new Error(`Transcription failed (HTTP ${response.status}). ${text || 'Check that your server has Speech-to-Text configured.'}`)
         }
 
         const result = await response.json()
         return result
       } catch (error: any) {
         log.error('voiceInput:transcribe failed:', error)
+        new Notification({
+          title: 'Voice Input Failed',
+          body: error?.message || 'Transcription failed. Check logs for details.'
+        }).show()
         throw error
       }
     })
@@ -1370,6 +1491,10 @@ if (!gotTheLock) {
     ipcMain.handle('voiceInput:error', (_event, message: string) => {
       log.warn('Voice input error:', message)
       voiceInputRecording = false
+      new Notification({
+        title: 'Voice Input Error',
+        body: message || 'An unknown error occurred with voice input.'
+      }).show()
     })
 
     // Open Terminal
@@ -1627,7 +1752,7 @@ if (!gotTheLock) {
 
 
     // Global shortcut
-    registerShortcuts(CONFIG.globalShortcut, CONFIG.spotlightShortcut, CONFIG.voiceInputShortcut)
+    registerShortcuts(CONFIG.globalShortcut, CONFIG.spotlightShortcut, CONFIG.voiceInputShortcut, CONFIG.callShortcut)
 
     // Enable screen capture
     session.defaultSession.setDisplayMediaRequestHandler(

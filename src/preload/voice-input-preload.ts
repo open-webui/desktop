@@ -10,6 +10,11 @@ const api = {
     })
   },
 
+  // Request microphone permission (macOS system-level)
+  checkMicPermission: (): Promise<string> => {
+    return ipcRenderer.invoke('voiceInput:micPermission')
+  },
+
   // Send recorded audio to main process for transcription
   transcribe: (audioBuffer: ArrayBuffer, token?: string): Promise<any> => {
     return ipcRenderer.invoke('voiceInput:transcribe', audioBuffer, token)
