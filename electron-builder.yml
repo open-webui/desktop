@@ -24,8 +24,12 @@ nsis:
   createDesktopShortcut: always
 mac:
   target:
-    - dmg
-    - zip
+    - target: dmg
+    - target: zip
+      arch:
+        - x64
+        - arm64
+  artifactName: ${name}-${arch}-mac.${ext}
   entitlements: build/entitlements.mac.plist
   entitlementsInherit: build/entitlements.mac.plist
   extendInfo:
@@ -45,8 +49,6 @@ dmg:
       y: 240
       type: link
       path: /Applications
-zip:
-  artifactName: ${name}-${arch}-mac.${ext}
 linux:
   target:
     - AppImage
