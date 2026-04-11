@@ -830,6 +830,8 @@ export interface AppConfig {
   spotlightPosition: { x: number; y: number } | null
   voiceInputShortcut: string
   voiceInputEnabled: boolean
+  callShortcut: string
+  callEnabled: boolean
 }
 
 const DEFAULT_CONFIG: AppConfig = {
@@ -860,7 +862,9 @@ const DEFAULT_CONFIG: AppConfig = {
   showSidebar: false,
   spotlightPosition: null,
   voiceInputShortcut: 'Shift+CommandOrControl+Space',
-  voiceInputEnabled: true
+  voiceInputEnabled: true,
+  callShortcut: 'Shift+CommandOrControl+C',
+  callEnabled: true
 }
 
 export const getConfig = async (): Promise<AppConfig> => {

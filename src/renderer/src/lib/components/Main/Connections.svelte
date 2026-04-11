@@ -408,6 +408,28 @@
         return
       }
 
+      // ── Call shortcut ─────────────────────────────────
+      if (data.type === 'call' && data.data?.connectionId) {
+        const connId = data.data.connectionId ?? ''
+        const baseUrl = data.data.url ?? ''
+
+        if (!openConnections.has(connId)) {
+          openConnections.set(connId, baseUrl)
+          openConnections = new Map(openConnections)
+          connectedUrl = baseUrl
+        } else {
+          connectedUrl = openConnections.get(connId)!
+        }
+        activeConnectionId = connId
+        if (installPhase !== 'working') view = 'connected'
+
+        // Targeted delivery — wait a frame for the webview DOM to exist
+        requestAnimationFrame(() => {
+          sendToWebview({ type: 'call' }, connId)
+        })
+        return
+      }
+
       // ── Desktop-only state (not forwarded to webviews) ─
       if (data.type === 'status:open-terminal') { openTerminalStatus = data.data; return }
       if (data.type === 'open-terminal:ready') { openTerminalInfo = data.data; openTerminalStatus = 'started'; return }
