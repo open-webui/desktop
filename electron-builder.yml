@@ -45,6 +45,8 @@ dmg:
       y: 240
       type: link
       path: /Applications
+zip:
+  artifactName: ${name}-${arch}-mac.${ext}
 linux:
   target:
     - AppImage
