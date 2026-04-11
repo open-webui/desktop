@@ -181,7 +181,10 @@ const api = {
   installUpdate: () => ipcRenderer.invoke('updater:install'),
 
   // Changelog
-  getChangelog: () => ipcRenderer.invoke('app:changelog')
+  getChangelog: () => ipcRenderer.invoke('app:changelog'),
+
+  // Auth token relay from webview
+  setAuthToken: (token: string) => ipcRenderer.invoke('app:setAuthToken', token)
 }
 
 if (process.contextIsolated) {

@@ -98,6 +98,7 @@ if (process.platform === 'linux') {
 let mainWindow: BrowserWindow | null = null
 let contentWindow: BrowserWindow | null = null
 let spotlightWindow: BrowserWindow | null = null
+let voiceInputWindow: BrowserWindow | null = null
 let tray: Tray | null = null
 let isQuiting = false
 
@@ -106,10 +107,12 @@ let SERVER_URL: string | null = null
 let SERVER_STATUS: string | null = null
 let SERVER_REACHABLE = false
 let SERVER_PID: number | null = null
+let AUTH_TOKEN: string | null = null
+let voiceInputRecording = false
 
 // ─── Global Shortcuts ───────────────────────────────────
 
-const registerShortcuts = (globalAccel?: string, spotlightAccel?: string): void => {
+const registerShortcuts = (globalAccel?: string, spotlightAccel?: string, voiceInputAccel?: string): void => {
   globalShortcut.unregisterAll()
 
   // Global shortcut – bring main window to foreground
@@ -138,6 +141,20 @@ const registerShortcuts = (globalAccel?: string, spotlightAccel?: string): void 
     } catch (error) {
       log.warn('Failed to register spotlight shortcut:', spotlightAccel, error)
     }
+  }
+
+  // Voice input shortcut – toggle microphone recording
+  if (voiceInputAccel && CONFIG?.voiceInputEnabled !== false) {
+    try {
+      const ok = globalShortcut.register(voiceInputAccel, () => {
+        toggleVoiceInput()
+      })
+      log.info(`Voice input shortcut "${voiceInputAccel}" registered: ${ok}`)
+    } catch (error) {
+      log.warn('Failed to register voice input shortcut:', voiceInputAccel, error)
+    }
+  } else {
+    log.info(`Voice input shortcut skipped — accel="${voiceInputAccel}", enabled=${CONFIG?.voiceInputEnabled}`)
   }
 }
 
@@ -253,6 +270,122 @@ function toggleSpotlight(selectedText?: string): void {
     const win = createSpotlightWindow()
     win.once('ready-to-show', () => {
       showAndFocusSpotlight(win, selectedText)
+    })
+  }
+}
+
+// ─── Voice Input Window ─────────────────────────────────
+
+function createVoiceInputWindow(): BrowserWindow {
+  const { screen } = require('electron')
+  const cursorPoint = screen.getCursorScreenPoint()
+  const activeDisplay = screen.getDisplayNearestPoint(cursorPoint)
+  const { x: sx, y: sy, width: sw } = activeDisplay.bounds
+
+  const winW = 340
+  const winH = 72
+
+  voiceInputWindow = new BrowserWindow({
+    x: sx + Math.round((sw - winW) / 2),
+    y: sy + 120,
+    width: winW,
+    height: winH,
+    frame: false,
+    transparent: true,
+    alwaysOnTop: true,
+    skipTaskbar: true,
+    resizable: false,
+    hasShadow: false,
+    show: false,
+    focusable: true,
+    icon: path.join(__dirname, 'assets/icon.png'),
+    webPreferences: {
+      preload: join(__dirname, '../preload/voice-input-preload.js'),
+      sandbox: false,
+      webviewTag: false,
+      autoplayPolicy: 'no-user-gesture-required'
+    }
+  })
+
+  // Grant microphone permission for the voice input window
+  voiceInputWindow.webContents.session.setPermissionRequestHandler(
+    (_webContents, permission, callback) => {
+      callback(permission === 'media')
+    }
+  )
+
+  if (is.dev && process.env['ELECTRON_RENDERER_URL']) {
+    voiceInputWindow.loadURL(`${process.env['ELECTRON_RENDERER_URL']}/voice-input.html`)
+  } else {
+    voiceInputWindow.loadFile(join(__dirname, '../renderer/voice-input.html'))
+  }
+
+  voiceInputWindow.on('closed', () => {
+    voiceInputWindow = null
+    voiceInputRecording = false
+  })
+
+  return voiceInputWindow
+}
+
+function playChime(ascending: boolean): Promise<void> {
+  return new Promise((resolve) => {
+    const { execFile } = require('child_process')
+    const fs = require('fs')
+    const file = ascending ? 'chime-start.wav' : 'chime-stop.wav'
+    const soundPath = app.isPackaged
+      ? join(process.resourcesPath, 'app.asar.unpacked', 'resources', 'sounds', file)
+      : join(app.getAppPath(), 'resources', 'sounds', file)
+
+    const exists = fs.existsSync(soundPath)
+    log.info(`playChime: ${ascending ? 'start' : 'stop'}, path=${soundPath}, exists=${exists}`)
+
+    if (!exists) { resolve(); return }
+
+    if (process.platform === 'darwin') {
+      execFile('afplay', [soundPath], (err, stdout, stderr) => {
+        if (err) log.warn('afplay error:', err.message, stderr)
+        resolve()
+      })
+    } else if (process.platform === 'win32') {
+      execFile('powershell', ['-NoProfile', '-Command',
+        `(New-Object Media.SoundPlayer '${soundPath}').PlaySync()`
+      ], () => resolve())
+    } else {
+      execFile('paplay', [soundPath], (err) => {
+        if (err) execFile('aplay', [soundPath], () => resolve())
+        else resolve()
+      })
+    }
+  })
+}
+
+async function toggleVoiceInput(): Promise<void> {
+  if (voiceInputRecording) {
+    // Stop recording — chime plays in done/close handler after mic is released
+    voiceInputRecording = false
+    if (voiceInputWindow && !voiceInputWindow.isDestroyed()) {
+      voiceInputWindow.webContents.send('voiceInput:state', { recording: false })
+    }
+    return
+  }
+
+  // Start recording — chime plays concurrently (separate audio output path from mic input)
+  voiceInputRecording = true
+  playChime(true)
+
+  if (voiceInputWindow && !voiceInputWindow.isDestroyed()) {
+    voiceInputWindow.show()
+    voiceInputWindow.focus()
+    voiceInputWindow.webContents.send('voiceInput:state', { recording: true })
+  } else {
+    const win = createVoiceInputWindow()
+    win.once('ready-to-show', () => {
+      win.show()
+      win.focus()
+      setTimeout(() => {
+        win.webContents.send('voiceInput:state', { recording: true })
+      }, 100)
     })
   }
 }
@@ -790,7 +923,8 @@ if (!gotTheLock) {
       await setConfig(config)
       CONFIG = await getConfig()
       updateTray()
-      registerShortcuts(CONFIG.globalShortcut, CONFIG.spotlightShortcut)
+      voiceInputRecording = false
+      registerShortcuts(CONFIG.globalShortcut, CONFIG.spotlightShortcut, CONFIG.voiceInputShortcut)
     })
 
     // Python/uv
@@ -941,6 +1075,12 @@ if (!gotTheLock) {
       }
     })
 
+    // Auth token relay from webview
+    ipcMain.handle('app:setAuthToken', (_event, token: string) => {
+      AUTH_TOKEN = token || null
+      log.info('Auth token updated from webview')
+    })
+
     // Misc
     ipcMain.handle('app:reset', () => resetAppHandler())
 
@@ -1075,6 +1215,162 @@ if (!gotTheLock) {
         }
       }
     )
+
+    // ── Voice Input ─────────────────────────────────────
+
+    // Check microphone permission (macOS)
+    ipcMain.handle('voiceInput:micPermission', async () => {
+      if (process.platform === 'darwin') {
+        const status = systemPreferences.getMediaAccessStatus('microphone')
+        if (status !== 'granted') {
+          const granted = await systemPreferences.askForMediaAccess('microphone')
+          return granted ? 'granted' : 'denied'
+        }
+        return 'granted'
+      }
+      return 'granted' // Windows/Linux don't need explicit permission
+    })
+
+    // Transcribe audio via the connected server's STT endpoint
+    ipcMain.handle('voiceInput:transcribe', async (_event, audioBuffer: ArrayBuffer, rendererToken?: string) => {
+      try {
+        const config = await getConfig()
+        if (!config.defaultConnectionId || config.connections.length === 0) {
+          throw new Error('No connection configured')
+        }
+        const conn = config.connections.find((c) => c.id === config.defaultConnectionId)
+        if (!conn) throw new Error('Default connection not found')
+
+        let url = conn.url
+        if (conn.type === 'local' && SERVER_URL) {
+          url = SERVER_URL
+        }
+        if (url.startsWith('http://0.0.0.0')) {
+          url = url.replace('http://0.0.0.0', 'http://localhost')
+        }
+
+        // Use stored auth token (relayed from webview), fall back to renderer-provided or contentWindow
+        let token = AUTH_TOKEN || rendererToken || ''
+        if (!token) {
+          // Scan all webContents to find the Open WebUI webview and read its token
+          try {
+            const { webContents: wc } = require('electron')
+            const allContents = wc.getAllWebContents()
+            for (const contents of allContents) {
+              try {
+                if (contents.getType() === 'webview' && !contents.isDestroyed()) {
+                  const t = await contents.executeJavaScript(
+                    `localStorage.getItem('token') || ''`
+                  )
+                  if (t) { token = t; break }
+                }
+              } catch {
+                // Skip inaccessible webContents
+              }
+            }
+          } catch {
+            log.warn('voiceInput:transcribe — could not extract token from webviews')
+          }
+        }
+
+        if (!token) {
+          throw new Error('Not authenticated — open a connection first')
+        }
+
+        // Build multipart form data manually using Node.js
+        const boundary = '----VoiceInput' + Date.now()
+        const buffer = Buffer.from(audioBuffer)
+        const filename = `recording-${Date.now()}.wav`
+
+        const header = [
+          `--${boundary}`,
+          `Content-Disposition: form-data; name="file"; filename="${filename}"`,
+          `Content-Type: audio/wav`,
+          '',
+          ''
+        ].join('\r\n')
+
+        const footer = `\r\n--${boundary}--\r\n`
+        const headerBuf = Buffer.from(header, 'utf-8')
+        const footerBuf = Buffer.from(footer, 'utf-8')
+        const body = Buffer.concat([headerBuf, buffer, footerBuf])
+
+        const response = await fetch(`${url}/api/v1/audio/transcriptions`, {
+          method: 'POST',
+          headers: {
+            'Authorization': `Bearer ${token}`,
+            'Content-Type': `multipart/form-data; boundary=${boundary}`
+          },
+          body
+        })
+
+        if (!response.ok) {
+          const text = await response.text().catch(() => '')
+          throw new Error(`Transcription failed (${response.status}): ${text}`)
+        }
+
+        const result = await response.json()
+        return result
+      } catch (error: any) {
+        log.error('voiceInput:transcribe failed:', error)
+        throw error
+      }
+    })
+
+    // Voice input completed — deliver text to chat
+    ipcMain.handle('voiceInput:done', async (_event, text: string) => {
+      voiceInputRecording = false
+      playChime(false)
+      if (voiceInputWindow && !voiceInputWindow.isDestroyed()) {
+        voiceInputWindow.hide()
+      }
+
+      if (!text?.trim()) return
+
+      // Deliver text through the same path as Spotlight
+      const config = await getConfig()
+      if (!config.defaultConnectionId || config.connections.length === 0) {
+        mainWindow?.show()
+        mainWindow?.focus()
+        return
+      }
+      const conn = config.connections.find((c) => c.id === config.defaultConnectionId)
+      if (!conn) {
+        mainWindow?.show()
+        mainWindow?.focus()
+        return
+      }
+
+      let url = conn.url
+      if (conn.type === 'local' && SERVER_URL) {
+        url = SERVER_URL
+      }
+      if (url.startsWith('http://0.0.0.0')) {
+        url = url.replace('http://0.0.0.0', 'http://localhost')
+      }
+
+      sendToRenderer('query', { query: text.trim(), connectionId: conn.id, url })
+
+      if (mainWindow && !mainWindow.isDestroyed()) {
+        mainWindow.show()
+        mainWindow.focus()
+      }
+    })
+
+    // Voice input window requests close
+    ipcMain.handle('voiceInput:close', () => {
+      voiceInputRecording = false
+      playChime(false)
+      if (voiceInputWindow && !voiceInputWindow.isDestroyed()) {
+        voiceInputWindow.hide()
+      }
+    })
+
+    // Voice input error
+    ipcMain.handle('voiceInput:error', (_event, message: string) => {
+      log.warn('Voice input error:', message)
+      voiceInputRecording = false
+    })
 
     // Open Terminal
     ipcMain.handle('open-terminal:start', async () => {
@@ -1331,7 +1627,7 @@ if (!gotTheLock) {
 
 
     // Global shortcut
-    registerShortcuts(CONFIG.globalShortcut, CONFIG.spotlightShortcut)
+    registerShortcuts(CONFIG.globalShortcut, CONFIG.spotlightShortcut, CONFIG.voiceInputShortcut)
 
     // Enable screen capture
     session.defaultSession.setDisplayMediaRequestHandler(
@@ -1423,6 +1719,10 @@ if (!gotTheLock) {
       spotlightWindow.destroy()
     }
     spotlightWindow = null
+    if (voiceInputWindow && !voiceInputWindow.isDestroyed()) {
+      voiceInputWindow.destroy()
+    }
+    voiceInputWindow = null
     tray?.destroy()
     tray = null
   })

@@ -120,6 +120,13 @@
           if (event.channel === 'webview:send') {
             const requestData = event.args?.[0]
             if (!requestData) return
+
+            // Handle auth token relay from webview
+            if (requestData.type === 'token:update' && requestData.token) {
+              window.electronAPI.setAuthToken?.(requestData.token)
+              return
+            }
+
             try {
               const response = await window.electronAPI[requestData.type]?.(requestData)
               if (requestData._requestId) {
