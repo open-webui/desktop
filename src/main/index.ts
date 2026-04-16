@@ -77,6 +77,7 @@ import {
   downloadModel,
   deleteModel,
   cancelDownload,
+  cancelDownloadForFile,
   getModelsDir,
   searchModels,
   getRepoFiles
@@ -1647,7 +1648,10 @@ if (!gotTheLock) {
     ipcMain.handle('huggingface:models:delete', (_event, repo: string, filename: string) => {
       return deleteModel(repo, filename)
     })
-    ipcMain.handle('huggingface:models:cancel', () => {
+    ipcMain.handle('huggingface:models:cancel', (_event, repo?: string, filename?: string) => {
+      if (repo && filename) {
+        return cancelDownloadForFile(repo, filename)
+      }
       cancelDownload()
       return true
     })

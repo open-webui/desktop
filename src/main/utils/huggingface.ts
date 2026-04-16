@@ -20,7 +20,7 @@ export interface HfModel {
   repo: string
   filename: string
   filepath: string
-  size: number        // bytes
+  size: number // bytes
   downloadedAt: string // ISO date
 }
 
@@ -62,16 +62,27 @@ const writeManifest = (models: HfModel[]): void => {
 
 // ─── Public API ─────────────────────────────────────────
 
-let activeDownloadAbort: AbortController | null = null
+const activeDownloadAborts = new Map<string, AbortController>()
+
+const getDownloadKey = (repo: string, filename: string): string => `${repo}::${filename}`
 
 /**
  * Cancel the current download in progress.
  */
 export const cancelDownload = (): void => {
-  if (activeDownloadAbort) {
-    activeDownloadAbort.abort()
-    activeDownloadAbort = null
+  for (const controller of activeDownloadAborts.values()) {
+    controller.abort()
   }
+  activeDownloadAborts.clear()
+}
+
+export const cancelDownloadForFile = (repo: string, filename: string): boolean => {
+  const key = getDownloadKey(repo, filename)
+  const controller = activeDownloadAborts.get(key)
+  if (!controller) return false
+  controller.abort()
+  activeDownloadAborts.delete(key)
+  return true
 }
 
 /**
@@ -110,6 +121,11 @@ export const downloadModel = async (
   token?: string,
   expectedSize?: number
 ): Promise<string> => {
+  const key = getDownloadKey(repo, filename)
+  if (activeDownloadAborts.has(key)) {
+    throw new Error(`Download already in progress for ${repo}/${filename}`)
+  }
+
   const slug = repoSlug(repo)
   const repoDir = path.join(getHfCacheDir(), slug)
   if (!fs.existsSync(repoDir)) {
@@ -136,34 +152,35 @@ export const downloadModel = async (
     headers['Authorization'] = `Bearer ${token}`
   }
 
-  activeDownloadAbort = new AbortController()
-  const { signal } = activeDownloadAbort
-
-  // Use fetch for streaming download with progress
-  const response = await fetch(downloadUrl, {
-    headers,
-    redirect: 'follow',
-    signal
-  })
-
-  if (!response.ok) {
-    throw new Error(
-      `Failed to download ${repo}/${filename}: ${response.status} ${response.statusText}`
-    )
-  }
-
-  const contentLength = parseInt(response.headers.get('content-length') ?? '0', 10)
-  const totalBytes = contentLength || expectedSize || 0
-  const reader = response.body?.getReader()
-  if (!reader) {
-    throw new Error('Response body is not readable')
-  }
+  const downloadAbort = new AbortController()
+  activeDownloadAborts.set(key, downloadAbort)
+  const { signal } = downloadAbort
 
   const tmpPath = destPath + '.tmp'
   const writeStream = fs.createWriteStream(tmpPath)
   let downloadedBytes = 0
 
   try {
+    // Use fetch for streaming download with progress
+    const response = await fetch(downloadUrl, {
+      headers,
+      redirect: 'follow',
+      signal
+    })
+
+    if (!response.ok) {
+      throw new Error(
+        `Failed to download ${repo}/${filename}: ${response.status} ${response.statusText}`
+      )
+    }
+
+    const contentLength = parseInt(response.headers.get('content-length') ?? '0', 10)
+    const totalBytes = contentLength || expectedSize || 0
+    const reader = response.body?.getReader()
+    if (!reader) {
+      throw new Error('Response body is not readable')
+    }
+
     while (true) {
       const { done, value } = await reader.read()
       if (done) break
@@ -182,17 +199,18 @@ export const downloadModel = async (
   } catch (err) {
     writeStream.end()
     // Clean up partial download
-    try { fs.unlinkSync(tmpPath) } catch {}
-    activeDownloadAbort = null
+    try {
+      fs.unlinkSync(tmpPath)
+    } catch {}
     throw err
   } finally {
     writeStream.end()
     await new Promise((resolve) => writeStream.on('finish', resolve))
+    activeDownloadAborts.delete(key)
   }
 
   // Rename tmp to final
   fs.renameSync(tmpPath, destPath)
-  activeDownloadAbort = null
 
   // Update manifest
   const manifest = readManifest()
@@ -260,7 +278,7 @@ export const getModelInfo = (repo: string, filename: string): HfModel | null => 
 // ─── HF API Integration ────────────────────────────────
 
 export interface HfRepoResult {
-  id: string            // e.g. "ggml-org/gemma-3-1b-it-GGUF"
+  id: string // e.g. "ggml-org/gemma-3-1b-it-GGUF"
   author: string
   modelId: string
   downloads: number
@@ -271,17 +289,14 @@ export interface HfRepoResult {
 
 export interface HfFileInfo {
   filename: string
-  size: number          // bytes
+  size: number // bytes
   lfs?: { size: number }
 }
 
 /**
  * Search HF for GGUF model repos.
  */
-export const searchModels = async (
-  query: string,
-  token?: string
-): Promise<HfRepoResult[]> => {
+export const searchModels = async (query: string, token?: string): Promise<HfRepoResult[]> => {
   const params = new URLSearchParams({
     search: query,
     filter: 'gguf',
@@ -313,12 +328,30 @@ export const searchModels = async (
 /**
  * List GGUF files in a HF repo.
  */
-export const getRepoFiles = async (
-  repo: string,
-  token?: string
-): Promise<HfFileInfo[]> => {
+export const getRepoFiles = async (repo: string, token?: string): Promise<HfFileInfo[]> => {
   const headers: Record<string, string> = { Accept: 'application/json' }
   if (token) headers['Authorization'] = `Bearer ${token}`
+
+  const treeResponse = await fetch(
+    `https://huggingface.co/api/models/${repo}/tree/main?recursive=1`,
+    { headers }
+  )
+  if (treeResponse.ok) {
+    const treeData = await treeResponse.json()
+    const treeFiles = (Array.isArray(treeData) ? treeData : [])
+      .filter(
+        (f: any) => f.type === 'file' && typeof f.path === 'string' && f.path.endsWith('.gguf')
+      )
+      .map((f: any) => ({
+        filename: f.path,
+        size: f.lfs?.size ?? f.size ?? 0
+      }))
+      .sort((a: HfFileInfo, b: HfFileInfo) => a.size - b.size)
+
+    if (treeFiles.length > 0) {
+      return treeFiles
+    }
+  }
 
   const response = await fetch(`https://huggingface.co/api/models/${repo}`, { headers })
   if (!response.ok) {
@@ -328,7 +361,6 @@ export const getRepoFiles = async (
   const data = await response.json()
   const siblings = data.siblings ?? []
 
-  // Filter to only GGUF files
   return siblings
     .filter((f: any) => f.rfilename?.endsWith('.gguf'))
     .map((f: any) => ({
@@ -337,4 +369,3 @@ export const getRepoFiles = async (
     }))
     .sort((a: HfFileInfo, b: HfFileInfo) => a.size - b.size)
 }
-
