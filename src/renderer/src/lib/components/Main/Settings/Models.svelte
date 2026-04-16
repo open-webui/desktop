@@ -408,19 +408,6 @@
             class="opacity-50 hover:opacity-80 transition bg-transparent border-none text-[#1d1d1f] dark:text-[#fafafa] p-0 text-[12px] flex items-center gap-1"
             onclick={backToSearch}
           >
-            <svg
-              class="w-3 h-3"
-              fill="none"
-              viewBox="0 0 24 24"
-              stroke="currentColor"
-              stroke-width="2"
-            >
-              <path
-                stroke-linecap="round"
-                stroke-linejoin="round"
-                d="M15.75 19.5L8.25 12l7.5-7.5"
-              />
-            </svg>
             {$i18n.t('common.back')}
           </button>
         {:else}
