@@ -66,6 +66,37 @@ const activeDownloadAborts = new Map<string, AbortController>()
 
 const getDownloadKey = (repo: string, filename: string): string => `${repo}::${filename}`
 
+const waitForWriteStreamClose = (writeStream: fs.WriteStream): Promise<void> => {
+  if (writeStream.closed) {
+    return Promise.resolve()
+  }
+
+  return new Promise((resolve, reject) => {
+    const onClose = () => {
+      cleanup()
+      resolve()
+    }
+
+    const onError = (error: Error) => {
+      cleanup()
+      reject(error)
+    }
+
+    const cleanup = () => {
+      writeStream.off('close', onClose)
+      writeStream.off('error', onError)
+    }
+
+    writeStream.once('close', onClose)
+    writeStream.once('error', onError)
+
+    if (writeStream.closed) {
+      cleanup()
+      resolve()
+    }
+  })
+}
+
 /**
  * Cancel the current download in progress.
  */
@@ -204,7 +235,7 @@ export const downloadModel = async (
     if (!writeStream.writableEnded) {
       writeStream.end()
     }
-    await new Promise((resolve) => writeStream.on('close', resolve))
+    await waitForWriteStreamClose(writeStream)
 
     if (!downloadSucceeded && fs.existsSync(tmpPath)) {
       try {
