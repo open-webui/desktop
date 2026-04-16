@@ -48,7 +48,7 @@
     filename: string
     size: number
     percent: number
-    status: 'queued' | 'downloading'
+    status: 'queued' | 'downloading' | 'cancelling'
   }
 
   let activeDownloads = $state<Record<string, ActiveDownload>>({})
@@ -67,7 +67,7 @@
 
   const startQueuedDownloads = () => {
     const runningCount = Object.values(activeDownloads).filter(
-      (d) => d.status === 'downloading'
+      (d) => d.status === 'downloading' || d.status === 'cancelling'
     ).length
     const availableSlots = Math.max(0, MAX_CONCURRENT_DOWNLOADS - runningCount)
     if (!availableSlots) return
@@ -115,7 +115,7 @@
                 filename: d.filename,
                 size: existing?.size ?? d.totalBytes ?? 0,
                 percent: d.percent ?? existing?.percent ?? 0,
-                status: 'downloading'
+                status: existing?.status === 'cancelling' ? 'cancelling' : 'downloading'
               }
             }
           }
@@ -211,14 +211,41 @@
       return
     }
 
-    try {
-      await window.electronAPI.cancelHfDownload(repo, filename)
-    } catch (e) {
-      console.error('Failed to cancel download:', e)
+    activeDownloads = {
+      ...activeDownloads,
+      [key]: {
+        ...active,
+        status: 'cancelling'
+      }
     }
 
-    removeLocalDownload(key)
-    startQueuedDownloads()
+    try {
+      const cancelled = await window.electronAPI.cancelHfDownload(repo, filename)
+      if (!cancelled) {
+        const latest = activeDownloads[key]
+        if (latest) {
+          activeDownloads = {
+            ...activeDownloads,
+            [key]: {
+              ...latest,
+              status: 'downloading'
+            }
+          }
+        }
+      }
+    } catch (e) {
+      console.error('Failed to cancel download:', e)
+      const latest = activeDownloads[key]
+      if (latest) {
+        activeDownloads = {
+          ...activeDownloads,
+          [key]: {
+            ...latest,
+            status: 'downloading'
+          }
+        }
+      }
+    }
   }
 
   const removeModel = async (repo: string, filename: string) => {
@@ -244,6 +271,11 @@
   const isQueued = (repo: string, filename: string): boolean => {
     const key = getDownloadKey(repo, filename)
     return activeDownloads[key]?.status === 'queued'
+  }
+
+  const isCancelling = (repo: string, filename: string): boolean => {
+    const key = getDownloadKey(repo, filename)
+    return activeDownloads[key]?.status === 'cancelling'
   }
 
   const formatSize = (bytes: number): string => {
@@ -316,7 +348,9 @@
                   <div class="text-[10px] opacity-25 truncate">
                     {activeDownload.repo} · {activeDownload.status === 'queued'
                       ? 'Queued'
-                      : $i18n.t('common.downloading')}
+                      : activeDownload.status === 'cancelling'
+                        ? 'Cancelling'
+                        : $i18n.t('common.downloading')}
                   </div>
                 </div>
                 <button
@@ -346,7 +380,9 @@
               <div class="text-[10px] opacity-25 mt-1 text-right font-mono">
                 {activeDownload.status === 'queued'
                   ? 'queued'
-                  : `${activeDownload.percent.toFixed(1)}%`}
+                  : activeDownload.status === 'cancelling'
+                    ? 'cancelling'
+                    : `${activeDownload.percent.toFixed(1)}%`}
               </div>
             </div>
           {/each}
@@ -438,6 +474,7 @@
               {@const downloaded = isDownloaded(selectedRepo, file.filename)}
               {@const dlActive = isDownloading(selectedRepo, file.filename)}
               {@const dlQueued = isQueued(selectedRepo, file.filename)}
+              {@const dlCancelling = isCancelling(selectedRepo, file.filename)}
               {@const key = getDownloadKey(selectedRepo, file.filename)}
               <div
                 class="flex items-center justify-between gap-2 px-2.5 py-2 bg-black/[0.03] dark:bg-white/[0.04] rounded-xl"
@@ -464,6 +501,13 @@
                 {:else if dlQueued}
                   <div class="flex items-center gap-1.5 shrink-0">
                     <span class="text-[10px] opacity-35 font-mono">queued</span>
+                  </div>
+                {:else if dlCancelling}
+                  <div class="flex items-center gap-1.5 shrink-0">
+                    <div
+                      class="w-2.5 h-2.5 rounded-full border-[1.5px] border-black/20 dark:border-white/30 border-t-transparent animate-spin"
+                    ></div>
+                    <span class="text-[10px] opacity-35 font-mono">cancelling</span>
                   </div>
                 {:else}
                   <button

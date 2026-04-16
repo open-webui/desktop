@@ -159,6 +159,7 @@ export const downloadModel = async (
   const tmpPath = destPath + '.tmp'
   const writeStream = fs.createWriteStream(tmpPath)
   let downloadedBytes = 0
+  let downloadSucceeded = false
 
   try {
     // Use fetch for streaming download with progress
@@ -196,16 +197,26 @@ export const downloadModel = async (
         })
       }
     }
+    downloadSucceeded = true
   } catch (err) {
-    writeStream.end()
-    // Clean up partial download
-    try {
-      fs.unlinkSync(tmpPath)
-    } catch {}
     throw err
   } finally {
-    writeStream.end()
-    await new Promise((resolve) => writeStream.on('finish', resolve))
+    if (!writeStream.writableEnded) {
+      writeStream.end()
+    }
+    await new Promise((resolve) => writeStream.on('close', resolve))
+
+    if (!downloadSucceeded && fs.existsSync(tmpPath)) {
+      try {
+        fs.unlinkSync(tmpPath)
+      } catch (error) {
+        const code = (error as NodeJS.ErrnoException)?.code
+        if (code !== 'ENOENT') {
+          log.warn(`[huggingface] Failed to remove temp file ${tmpPath}:`, error)
+        }
+      }
+    }
+
     activeDownloadAborts.delete(key)
   }
 
