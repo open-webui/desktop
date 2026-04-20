@@ -1,0 +1,46 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<component type="desktop-application">
+  <id>com.openwebui.open-webui</id>
+
+  <metadata_license>CC0-1.0</metadata_license>
+  <project_license>AGPL-3.0-or-later</project_license>
+
+  <name>Open WebUI</name>
+  <summary>The freedom AI stack</summary>
+
+  <developer id="com.timbaek">
+    <name>Timothy J. Baek</name>
+  </developer>
+
+  <description>
+    <p>
+      Open WebUI is an extensible, feature-rich, and user-friendly self-hosted AI platform designed to operate entirely offline.
+    </p>
+  </description>
+
+  <launchable type="desktop-id">com.openwebui.open-webui.desktop</launchable>
+
+  <content_rating type="oars-1.1">
+    <content_attribute id="social-chat">intense</content_attribute>
+  </content_rating>
+
+  <url type="bugtracker">https://github.com/open-webui/desktop/issues</url>
+  <url type="homepage">https://openwebui.com</url>
+  <url type="donation">https://github.com/sponsors/tjbck</url>
+  <url type="vcs-browser">https://github.com/open-webui/desktop</url>
+
+  <screenshots>
+    <screenshot type="default">
+      <image>https://raw.githubusercontent.com/open-webui/desktop/61f55e6fd6814b959b16a4704b03262e02186f48/demo.png</image>
+    </screenshot>
+  </screenshots>
+
+  <releases>
+    <release version="0.0.8" date="2026-04-11">
+      <url type="details">https://github.com/open-webui/desktop/releases/tag/v0.0.8</url>
+    </release>
+    <release version="0.0.6" date="2026-04-10">
+      <url type="details">https://github.com/open-webui/desktop/releases/tag/v0.0.6</url>
+    </release>
+  </releases>
+</component>

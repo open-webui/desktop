@@ -72,6 +72,15 @@
     await new Promise((r) => setTimeout(r, 500))
 
     try {
+      // Request system-level mic permission (macOS) before activating the mic
+      const permStatus = await api?.checkMicPermission()
+      if (permStatus === 'denied') {
+        const msg = 'Microphone access denied. Enable it in System Settings → Privacy & Security → Microphone, then restart the app.'
+        showError(msg)
+        api?.error(msg)
+        return
+      }
+
       mediaStream = await navigator.mediaDevices.getUserMedia({ audio: true })
       audioChunks = []
 
@@ -96,7 +105,13 @@
       mediaRecorder.start(250)
       timer = setInterval(() => { duration++ }, 1000)
     } catch (err: any) {
-      showError(err?.message || 'Mic access failed')
+      const msg = err?.name === 'NotAllowedError'
+        ? 'Microphone access denied. Check system permissions.'
+        : err?.name === 'NotFoundError'
+          ? 'No microphone found. Connect a microphone and try again.'
+          : err?.message || 'Mic access failed'
+      showError(msg)
+      api?.error(msg)
     }
   }
 
@@ -176,7 +191,9 @@
         api?.close()
       }
     } catch (err: any) {
-      showError(err?.message || 'Transcription failed')
+      const msg = err?.message || 'Transcription failed'
+      showError(msg)
+      api?.error(msg)
     }
   }
 

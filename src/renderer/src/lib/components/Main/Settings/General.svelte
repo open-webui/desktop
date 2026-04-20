@@ -105,6 +105,12 @@
   let voiceInputShortcutInputEl = $state<HTMLButtonElement | null>(null)
   let voiceInputEnabled = $state(true)
 
+  // Call shortcut recorder
+  let callShortcutValue = $state('')
+  let callRecording = $state(false)
+  let callShortcutInputEl = $state<HTMLButtonElement | null>(null)
+  let callEnabled = $state(true)
+
   // Keep shortcut value in sync with config store
   $effect(() => {
     if ($config?.globalShortcut !== undefined) {
@@ -124,6 +130,15 @@
     }
     if ($config?.voiceInputEnabled !== undefined) {
       voiceInputEnabled = $config.voiceInputEnabled ?? true
+    }
+  })
+
+  $effect(() => {
+    if ($config?.callShortcut !== undefined) {
+      callShortcutValue = $config.callShortcut ?? ''
+    }
+    if ($config?.callEnabled !== undefined) {
+      callEnabled = $config.callEnabled ?? true
     }
   })
 
@@ -259,6 +274,32 @@
       voiceInputShortcutValue = accel
       voiceInputRecording = false
       await window.electronAPI.setConfig({ voiceInputShortcut: accel })
+      config.set(await window.electronAPI.getConfig())
+    }
+  }
+
+  const handleCallShortcutKeydown = async (e: KeyboardEvent) => {
+    e.preventDefault()
+    e.stopPropagation()
+
+    if (e.key === 'Escape') {
+      callRecording = false
+      return
+    }
+
+    if (e.key === 'Backspace' || e.key === 'Delete') {
+      callShortcutValue = ''
+      callRecording = false
+      await window.electronAPI.setConfig({ callShortcut: '' })
+      config.set(await window.electronAPI.getConfig())
+      return
+    }
+
+    const accel = keyToElectron(e)
+    if (accel) {
+      callShortcutValue = accel
+      callRecording = false
+      await window.electronAPI.setConfig({ callShortcut: accel })
       config.set(await window.electronAPI.getConfig())
     }
   }
@@ -537,6 +578,78 @@
           onclick={async () => {
             voiceInputShortcutValue = ''
             await window.electronAPI.setConfig({ voiceInputShortcut: '' })
+            config.set(await window.electronAPI.getConfig())
+          }}
+        >
+          <svg class="w-3 h-3" fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="1.5">
+            <path stroke-linecap="round" stroke-linejoin="round" d="M6 18L18 6M6 6l12 12" />
+          </svg>
+        </button>
+      {/if}
+    </div>
+  </div>
+  {/if}
+
+  <div class="py-4 flex items-center justify-between">
+    <div>
+      <div class="text-[13px] opacity-70">Call</div>
+      <div class="text-[11px] opacity-25 mt-0.5">Enable global shortcut to start a voice/video call</div>
+    </div>
+    <Switch
+      checked={callEnabled}
+      label="Toggle call shortcut"
+      onchange={async (value) => {
+        callEnabled = value
+        await window.electronAPI.setConfig({ callEnabled: value })
+        config.set(await window.electronAPI.getConfig())
+      }}
+    />
+  </div>
+
+  {#if callEnabled}
+  <div class="py-4 flex items-center justify-between">
+    <div>
+      <div class="text-[13px] opacity-70">Call Shortcut</div>
+      <div class="text-[11px] opacity-25 mt-0.5">
+        {#if callRecording}
+          Press a key combination…
+        {:else}
+          Start a call from anywhere
+        {/if}
+      </div>
+    </div>
+    <div class="flex items-center gap-1.5">
+      <button
+        bind:this={callShortcutInputEl}
+        class="text-[12px] px-3 py-1.5 border-none outline-none rounded-xl transition min-w-[80px] text-center
+          {callRecording
+            ? 'bg-black/[0.08] dark:bg-white/[0.10] text-[#1d1d1f] dark:text-[#fafafa] opacity-80 animate-pulse'
+            : 'bg-black/[0.04] dark:bg-white/[0.06] text-[#1d1d1f] dark:text-[#fafafa] opacity-60 hover:opacity-80'}"
+        onclick={() => {
+          callRecording = true
+          callShortcutInputEl?.focus()
+        }}
+        onkeydown={(e) => {
+          if (callRecording) handleCallShortcutKeydown(e)
+        }}
+        onblur={() => {
+          callRecording = false
+        }}
+      >
+        {#if callRecording}
+          <span class="text-[11px]">Press keys…</span>
+        {:else if callShortcutValue}
+          {displayShortcut(callShortcutValue)}
+        {:else}
+          <span class="opacity-40">Disabled</span>
+        {/if}
+      </button>
+      {#if callShortcutValue && !callRecording}
+        <button
+          class="opacity-20 hover:opacity-50 transition bg-transparent border-none text-[#1d1d1f] dark:text-[#fafafa] p-0.5 shrink-0"
+          onclick={async () => {
+            callShortcutValue = ''
+            await window.electronAPI.setConfig({ callShortcut: '' })
             config.set(await window.electronAPI.getConfig())
           }}
         >

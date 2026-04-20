@@ -6,6 +6,7 @@ import * as pty from 'node-pty'
 import {
   getPythonPath,
   getConfig,
+  setConfig,
   installPackage,
   isPackageInstalled,
   isPythonInstalled,
@@ -63,8 +64,14 @@ export const startOpenTerminal = async (
   const config = await getConfig()
   const configEnvVars = config.envVars ?? {}
 
-  // Auto-generate API key
-  const generatedKey = crypto.randomBytes(24).toString('base64url')
+  // Use persisted API key or generate and save a new one
+  let generatedKey = config.openTerminal?.apiKey
+  if (!generatedKey) {
+    generatedKey = crypto.randomBytes(24).toString('base64url')
+    await setConfig({
+      openTerminal: { ...config.openTerminal, apiKey: generatedKey }
+    })
+  }
 
   // Find available port
   let desiredPort = port || 39284

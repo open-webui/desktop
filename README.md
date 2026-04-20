@@ -1,87 +1,77 @@
 # Open WebUI Desktop
 
+[![Version](https://img.shields.io/github/v/release/open-webui/desktop?label=version&color=%2331c48d)](https://github.com/open-webui/desktop/releases)
+[![Downloads](https://img.shields.io/github/downloads/open-webui/desktop/total?color=%23764abc)](https://github.com/open-webui/desktop/releases)
+[![Discord](https://img.shields.io/discord/1170866489302188073?label=discord&color=%235865F2)](https://discord.gg/open-webui)
+[![License](https://img.shields.io/badge/license-AGPL--3.0-blue)](LICENSE)
+
 ![Open WebUI Desktop](./demo.png)
 
-Your AI, right on your desktop. **Open WebUI Desktop** wraps the full [Open WebUI](https://github.com/open-webui/open-webui) experience into a native app you can install in seconds, with no Docker, terminal, or manual setup required. Just download, launch, and start chatting with local or remote models.
+Your AI, right on your desktop. [Open WebUI](https://github.com/open-webui/open-webui) as a native app. Run models locally or connect to any server. No Docker, no terminal, no setup. Download, launch, chat.
 
-> [!NOTE]
-> Open WebUI Desktop is in **early alpha**. Things are moving fast and we'd love your feedback! Drop into the [Discord](https://discord.gg/5rJgQTnV4s) or open an issue if you hit a snag.
+> [!WARNING]
+> **Early Alpha.** Things move fast and stuff might break. [Report bugs](https://github.com/open-webui/desktop/issues) or [come hang out on Discord](https://discord.gg/open-webui).
 
 ## Download
 
-Grab the installer for your platform and you're good to go. An internet connection is needed the first time you launch; after that the app works fully offline.
+| Platform | Installer |
+|----------|-----------|
+| macOS (Apple Silicon) | [**Download .dmg**](https://github.com/open-webui/desktop/releases/latest/download/open-webui-arm64.dmg) |
+| macOS (Intel) | [**Download .dmg**](https://github.com/open-webui/desktop/releases/latest/download/open-webui-x64.dmg) |
+| Windows x64 | [**Download .exe**](https://github.com/open-webui/desktop/releases/latest/download/open-webui-setup.exe) |
+| Linux (AppImage) | [**Download .AppImage**](https://github.com/open-webui/desktop/releases/latest/download/open-webui.AppImage) |
+| Linux (Debian/Ubuntu) | [**Download .deb**](https://github.com/open-webui/desktop/releases/latest/download/open-webui_amd64.deb) |
+| Linux (Snap) | [**Download .snap**](https://github.com/open-webui/desktop/releases/latest/download/open-webui_amd64.snap) |
+| Linux (Flatpak) | [**Download .flatpak**](https://github.com/open-webui/desktop/releases/latest/download/open-webui.flatpak) |
 
-### macOS
+Internet required on first launch. After that, everything works offline. [All releases →](https://github.com/open-webui/desktop/releases)
 
-| Chip | Installer |
-|------|-----------|
-| Apple Silicon | [**Download .dmg**](https://github.com/open-webui/desktop/releases/latest/download/open-webui-arm64.dmg) |
-| Intel | [**Download .dmg**](https://github.com/open-webui/desktop/releases/latest/download/open-webui-x64.dmg) |
+## How It Works
 
-### Windows
+🖥️ **Run locally.** The app sets up Open WebUI and llama.cpp on your machine. Download models, chat offline, keep everything private. Nothing leaves your computer.
 
-| Architecture | Installer |
-|--------------|-----------|
-| x64 | [**Download .exe**](https://github.com/open-webui/desktop/releases/latest/download/open-webui-setup.exe) |
+☁️ **Connect remotely.** Point the app at any Open WebUI server. Switch between multiple connections from the sidebar.
 
-### Linux
-
-| Format | Installer |
-|--------|-----------|
-| AppImage | [**Download .AppImage**](https://github.com/open-webui/desktop/releases/latest/download/open-webui.AppImage) |
-| Debian / Ubuntu | [**Download .deb**](https://github.com/open-webui/desktop/releases/latest/download/open-webui_amd64.deb) |
-| Snap | [**Download .snap**](https://github.com/open-webui/desktop/releases/latest/download/open-webui_amd64.snap) |
-| Flatpak | [**Download .flatpak**](https://github.com/open-webui/desktop/releases/latest/download/open-webui.flatpak) |
-
-> Looking for an older version? Check the [releases page](https://github.com/open-webui/desktop/releases).
+Use both at the same time.
 
 ## Highlights
 
-- **One-click setup.** Open WebUI and all its dependencies install automatically, no terminal required.
-- **Spotlight quick-chat.** Press `⇧⌘I` to pop up a lightweight input bar and fire off a prompt from anywhere on your desktop.
-- **Local inference.** The built-in llama.cpp integration lets you download and run models directly on your machine.
-- **Connect anywhere.** Point the app at any remote Open WebUI server, or run one locally and switch between connections in the sidebar.
-- **Offline-ready.** After the first launch, everything runs without an internet connection.
-- **Cross-platform.** Available for macOS (Apple Silicon + Intel), Windows, and Linux.
-- **Auto-updates.** New releases are detected and installed automatically.
+- ⚡ **Spotlight.** Hit `Shift+Cmd+I` (macOS) or `Shift+Ctrl+I` (Windows/Linux) to summon a floating chat bar over whatever you're doing. Drag to screenshot anything on screen.
+- 🎙️ **Voice input.** System-wide push-to-talk. Press the shortcut from any app to record, and your speech is transcribed and sent to your chat automatically.
+- 🧠 **Local inference.** Download and run models entirely on your hardware. Your data never leaves your machine.
+- 🎯 **One-click setup.** Everything installs itself. Just click "Get Started."
+- 🔌 **Multiple connections.** Juggle servers and switch between them instantly.
+- 🔄 **Auto-updates.** New releases land in the background.
+- 📡 **Offline-ready.** No internet needed after initial setup.
+- 💻 **Cross-platform.** macOS, Windows, and Linux.
 
 ## System Requirements
 
-| | Minimum |
-|--|---------|
-| **Disk** | 5 GB free space |
-| **OS** | macOS 12+, Windows 10+, or a modern Linux distro |
-| **RAM** | 8 GB recommended (more is better for local models) |
+|  | Local Models | Remote Only |
+|--|-------------|-------------|
+| **Disk** | 5 GB+ | ~500 MB |
+| **RAM** | 16 GB+ | 4 GB |
+| **OS** | macOS 12+, Windows 10+, modern Linux | Same |
 
-## Contributing
+> [!NOTE]
+> Local models need serious RAM (7B ≈ 8 GB, 13B ≈ 16 GB). Lighter machine? Connect to a remote server instead.
 
-Want to hack on the desktop app? Here's how to get a dev build running:
+## Privacy
 
-```bash
-# Install dependencies
-npm install
-
-# Start the dev server with hot-reload
-npm run dev
-```
-
-### Building for production
-
-```bash
-# macOS
-npm run build:mac
-
-# Windows
-npm run build:win
-
-# Linux
-npm run build:linux
-```
-
-## License
-
-This project is licensed under **AGPL-3.0**. See [LICENSE](LICENSE) for details.
+No telemetry. No tracking. No phone-home. Your conversations stay on your machine. Period.
 
 ## Community
 
-We'd love to have you around! Star the repo, join the [Discord](https://discord.gg/5rJgQTnV4s), or follow [Open WebUI on GitHub](https://github.com/open-webui/open-webui) for the latest updates.
+- 💬 [Discord](https://discord.gg/open-webui) - Come hang out
+- 🐛 [Issues](https://github.com/open-webui/desktop/issues) - Report bugs or request features
+- 🌐 [Open WebUI](https://github.com/open-webui/open-webui) - The main project
+- 📖 [Docs](https://docs.openwebui.com) - Full documentation
+
+## Contributing
+
+```bash
+npm install
+npm run dev
+```
+
+See [CHANGELOG.md](CHANGELOG.md) for release history. Licensed under [AGPL-3.0](LICENSE).

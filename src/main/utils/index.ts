@@ -817,6 +817,7 @@ export interface AppConfig {
     enabled: boolean
     port: number
     cwd: string
+    apiKey: string
   }
   llamaCpp: {
     enabled: boolean
@@ -830,6 +831,8 @@ export interface AppConfig {
   spotlightPosition: { x: number; y: number } | null
   voiceInputShortcut: string
   voiceInputEnabled: boolean
+  callShortcut: string
+  callEnabled: boolean
 }
 
 const DEFAULT_CONFIG: AppConfig = {
@@ -848,7 +851,8 @@ const DEFAULT_CONFIG: AppConfig = {
   },
   openTerminal: {
     enabled: false,
-    cwd: ''
+    cwd: '',
+    apiKey: ''
   },
   llamaCpp: {
     enabled: false,
@@ -860,7 +864,9 @@ const DEFAULT_CONFIG: AppConfig = {
   showSidebar: false,
   spotlightPosition: null,
   voiceInputShortcut: 'Shift+CommandOrControl+Space',
-  voiceInputEnabled: true
+  voiceInputEnabled: true,
+  callShortcut: 'Shift+CommandOrControl+C',
+  callEnabled: true
 }
 
 export const getConfig = async (): Promise<AppConfig> => {
