@@ -6,6 +6,7 @@
     url: string
     connecting: boolean
     error: string
+    allowSelfSigned: boolean
     onConnect: () => void
     onCancel: () => void
   }
@@ -14,6 +15,7 @@
     url = $bindable(''),
     connecting = $bindable(false),
     error = $bindable(''),
+    allowSelfSigned = $bindable(false),
     onConnect,
     onCancel
   }: Props = $props()
@@ -83,6 +85,18 @@
       {#if error}
         <p class="mt-2 text-[11px] text-red-400">{error}</p>
       {/if}
+
+      <label class="mt-4 flex items-start gap-2.5 text-[12px] text-gray-500 dark:text-gray-400 cursor-pointer">
+        <input
+          type="checkbox"
+          bind:checked={allowSelfSigned}
+          class="mt-0.5 h-3.5 w-3.5 rounded border border-black/20 dark:border-white/20 bg-transparent"
+        />
+        <span>
+          {$i18n.t('setup.selfHostAllowSelfSigned')}
+          <span class="block mt-0.5 text-[11px] opacity-70">{$i18n.t('setup.selfHostAllowSelfSignedDesc')}</span>
+        </span>
+      </label>
     </div>
 
     <!-- Footer -->

@@ -42,6 +42,7 @@
   let localInstalled = $state(false)
   let openTerminalInstalled = $state(false)
   let showAddConnectionModal = $state(false)
+  let allowSelfSigned = $state(false)
 
   // Active log panel
   let activeLog = $state<'server' | 'open-terminal' | 'llama-server' | null>(null)
@@ -165,7 +166,7 @@
     }
     connecting = true
     try {
-      const valid = await window.electronAPI.validateUrl(u)
+      const valid = await window.electronAPI.validateUrl(u, { allowSelfSigned })
       if (!valid) {
         error = $i18n.t('setup.couldNotReachServer')
         connecting = false
@@ -175,11 +176,13 @@
         id: crypto.randomUUID(),
         name: new URL(u).hostname,
         type: 'remote',
-        url: u
+        url: u,
+        allowSelfSigned
       })
       connections.set(await window.electronAPI.getConnections())
       config.set(await window.electronAPI.getConfig())
       url = ''
+      allowSelfSigned = false
       error = ''
       showAddConnectionModal = false
       view = 'welcome'
@@ -285,6 +288,13 @@
   $effect(() => {
     if (activeLog === null) {
       showingLogs = false
+    }
+  })
+
+  $effect(() => {
+    // Only auto-open if we have a local connection that's not reachable
+    if (isLocalConnection && serverStatus === 'started' && !serverReachable && activeLog !== 'server') {
+      activeLog = 'server'
     }
   })
 
@@ -561,6 +571,7 @@
       bind:url
       bind:connecting
       bind:error
+      bind:allowSelfSigned
       bind:showAddConnectionModal
       bind:autoInstall
       onStartInstall={startInstall}

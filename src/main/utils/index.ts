@@ -3,15 +3,18 @@
 import * as fs from 'fs'
 import * as os from 'os'
 import * as path from 'path'
-import net from 'net'
-import crypto from 'crypto'
-
+import * as pty from 'node-pty'
 import * as tar from 'tar'
 
-import { app, shell, Notification } from 'electron'
-import { execFileSync, exec, spawn, execSync, execFile } from 'child_process'
+import { Notification, app, shell } from 'electron'
+import { exec, execFile, execFileSync, execSync, spawn } from 'child_process'
 
+import crypto from 'crypto'
+import http from 'http'
+import https from 'https'
 import log from 'electron-log'
+import net from 'net'
+
 log.transports.file.resolvePathFn = () => getLogFilePath('main')
 
 const serverLogger = log.create({ logId: 'server' })
@@ -536,7 +539,6 @@ export const uninstallPackage = (packageName: string): boolean => {
 
 // ─── Server Management ──────────────────────────────────
 
-import * as pty from 'node-pty'
 
 const serverPIDs: Set<number> = new Set()
 const serverLogs: Map<number, string[]> = new Map()
@@ -781,12 +783,68 @@ export const checkUrlAndOpen = async (url: string, callback: Function = async ()
   })
 }
 
-export const validateRemoteUrl = async (url: string): Promise<boolean> => {
+interface ValidateRemoteUrlOptions {
+  allowSelfSigned?: boolean
+}
+
+const validateRemoteUrlInsecure = async (url: string): Promise<boolean> => {
+  return new Promise((resolve) => {
+    try {
+      const urlObj = new URL(url)
+      const isHttps = urlObj.protocol === 'https:'
+      const client = isHttps ? https : http
+
+      const options = {
+        method: 'HEAD',
+        hostname: urlObj.hostname,
+        port: urlObj.port || (isHttps ? 443 : 80),
+        path: urlObj.pathname || '/',
+        timeout: 5000,
+        ...(isHttps && {
+          rejectUnauthorized: false, // Allow self-signed certificates
+          checkServerIdentity: () => undefined // Disable hostname verification
+        })
+      }
+      const req = client.request(options, (res) => {
+        const ok = res.statusCode && res.statusCode >= 200 && res.statusCode < 300
+        req.destroy()
+        resolve(ok)
+      })
+
+      req.on('error', () => {
+        resolve(false)
+      })
+
+      req.on('timeout', () => {
+        req.destroy()
+        resolve(false)
+      })
+
+      req.end()
+    } catch {
+      resolve(false)
+    }
+  })
+}
+
+export const validateRemoteUrl = async (
+  url: string,
+  options: ValidateRemoteUrlOptions = {}
+): Promise<boolean> => {
+  const allowSelfSigned = options.allowSelfSigned === true
+
   try {
-    const response = await fetch(url, { method: 'HEAD', signal: AbortSignal.timeout(5000) })
+    const response = await fetch(url, {
+      method: 'HEAD',
+      signal: AbortSignal.timeout(5000)
+    })
     return response.ok
   } catch {
-    return false
+    if (!allowSelfSigned) {
+      return false
+    }
+
+    return validateRemoteUrlInsecure(url)
   }
 }
 
@@ -797,6 +855,7 @@ export interface Connection {
   name: string
   type: 'local' | 'remote'
   url: string
+  allowSelfSigned?: boolean
 }
 
 export interface AppConfig {

@@ -47,7 +47,6 @@
   "common.experimental": "Experimental",
   "common.copied": "✓",
 
-
   "setup.newConnection": "New Connection",
   "setup.newConnectionDesc": "Connect to a remote Open WebUI server.",
   "setup.orInstallLocally": "Or install locally →",
@@ -55,6 +54,8 @@
   "setup.couldNotReachServer": "Could not reach this server",
   "setup.invalidUrl": "Please enter a valid URL",
   "setup.connectionFailed": "Connection failed",
+  "setup.selfHostAllowSelfSigned": "Self-hosted server with self-signed certificate",
+  "setup.selfHostAllowSelfSignedDesc": "Use only for trusted local or private servers.",
   "setup.urlPlaceholder": "e.g. https://your-server.com",
   "setup.preparingEnvironment": "Preparing environment…",
   "setup.settingUp": "Setting up…",

@@ -49,6 +49,7 @@ import {
   type AppConfig,
   type Connection
 } from './utils'
+import { getAllowedSelfSignedHosts, getCertificateVerificationResult } from './utils/certificates'
 
 import {
   startOpenTerminal,
@@ -109,6 +110,24 @@ let SERVER_REACHABLE = false
 let SERVER_PID: number | null = null
 let AUTH_TOKEN: string | null = null
 let voiceInputRecording = false
+
+const applyCertificatePolicy = (targetSession: Electron.Session): void => {
+  targetSession.setCertificateVerifyProc((request, callback) => {
+    const allowedHosts = getAllowedSelfSignedHosts(CONFIG?.connections)
+    callback(getCertificateVerificationResult(request.hostname, allowedHosts))
+  })
+}
+
+const applyConnectionCertificatePolicy = (connectionId: string): void => {
+  const connectionSession = session.fromPartition(`persist:connection-${connectionId}`)
+  applyCertificatePolicy(connectionSession)
+}
+
+const applyAllConnectionCertificatePolicies = (connections: Connection[] | undefined): void => {
+  for (const connection of connections || []) {
+    applyConnectionCertificatePolicy(connection.id)
+  }
+}
 
 // ─── Global Shortcuts ───────────────────────────────────
 
@@ -596,12 +615,14 @@ function createContentWindow(url: string, connectionId: string): BrowserWindow {
   })
 
   // Enable media capture
-  session
-    .fromPartition(`persist:connection-${connectionId}`)
-    .setPermissionRequestHandler((_webContents, permission, callback) => {
-      const allowedPermissions = ['media', 'mediaKeySystem', 'notifications']
-      callback(allowedPermissions.includes(permission))
-    })
+  const connectionSession = session.fromPartition(`persist:connection-${connectionId}`)
+
+  applyCertificatePolicy(connectionSession)
+
+  connectionSession.setPermissionRequestHandler((_webContents, permission, callback) => {
+    const allowedPermissions = ['media', 'mediaKeySystem', 'notifications']
+    callback(allowedPermissions.includes(permission))
+  })
 
   contentWindow.on('ready-to-show', () => {
     contentWindow?.show()
@@ -693,6 +714,9 @@ const updateTray = () => {
 
 const connectTo = async (connection: Connection) => {
   let url = connection.url
+
+  // Keep certificate policy applied to the partition used by this connection webview.
+  applyConnectionCertificatePolicy(connection.id)
 
   if (connection.type === 'local') {
     // Start local server if needed
@@ -1041,7 +1065,12 @@ if (!gotTheLock) {
       CONFIG = await getConfig()
       updateTray()
       voiceInputRecording = false
-      registerShortcuts(CONFIG.globalShortcut, CONFIG.spotlightShortcut, CONFIG.voiceInputShortcut, CONFIG.callShortcut)
+      registerShortcuts(
+        CONFIG.globalShortcut,
+        CONFIG.spotlightShortcut,
+        CONFIG.voiceInputShortcut,
+        CONFIG.callShortcut
+      )
     })
 
     // Python/uv
@@ -1055,7 +1084,11 @@ if (!gotTheLock) {
         return res
       } catch (error) {
         sendToRenderer('status:python', false)
-        sendToRenderer('error', { message: error?.message ?? 'Python installation failed. Please check your internet connection and try again.' })
+        sendToRenderer('error', {
+          message:
+            error?.message ??
+            'Python installation failed. Please check your internet connection and try again.'
+        })
         return false
       }
     })
@@ -1078,14 +1111,16 @@ if (!gotTheLock) {
         sendToRenderer('status:install', 'Installing Open Terminal…')
         await installPackage('open-terminal', otVersion, (status: string) => {
           sendToRenderer('status:install', status)
-        }).catch((e) =>
-          log.warn('open-terminal install failed (non-fatal):', e)
-        )
+        }).catch((e) => log.warn('open-terminal install failed (non-fatal):', e))
         sendToRenderer('status:package', true)
         return true
       } catch (error) {
         sendToRenderer('status:package', false)
-        sendToRenderer('error', { message: error?.message ?? 'Package installation failed. Please check your internet connection and try again.' })
+        sendToRenderer('error', {
+          message:
+            error?.message ??
+            'Package installation failed. Please check your internet connection and try again.'
+        })
         return false
       }
     })
@@ -1126,6 +1161,7 @@ if (!gotTheLock) {
       }
       await setConfig(config)
       CONFIG = config
+      applyConnectionCertificatePolicy(connection.id)
       updateTray()
       return config.connections
     })
@@ -1138,21 +1174,26 @@ if (!gotTheLock) {
       }
       await setConfig(config)
       CONFIG = config
+      applyAllConnectionCertificatePolicies(config.connections)
       updateTray()
       return config.connections
     })
 
-    ipcMain.handle('connections:update', async (_event, id: string, updates: Partial<Connection>) => {
-      const config = await getConfig()
-      const idx = config.connections.findIndex((c) => c.id === id)
-      if (idx !== -1) {
-        config.connections[idx] = { ...config.connections[idx], ...updates }
-        await setConfig(config)
-        CONFIG = config
-        updateTray()
+    ipcMain.handle(
+      'connections:update',
+      async (_event, id: string, updates: Partial<Connection>) => {
+        const config = await getConfig()
+        const idx = config.connections.findIndex((c) => c.id === id)
+        if (idx !== -1) {
+          config.connections[idx] = { ...config.connections[idx], ...updates }
+          await setConfig(config)
+          CONFIG = config
+          applyConnectionCertificatePolicy(config.connections[idx].id)
+          updateTray()
+        }
+        return config.connections
       }
-      return config.connections
-    })
+    )
 
     ipcMain.handle('connections:setDefault', async (_event, id: string) => {
       const config = await getConfig()
@@ -1171,9 +1212,15 @@ if (!gotTheLock) {
       return null
     })
 
-    ipcMain.handle('validate:url', async (_event, url: string) => {
-      return await validateRemoteUrl(url)
-    })
+    ipcMain.handle(
+      'validate:url',
+      async (_event, url: string, options?: { allowSelfSigned?: boolean }) => {
+        log.info(`[IPC] validate:url called with: ${url}`)
+        const result = await validateRemoteUrl(url, options)
+        log.info(`[IPC] validate:url result: ${result}`)
+        return result
+      }
+    )
 
     // Updater
     ipcMain.handle('updater:check', () => checkForUpdates())
@@ -1269,9 +1316,11 @@ if (!gotTheLock) {
                 body: 'Open WebUI needs Screen Recording access to capture screenshots. Please enable it in System Settings → Privacy & Security → Screen Recording, then restart the app.'
               }).show()
               // Open the correct System Preferences pane
-              shell.openExternal(
-                'x-apple.systempreferences:com.apple.preference.security?Privacy_ScreenCapture'
-              ).catch(() => {})
+              shell
+                .openExternal(
+                  'x-apple.systempreferences:com.apple.preference.security?Privacy_ScreenCapture'
+                )
+                .catch(() => {})
               return 'no-permission'
             }
           }
@@ -1296,8 +1345,7 @@ if (!gotTheLock) {
           })
 
           // Find the source matching this display
-          const source =
-            sources.find((s) => s.display_id === String(display.id)) || sources[0]
+          const source = sources.find((s) => s.display_id === String(display.id)) || sources[0]
           if (!source) {
             spotlightWindow?.setOpacity(1)
             return null
@@ -1349,94 +1397,110 @@ if (!gotTheLock) {
     })
 
     // Transcribe audio via the connected server's STT endpoint
-    ipcMain.handle('voiceInput:transcribe', async (_event, audioBuffer: ArrayBuffer, rendererToken?: string) => {
-      try {
-        const config = await getConfig()
-        if (!config.defaultConnectionId || config.connections.length === 0) {
-          throw new Error('No connection configured. Set up a connection in Settings first.')
-        }
-        const conn = config.connections.find((c) => c.id === config.defaultConnectionId)
-        if (!conn) throw new Error('Default connection not found. Check your connection settings.')
-
-        let url = conn.url
-        if (conn.type === 'local' && SERVER_URL) {
-          url = SERVER_URL
-        }
-        if (url.startsWith('http://0.0.0.0')) {
-          url = url.replace('http://0.0.0.0', 'http://localhost')
-        }
-
-        // Use stored auth token (relayed from webview), fall back to renderer-provided or contentWindow
-        let token = AUTH_TOKEN || rendererToken || ''
-        if (!token) {
-          // Scan all webContents to find the Open WebUI webview and read its token
-          try {
-            const { webContents: wc } = require('electron')
-            const allContents = wc.getAllWebContents()
-            for (const contents of allContents) {
-              try {
-                if (contents.getType() === 'webview' && !contents.isDestroyed()) {
-                  const t = await contents.executeJavaScript(
-                    `localStorage.getItem('token') || ''`
-                  )
-                  if (t) { token = t; break }
-                }
-              } catch {
-                // Skip inaccessible webContents
-              }
-            }
-          } catch {
-            log.warn('voiceInput:transcribe — could not extract token from webviews')
+    ipcMain.handle(
+      'voiceInput:transcribe',
+      async (_event, audioBuffer: ArrayBuffer, rendererToken?: string) => {
+        try {
+          const config = await getConfig()
+          if (!config.defaultConnectionId || config.connections.length === 0) {
+            throw new Error('No connection configured. Set up a connection in Settings first.')
           }
+          const conn = config.connections.find((c) => c.id === config.defaultConnectionId)
+          if (!conn)
+            throw new Error('Default connection not found. Check your connection settings.')
+
+          let url = conn.url
+          if (conn.type === 'local' && SERVER_URL) {
+            url = SERVER_URL
+          }
+          if (url.startsWith('http://0.0.0.0')) {
+            url = url.replace('http://0.0.0.0', 'http://localhost')
+          }
+
+          // Reuse the same connection session policy used by the webview so
+          // self-signed behavior stays consistent for main-process requests.
+          const connectionSession = session.fromPartition(`persist:connection-${conn.id}`)
+          applyCertificatePolicy(connectionSession)
+
+          // Use stored auth token (relayed from webview), fall back to renderer-provided or contentWindow
+          let token = AUTH_TOKEN || rendererToken || ''
+          if (!token) {
+            // Scan all webContents to find the Open WebUI webview and read its token
+            try {
+              const { webContents: wc } = require('electron')
+              const allContents = wc.getAllWebContents()
+              for (const contents of allContents) {
+                try {
+                  if (contents.getType() === 'webview' && !contents.isDestroyed()) {
+                    const t = await contents.executeJavaScript(
+                      `localStorage.getItem('token') || ''`
+                    )
+                    if (t) {
+                      token = t
+                      break
+                    }
+                  }
+                } catch {
+                  // Skip inaccessible webContents
+                }
+              }
+            } catch {
+              log.warn('voiceInput:transcribe — could not extract token from webviews')
+            }
+          }
+
+          if (!token) {
+            throw new Error(
+              'Not authenticated. Open a connection and sign in before using voice input.'
+            )
+          }
+
+          // Build multipart form data manually using Node.js
+          const boundary = '----VoiceInput' + Date.now()
+          const buffer = Buffer.from(audioBuffer)
+          const filename = `recording-${Date.now()}.wav`
+
+          const header = [
+            `--${boundary}`,
+            `Content-Disposition: form-data; name="file"; filename="${filename}"`,
+            `Content-Type: audio/wav`,
+            '',
+            ''
+          ].join('\r\n')
+
+          const footer = `\r\n--${boundary}--\r\n`
+          const headerBuf = Buffer.from(header, 'utf-8')
+          const footerBuf = Buffer.from(footer, 'utf-8')
+          const body = Buffer.concat([headerBuf, buffer, footerBuf])
+
+          const response = await connectionSession.fetch(`${url}/api/v1/audio/transcriptions`, {
+            method: 'POST',
+            headers: {
+              Authorization: `Bearer ${token}`,
+              'Content-Type': `multipart/form-data; boundary=${boundary}`
+            },
+            body
+          })
+
+          if (!response.ok) {
+            const text = await response.text().catch(() => '')
+            throw new Error(
+              `Transcription failed (HTTP ${response.status}). ${text || 'Check that your server has Speech-to-Text configured.'}`
+            )
+          }
+
+          const result = await response.json()
+          return result
+        } catch (error: any) {
+          log.error('voiceInput:transcribe failed:', error)
+          new Notification({
+            title: 'Voice Input Failed',
+            body: error?.message || 'Transcription failed. Check logs for details.'
+          }).show()
+          throw error
         }
-
-        if (!token) {
-          throw new Error('Not authenticated. Open a connection and sign in before using voice input.')
-        }
-
-        // Build multipart form data manually using Node.js
-        const boundary = '----VoiceInput' + Date.now()
-        const buffer = Buffer.from(audioBuffer)
-        const filename = `recording-${Date.now()}.wav`
-
-        const header = [
-          `--${boundary}`,
-          `Content-Disposition: form-data; name="file"; filename="${filename}"`,
-          `Content-Type: audio/wav`,
-          '',
-          ''
-        ].join('\r\n')
-
-        const footer = `\r\n--${boundary}--\r\n`
-        const headerBuf = Buffer.from(header, 'utf-8')
-        const footerBuf = Buffer.from(footer, 'utf-8')
-        const body = Buffer.concat([headerBuf, buffer, footerBuf])
-
-        const response = await fetch(`${url}/api/v1/audio/transcriptions`, {
-          method: 'POST',
-          headers: {
-            'Authorization': `Bearer ${token}`,
-            'Content-Type': `multipart/form-data; boundary=${boundary}`
-          },
-          body
-        })
-
-        if (!response.ok) {
-          const text = await response.text().catch(() => '')
-          throw new Error(`Transcription failed (HTTP ${response.status}). ${text || 'Check that your server has Speech-to-Text configured.'}`)
-        }
-
-        const result = await response.json()
-        return result
-      } catch (error: any) {
-        log.error('voiceInput:transcribe failed:', error)
-        new Notification({
-          title: 'Voice Input Failed',
-          body: error?.message || 'Transcription failed. Check logs for details.'
-        }).show()
-        throw error
       }
-    })
+    )
 
     // Voice input completed — deliver text to chat
     ipcMain.handle('voiceInput:done', async (_event, text: string) => {
@@ -1657,29 +1721,56 @@ if (!gotTheLock) {
     ipcMain.handle('huggingface:repo:files', async (_event, repo: string, token?: string) => {
       return getRepoFiles(repo, token)
     })
-    ipcMain.handle('huggingface:models:download', async (_event, repo: string, filename: string, token?: string, expectedSize?: number) => {
-      try {
-        sendToRenderer('status:huggingface-download', { repo, filename, status: 'downloading', percent: 0 })
-        const filepath = await downloadModel(repo, filename, (progress) => {
+    ipcMain.handle(
+      'huggingface:models:download',
+      async (_event, repo: string, filename: string, token?: string, expectedSize?: number) => {
+        try {
           sendToRenderer('status:huggingface-download', {
-            repo, filename,
+            repo,
+            filename,
             status: 'downloading',
-            percent: progress.percent,
-            downloadedBytes: progress.downloadedBytes,
-            totalBytes: progress.totalBytes
+            percent: 0
           })
-        }, token, expectedSize)
-        sendToRenderer('status:huggingface-download', { repo, filename, status: 'done', filepath })
-        return filepath
-      } catch (error) {
-        log.error('Failed to download model:', error)
-        sendToRenderer('status:huggingface-download', { repo, filename, status: 'failed', error: error?.message })
-        sendToRenderer('error', { message: `Model download failed: ${error?.message}` })
-        return null
+          const filepath = await downloadModel(
+            repo,
+            filename,
+            (progress) => {
+              sendToRenderer('status:huggingface-download', {
+                repo,
+                filename,
+                status: 'downloading',
+                percent: progress.percent,
+                downloadedBytes: progress.downloadedBytes,
+                totalBytes: progress.totalBytes
+              })
+            },
+            token,
+            expectedSize
+          )
+          sendToRenderer('status:huggingface-download', {
+            repo,
+            filename,
+            status: 'done',
+            filepath
+          })
+          return filepath
+        } catch (error) {
+          log.error('Failed to download model:', error)
+          sendToRenderer('status:huggingface-download', {
+            repo,
+            filename,
+            status: 'failed',
+            error: error?.message
+          })
+          sendToRenderer('error', { message: `Model download failed: ${error?.message}` })
+          return null
+        }
       }
-    })
+    )
 
-    ipcMain.handle('package:version', (_event, packageName: string) => getPackageVersion(packageName))
+    ipcMain.handle('package:version', (_event, packageName: string) =>
+      getPackageVersion(packageName)
+    )
     ipcMain.handle('package:uninstall', async (_event, packageName: string) => {
       return uninstallPackage(packageName)
     })
@@ -1688,7 +1779,7 @@ if (!gotTheLock) {
       const result = await dialog.showOpenDialog(mainWindow!, {
         properties: ['openDirectory']
       })
-      return result.canceled ? null : result.filePaths[0] ?? null
+      return result.canceled ? null : (result.filePaths[0] ?? null)
     })
 
     ipcMain.handle('app:launchAtLogin:get', () => {
@@ -1749,10 +1840,16 @@ if (!gotTheLock) {
     tray.setToolTip('Open WebUI')
     updateTray()
 
-
-
     // Global shortcut
-    registerShortcuts(CONFIG.globalShortcut, CONFIG.spotlightShortcut, CONFIG.voiceInputShortcut, CONFIG.callShortcut)
+    registerShortcuts(
+      CONFIG.globalShortcut,
+      CONFIG.spotlightShortcut,
+      CONFIG.voiceInputShortcut,
+      CONFIG.callShortcut
+    )
+
+    applyCertificatePolicy(session.defaultSession)
+    applyAllConnectionCertificatePolicies(CONFIG.connections)
 
     // Enable screen capture
     session.defaultSession.setDisplayMediaRequestHandler(
@@ -1798,9 +1895,7 @@ if (!gotTheLock) {
 
     // Check if already configured, auto-connect to default
     if (CONFIG.defaultConnectionId && CONFIG.connections.length > 0) {
-      const defaultConn = CONFIG.connections.find(
-        (c) => c.id === CONFIG.defaultConnectionId
-      )
+      const defaultConn = CONFIG.connections.find((c) => c.id === CONFIG.defaultConnectionId)
       if (defaultConn) {
         createMainWindow()
         const result = await connectTo(defaultConn)

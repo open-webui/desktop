@@ -9,6 +9,7 @@
 
   let view = $state('main') // main | install
   let url = $state('')
+  let allowSelfSigned = $state(false)
   let connecting = $state(false)
   let error = $state('')
   let mounted = $state(false)
@@ -28,13 +29,14 @@
     error = ''
     connecting = true
     try {
-      const valid = await window.electronAPI.validateUrl(u)
+      const valid = await window.electronAPI.validateUrl(u, { allowSelfSigned })
       if (!valid) { error = $i18n.t('setup.couldNotReachServer'); connecting = false; return }
       await window.electronAPI.addConnection({
         id: crypto.randomUUID(),
         name: new URL(u).hostname,
         type: 'remote',
-        url: u
+        url: u,
+        allowSelfSigned
       })
       connections.set(await window.electronAPI.getConnections())
       config.set(await window.electronAPI.getConfig())
@@ -105,6 +107,17 @@
             {#if error}
               <p class="text-[11px] text-red-400 opacity-80">{error}</p>
             {/if}
+
+            <label class="mt-1 inline-flex items-start gap-2 text-[11px] opacity-55 cursor-pointer">
+              <input
+                type="checkbox"
+                bind:checked={allowSelfSigned}
+                class="mt-0.5 h-3.5 w-3.5 rounded border border-black/20 dark:border-white/20 bg-transparent"
+              />
+              <span>
+                {$i18n.t('setup.selfHostAllowSelfSigned')}
+              </span>
+            </label>
           </div>
 
           <div class="mt-6">

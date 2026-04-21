@@ -7,6 +7,17 @@
     connections.set(await window.electronAPI.getConnections())
     config.set(await window.electronAPI.getConfig())
   }
+
+  const updateAllowSelfSigned = async (id: string, allowSelfSigned: boolean) => {
+    await window.electronAPI.updateConnection(id, { allowSelfSigned })
+    connections.set(await window.electronAPI.getConnections())
+    config.set(await window.electronAPI.getConfig())
+  }
+
+  const onAllowSelfSignedChange = (id: string, event: Event) => {
+    const target = event.currentTarget as HTMLInputElement
+    void updateAllowSelfSigned(id, target.checked)
+  }
 </script>
 
 <div class="flex flex-col divide-y divide-white/[0.04]">
@@ -37,11 +48,22 @@
         <div class="min-w-0">
           <div class="text-[13px] opacity-70 truncate">{conn.name}</div>
           <div class="text-[11px] opacity-25 truncate mt-0.5">{conn.url}</div>
+          {#if conn.type === 'remote'}
+            <label class="mt-2 inline-flex items-start gap-2 text-[11px] opacity-60 cursor-pointer">
+              <input
+                type="checkbox"
+                checked={conn.allowSelfSigned === true}
+                on:change={(e) => onAllowSelfSignedChange(conn.id, e)}
+                class="mt-0.5 h-3.5 w-3.5 rounded border border-black/20 dark:border-white/20 bg-transparent"
+              />
+              <span>{$i18n.t('setup.selfHostAllowSelfSigned')}</span>
+            </label>
+          {/if}
         </div>
       </div>
       <button
         class="text-[11px] opacity-30 hover:opacity-60 px-2 py-1 bg-transparent transition border-none text-[#1d1d1f] dark:text-[#fafafa] shrink-0"
-        onclick={() => remove(conn.id)}
+        on:click={() => remove(conn.id)}
       >
         {$i18n.t('common.remove')}
       </button>
