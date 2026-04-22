@@ -4,6 +4,7 @@
   import { appState, connections, config } from '../../stores'
   import i18n from '../../i18n'
   import LocalInstall from './LocalInstall.svelte'
+  import Switch from '../common/Switch.svelte'
 
   import logoImage from '../../assets/images/splash.png'
 
@@ -108,16 +109,21 @@
               <p class="text-[11px] text-red-400 opacity-80">{error}</p>
             {/if}
 
-            <label class="mt-1 inline-flex items-start gap-2 text-[11px] opacity-55 cursor-pointer">
-              <input
-                type="checkbox"
-                bind:checked={allowSelfSigned}
-                class="mt-0.5 h-3.5 w-3.5 rounded border border-black/20 dark:border-white/20 bg-transparent"
+            <div class="mt-1 py-2 flex items-center justify-between gap-4">
+              <div>
+                <div class="text-[13px] opacity-70">{$i18n.t('setup.selfHostAllowSelfSigned')}</div>
+                <div class="text-[11px] opacity-55 mt-0.5">
+                  {$i18n.t('setup.selfHostAllowSelfSignedDesc')}
+                </div>
+              </div>
+              <Switch
+                checked={allowSelfSigned}
+                label={$i18n.t('setup.selfHostAllowSelfSigned')}
+                onchange={(value) => {
+                  allowSelfSigned = value
+                }}
               />
-              <span>
-                {$i18n.t('setup.selfHostAllowSelfSigned')}
-              </span>
-            </label>
+            </div>
           </div>
 
           <div class="mt-6">

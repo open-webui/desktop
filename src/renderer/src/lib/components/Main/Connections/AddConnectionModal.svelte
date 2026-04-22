@@ -1,6 +1,7 @@
 <script lang="ts">
   import { fade, scale } from 'svelte/transition'
   import i18n from '../../../i18n'
+  import Switch from '../../common/Switch.svelte'
 
   interface Props {
     url: string
@@ -86,17 +87,21 @@
         <p class="mt-2 text-[11px] text-red-400">{error}</p>
       {/if}
 
-      <label class="mt-4 flex items-start gap-2.5 text-[12px] text-gray-500 dark:text-gray-400 cursor-pointer">
-        <input
-          type="checkbox"
-          bind:checked={allowSelfSigned}
-          class="mt-0.5 h-3.5 w-3.5 rounded border border-black/20 dark:border-white/20 bg-transparent"
+      <div class="mt-4 py-4 flex items-center justify-between gap-4">
+        <div>
+          <div class="text-[13px] opacity-70">{$i18n.t('setup.selfHostAllowSelfSigned')}</div>
+          <div class="text-[11px] opacity-25 mt-0.5">
+            {$i18n.t('setup.selfHostAllowSelfSignedDesc')}
+          </div>
+        </div>
+        <Switch
+          checked={allowSelfSigned}
+          label={$i18n.t('setup.selfHostAllowSelfSigned')}
+          onchange={(value) => {
+            allowSelfSigned = value
+          }}
         />
-        <span>
-          {$i18n.t('setup.selfHostAllowSelfSigned')}
-          <span class="block mt-0.5 text-[11px] opacity-70">{$i18n.t('setup.selfHostAllowSelfSignedDesc')}</span>
-        </span>
-      </label>
+      </div>
     </div>
 
     <!-- Footer -->
