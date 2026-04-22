@@ -401,9 +401,24 @@
         activeConnectionId = connId
         if (installPhase !== 'working') view = 'connected'
 
-        // Targeted delivery — wait a frame for the webview DOM to exist
         requestAnimationFrame(() => {
-          sendToWebview({ type: 'query', data: { query, files } }, connId)
+          const container = document.querySelector('.content-webview-container')
+          if (!container) return
+          const wv = container.querySelector(
+            `webview[partition="persist:connection-${connId}"]`
+          ) as any
+          if (!wv) return
+
+          if (query) {
+            const base = (openConnections.get(connId) ?? baseUrl).replace(/\/$/, '')
+            if (wv.loadURL) {
+              wv.loadURL(`${base}/?q=${encodeURIComponent(query)}`)
+            }
+          }
+
+          if (files?.length) {
+            sendToWebview({ type: 'query', data: { query, files } }, connId)
+          }
         })
         return
       }
