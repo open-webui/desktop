@@ -8,7 +8,7 @@ import crypto from 'crypto'
 
 import * as tar from 'tar'
 
-import { app, shell, Notification } from 'electron'
+import { app, shell, Notification, net as electronNet } from 'electron'
 import { execFileSync, exec, spawn, execSync, execFile } from 'child_process'
 
 import log from 'electron-log'
@@ -755,7 +755,7 @@ export const checkUrlAndOpen = async (url: string, callback: Function = async ()
 
   const checkUrl = async (): Promise<boolean> => {
     try {
-      const response = await fetch(url, { method: 'HEAD' })
+      const response = await electronNet.fetch(url, { method: 'HEAD' })
       return response.ok
     } catch {
       return false
@@ -783,7 +783,7 @@ export const checkUrlAndOpen = async (url: string, callback: Function = async ()
 
 export const validateRemoteUrl = async (url: string): Promise<boolean> => {
   try {
-    const response = await fetch(url, { method: 'HEAD', signal: AbortSignal.timeout(5000) })
+    const response = await electronNet.fetch(url, { method: 'HEAD', signal: AbortSignal.timeout(5000) })
     return response.ok
   } catch {
     return false
