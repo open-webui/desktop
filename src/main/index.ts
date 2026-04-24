@@ -532,12 +532,61 @@ async function toggleCall(): Promise<void> {
 
 // ─── Windows ────────────────────────────────────────────
 
+const DEFAULT_WINDOW_WIDTH = 1280
+const DEFAULT_WINDOW_HEIGHT = 800
+const MIN_WINDOW_WIDTH = 480
+const MIN_WINDOW_HEIGHT = 360
+const BOUNDS_SAVE_DEBOUNCE_MS = 500
+const MIN_VISIBLE_OVERLAP_PX = 100
+
+/** Last known non-maximized bounds, used to preserve restore geometry. */
+let lastNormalBounds: Electron.Rectangle | null = null
+
+/** Debounced persistence of the current window geometry to config. */
+let boundsDebounceTimer: ReturnType<typeof setTimeout> | null = null
+
+function debounceSaveWindowBounds(win: BrowserWindow): void {
+  if (boundsDebounceTimer) clearTimeout(boundsDebounceTimer)
+  boundsDebounceTimer = setTimeout(() => {
+    if (win.isDestroyed()) return
+    const maximized = win.isMaximized()
+    const bounds = maximized ? (lastNormalBounds ?? win.getNormalBounds()) : win.getBounds()
+    setConfig({ windowBounds: bounds, windowMaximized: maximized }).catch((err) =>
+      log.warn('Failed to save window bounds:', err)
+    )
+  }, BOUNDS_SAVE_DEBOUNCE_MS)
+}
+
+/**
+ * Returns true when at least `MIN_VISIBLE_OVERLAP_PX` of the saved
+ * rectangle would be visible on one of the connected displays.
+ */
+function isBoundsOnVisibleDisplay(bounds: { x: number; y: number }): boolean {
+  const { screen } = require('electron')
+  const targetPoint = { x: bounds.x + MIN_VISIBLE_OVERLAP_PX / 2, y: bounds.y + MIN_VISIBLE_OVERLAP_PX / 2 }
+  const display = screen.getDisplayNearestPoint(targetPoint)
+  const { x, y, width, height } = display.workArea
+  return (
+    bounds.x + MIN_VISIBLE_OVERLAP_PX > x &&
+    bounds.x < x + width &&
+    bounds.y + MIN_VISIBLE_OVERLAP_PX > y &&
+    bounds.y < y + height
+  )
+}
+
+function trackNormalBounds(win: BrowserWindow): void {
+  if (!win.isDestroyed() && !win.isMaximized()) {
+    lastNormalBounds = win.getBounds()
+  }
+}
+
 function createMainWindow(show = true): void {
-  mainWindow = new BrowserWindow({
-    width: 1280,
-    height: 800,
-    minWidth: 1280,
-    minHeight: 800,
+  const saved = CONFIG?.windowBounds
+  const windowOpts: Electron.BrowserWindowConstructorOptions = {
+    width: saved?.width ?? DEFAULT_WINDOW_WIDTH,
+    height: saved?.height ?? DEFAULT_WINDOW_HEIGHT,
+    minWidth: MIN_WINDOW_WIDTH,
+    minHeight: MIN_WINDOW_HEIGHT,
     icon: path.join(__dirname, 'assets/icon.png'),
     show: false,
     titleBarStyle: process.platform === 'win32' ? 'default' : 'hidden',
@@ -554,8 +603,21 @@ function createMainWindow(show = true): void {
       sandbox: false,
       webviewTag: true
     }
-  })
+  }
+
+  // Restore position only when the saved location is still on a visible display
+  // (e.g. an external monitor may have been disconnected since last session).
+  if (saved?.x != null && saved?.y != null && isBoundsOnVisibleDisplay(saved)) {
+    windowOpts.x = saved.x
+    windowOpts.y = saved.y
+  }
+
+  mainWindow = new BrowserWindow(windowOpts)
   mainWindow.setIcon(icon)
+
+  if (CONFIG?.windowMaximized) {
+    mainWindow.maximize()
+  }
 
   if (!app.isPackaged) {
     mainWindow.webContents.openDevTools()
@@ -578,6 +640,17 @@ function createMainWindow(show = true): void {
     mainWindow.loadFile(join(__dirname, '../renderer/index.html'))
   }
 
+  // ── Persist window bounds on geometry changes ──
+  const onBoundsChanged = (): void => {
+    if (!mainWindow || mainWindow.isDestroyed()) return
+    trackNormalBounds(mainWindow)
+    debounceSaveWindowBounds(mainWindow)
+  }
+  mainWindow.on('resize', onBoundsChanged)
+  mainWindow.on('move', onBoundsChanged)
+  mainWindow.on('maximize', onBoundsChanged)
+  mainWindow.on('unmaximize', onBoundsChanged)
+
   mainWindow.on('close', (event) => {
     if (!isQuiting) {
       if (CONFIG?.runInBackground === false) {
@@ -599,10 +672,10 @@ function createContentWindow(url: string, connectionId: string): BrowserWindow {
   }
 
   contentWindow = new BrowserWindow({
-    width: 1280,
-    height: 800,
-    minWidth: 1280,
-    minHeight: 800,
+    width: DEFAULT_WINDOW_WIDTH,
+    height: DEFAULT_WINDOW_HEIGHT,
+    minWidth: MIN_WINDOW_WIDTH,
+    minHeight: MIN_WINDOW_HEIGHT,
     icon: path.join(__dirname, 'assets/icon.png'),
     show: false,
     titleBarStyle: process.platform === 'win32' ? 'default' : 'hidden',
