@@ -79,6 +79,7 @@ flatpak:
     - --device=dri
     - --filesystem=home
     - --talk-name=org.freedesktop.Notifications
+    - --talk-name=org.freedesktop.portal.Desktop
 npmRebuild: false
 publish:
   provider: github

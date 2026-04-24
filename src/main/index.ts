@@ -93,6 +93,11 @@ import { existsSync, writeFileSync, unlinkSync } from 'fs'
 
 if (process.platform === 'linux') {
   app.commandLine.appendSwitch('no-sandbox')
+
+  // Use the native Wayland backend when available instead of XWayland.
+  // This is required for xdg-desktop-portal features like GlobalShortcuts
+  // to work (the portal is enabled by default in Chromium 134+ / Electron 33+).
+  app.commandLine.appendSwitch('ozone-platform-hint', 'auto')
 }
 
 // ─── GPU Crash Recovery ─────────────────────────────────
@@ -133,83 +138,113 @@ let voiceInputRecording = false
 
 // ─── Global Shortcuts ───────────────────────────────────
 
+/**
+ * Check whether the current environment supports Electron's globalShortcut
+ * API.  Since Chromium 134+ (Electron 33+) the GlobalShortcutsPortal
+ * feature is enabled by default, which lets `globalShortcut.register()`
+ * work transparently on Wayland via `xdg-desktop-portal`.  Combined with
+ * `--ozone-platform-hint=auto` (set above for Linux), shortcuts should
+ * "just work" on most modern desktops.
+ *
+ * We only bail out when we can positively detect an environment where
+ * neither X11 key-grabs nor the portal will succeed (e.g. an older
+ * Flatpak base app that doesn't expose the portal D-Bus name).
+ */
+function isGlobalShortcutSupported(): boolean {
+  if (process.platform !== 'linux') return true
+
+  // On Wayland the portal handles registration.  On X11 the classic
+  // key-grab path is used.  Both should work, so we optimistically
+  // return true and let tryRegisterShortcut surface per-shortcut
+  // failures via notifications.
+  return true
+}
+
+/**
+ * Try to register a single global shortcut.  Returns true on success.
+ * On failure a user-facing notification is shown (unless `silent` is set).
+ */
+function tryRegisterShortcut(
+  accel: string,
+  label: string,
+  callback: () => void,
+  silent = false
+): boolean {
+  try {
+    const ok = globalShortcut.register(accel, callback)
+    if (ok) {
+      log.info(`${label} shortcut "${accel}" registered`)
+      return true
+    }
+    log.warn(`${label} shortcut "${accel}" could not be registered (returned false)`)
+    if (!silent) {
+      new Notification({
+        title: label,
+        body: `Could not register shortcut "${accel}". It may be in use by another application.`
+      }).show()
+    }
+    return false
+  } catch (error) {
+    log.warn(`${label} shortcut "${accel}" registration threw:`, error)
+    if (!silent) {
+      new Notification({
+        title: label,
+        body: `Failed to register shortcut "${accel}". It may conflict with another application.`
+      }).show()
+    }
+    return false
+  }
+}
+
 const registerShortcuts = (globalAccel?: string, spotlightAccel?: string, voiceInputAccel?: string, callAccel?: string): void => {
   globalShortcut.unregisterAll()
 
+  // On Wayland / Flatpak global shortcuts are unsupported — skip silently.
+  if (!isGlobalShortcutSupported()) {
+    log.info(
+      'Global shortcut registration skipped — unsupported environment ' +
+      `(XDG_SESSION_TYPE=${process.env['XDG_SESSION_TYPE'] ?? '(unset)'}, ` +
+      `FLATPAK_ID=${process.env['FLATPAK_ID'] ?? '(unset)'})`
+    )
+    return
+  }
+
   // Global shortcut – bring main window to foreground
   if (globalAccel) {
-    try {
-      globalShortcut.register(globalAccel, () => {
-        if (mainWindow) {
-          mainWindow.show()
-          mainWindow.focus()
-        } else {
-          createMainWindow()
-        }
-      })
-    } catch (error) {
-      log.warn('Failed to register global shortcut:', globalAccel, error)
-    }
+    tryRegisterShortcut(globalAccel, 'Open WebUI', () => {
+      if (mainWindow) {
+        mainWindow.show()
+        mainWindow.focus()
+      } else {
+        createMainWindow()
+      }
+    })
   }
 
   // Spotlight shortcut – toggle the spotlight input bar
   if (spotlightAccel) {
-    try {
-      globalShortcut.register(spotlightAccel, () => {
-        const text = CONFIG?.spotlightClipboardPaste !== false
-          ? (clipboard.readText()?.trim() || '')
-          : ''
-        toggleSpotlight(text)
-      })
-    } catch (error) {
-      log.warn('Failed to register spotlight shortcut:', spotlightAccel, error)
-    }
+    tryRegisterShortcut(spotlightAccel, 'Spotlight', () => {
+      const text = CONFIG?.spotlightClipboardPaste !== false
+        ? (clipboard.readText()?.trim() || '')
+        : ''
+      toggleSpotlight(text)
+    })
   }
 
   // Voice input shortcut – toggle microphone recording
   if (voiceInputAccel && CONFIG?.voiceInputEnabled !== false) {
-    try {
-      const ok = globalShortcut.register(voiceInputAccel, () => {
-        toggleVoiceInput()
-      })
-      log.info(`Voice input shortcut "${voiceInputAccel}" registered: ${ok}`)
-      if (!ok) {
-        new Notification({
-          title: 'Voice Input',
-          body: `Could not register shortcut "${voiceInputAccel}". It may be in use by another application.`
-        }).show()
-      }
-    } catch (error) {
-      log.warn('Failed to register voice input shortcut:', voiceInputAccel, error)
-      new Notification({
-        title: 'Voice Input',
-        body: `Failed to register shortcut "${voiceInputAccel}". It may conflict with another application.`
-      }).show()
-    }
+    tryRegisterShortcut(voiceInputAccel, 'Voice Input', () => {
+      toggleVoiceInput()
+    })
   } else {
     log.info(`Voice input shortcut skipped — accel="${voiceInputAccel}", enabled=${CONFIG?.voiceInputEnabled}`)
   }
 
   // Call shortcut – open the voice/video call overlay
   if (callAccel && CONFIG?.callEnabled !== false) {
-    try {
-      const ok = globalShortcut.register(callAccel, () => {
-        toggleCall()
-      })
-      log.info(`Call shortcut "${callAccel}" registered: ${ok}`)
-      if (!ok) {
-        new Notification({
-          title: 'Call',
-          body: `Could not register shortcut "${callAccel}". It may be in use by another application.`
-        }).show()
-      }
-    } catch (error) {
-      log.warn('Failed to register call shortcut:', callAccel, error)
-      new Notification({
-        title: 'Call',
-        body: `Failed to register shortcut "${callAccel}". It may conflict with another application.`
-      }).show()
-    }
+    tryRegisterShortcut(callAccel, 'Call', () => {
+      toggleCall()
+    })
   } else {
     log.info(`Call shortcut skipped — accel="${callAccel}", enabled=${CONFIG?.callEnabled}`)
   }
@@ -1166,6 +1201,13 @@ if (!gotTheLock) {
     app.on('session-created', (newSession) => {
       newSession.setCertificateVerifyProc((_request, callback) => {
         callback(0)
+      })
+
+      // Grant media / notification permissions for webview partition sessions
+      // so that auth flows, media capture, and notifications work correctly.
+      newSession.setPermissionRequestHandler((_webContents, permission, callback) => {
+        const allowed = ['media', 'mediaKeySystem', 'notifications', 'clipboard-read']
+        callback(allowed.includes(permission))
       })
     })
 
