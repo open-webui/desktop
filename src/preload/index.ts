@@ -1,4 +1,5 @@
-import { ipcRenderer, contextBridge } from 'electron'
+import { contextBridge, ipcRenderer } from 'electron'
+
 import { electronAPI } from '@electron-toolkit/preload'
 
 // ─── PTY MessagePort ────────────────────────────────────
@@ -170,10 +171,12 @@ const api = {
   getConnections: () => ipcRenderer.invoke('connections:list'),
   addConnection: (connection: any) => ipcRenderer.invoke('connections:add', connection),
   removeConnection: (id: string) => ipcRenderer.invoke('connections:remove', id),
-  updateConnection: (id: string, updates: any) => ipcRenderer.invoke('connections:update', id, updates),
+  updateConnection: (id: string, updates: any) =>
+    ipcRenderer.invoke('connections:update', id, updates),
   setDefaultConnection: (id: string) => ipcRenderer.invoke('connections:setDefault', id),
   connectTo: (id: string) => ipcRenderer.invoke('connections:connect', id),
-  validateUrl: (url: string) => ipcRenderer.invoke('validate:url', url),
+  validateUrl: (url: string, options?: { allowSelfSigned?: boolean }) =>
+    ipcRenderer.invoke('validate:url', url, options),
   selectFolder: () => ipcRenderer.invoke('dialog:selectFolder'),
 
   // Updater

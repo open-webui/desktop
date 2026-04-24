@@ -24,6 +24,7 @@
     url: string
     connecting: boolean
     error: string
+    allowSelfSigned: boolean
     autoInstall: boolean
     onStartInstall: (options?: { installOpenTerminal?: boolean; installLlamaCpp?: boolean; installDir?: string }) => void
     onAddConnection: () => void
@@ -47,6 +48,7 @@
     url = $bindable(''),
     connecting = $bindable(false),
     error = $bindable(''),
+    allowSelfSigned = $bindable(false),
     autoInstall = $bindable(false),
     onStartInstall,
     onAddConnection,
@@ -397,12 +399,14 @@
       bind:url
       bind:connecting
       bind:error
+      bind:allowSelfSigned
       onConnect={() => {
         onAddConnection()
       }}
       onCancel={() => {
         showAddConnectionModal = false
         error = ''
+        allowSelfSigned = false
       }}
     />
   {/if}

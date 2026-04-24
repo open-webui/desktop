@@ -4,11 +4,13 @@
   import { appState, connections, config } from '../../stores'
   import i18n from '../../i18n'
   import LocalInstall from './LocalInstall.svelte'
+  import Switch from '../common/Switch.svelte'
 
   import logoImage from '../../assets/images/splash.png'
 
   let view = $state('main') // main | install
   let url = $state('')
+  let allowSelfSigned = $state(false)
   let connecting = $state(false)
   let error = $state('')
   let mounted = $state(false)
@@ -28,13 +30,14 @@
     error = ''
     connecting = true
     try {
-      const valid = await window.electronAPI.validateUrl(u)
+      const valid = await window.electronAPI.validateUrl(u, { allowSelfSigned })
       if (!valid) { error = $i18n.t('setup.couldNotReachServer'); connecting = false; return }
       await window.electronAPI.addConnection({
         id: crypto.randomUUID(),
         name: new URL(u).hostname,
         type: 'remote',
-        url: u
+        url: u,
+        allowSelfSigned
       })
       connections.set(await window.electronAPI.getConnections())
       config.set(await window.electronAPI.getConfig())
@@ -105,6 +108,22 @@
             {#if error}
               <p class="text-[11px] text-red-400 opacity-80">{error}</p>
             {/if}
+
+            <div class="mt-1 py-2 flex items-center justify-between gap-4">
+              <div>
+                <div class="text-[13px] opacity-70">{$i18n.t('setup.selfHostAllowSelfSigned')}</div>
+                <div class="text-[11px] opacity-55 mt-0.5">
+                  {$i18n.t('setup.selfHostAllowSelfSignedDesc')}
+                </div>
+              </div>
+              <Switch
+                checked={allowSelfSigned}
+                label={$i18n.t('setup.selfHostAllowSelfSigned')}
+                onchange={(value) => {
+                  allowSelfSigned = value
+                }}
+              />
+            </div>
           </div>
 
           <div class="mt-6">

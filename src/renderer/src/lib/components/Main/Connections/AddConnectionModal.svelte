@@ -1,11 +1,13 @@
 <script lang="ts">
   import { fade, scale } from 'svelte/transition'
   import i18n from '../../../i18n'
+  import Switch from '../../common/Switch.svelte'
 
   interface Props {
     url: string
     connecting: boolean
     error: string
+    allowSelfSigned: boolean
     onConnect: () => void
     onCancel: () => void
   }
@@ -14,6 +16,7 @@
     url = $bindable(''),
     connecting = $bindable(false),
     error = $bindable(''),
+    allowSelfSigned = $bindable(false),
     onConnect,
     onCancel
   }: Props = $props()
@@ -83,6 +86,22 @@
       {#if error}
         <p class="mt-2 text-[11px] text-red-400">{error}</p>
       {/if}
+
+      <div class="mt-4 py-4 flex items-center justify-between gap-4">
+        <div>
+          <div class="text-[13px] opacity-70">{$i18n.t('setup.selfHostAllowSelfSigned')}</div>
+          <div class="text-[11px] opacity-25 mt-0.5">
+            {$i18n.t('setup.selfHostAllowSelfSignedDesc')}
+          </div>
+        </div>
+        <Switch
+          checked={allowSelfSigned}
+          label={$i18n.t('setup.selfHostAllowSelfSigned')}
+          onchange={(value) => {
+            allowSelfSigned = value
+          }}
+        />
+      </div>
     </div>
 
     <!-- Footer -->
