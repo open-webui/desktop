@@ -62,15 +62,28 @@ const writeManifest = (models: HfModel[]): void => {
 
 // ─── Public API ─────────────────────────────────────────
 
-let activeDownloadAbort: AbortController | null = null
+const activeDownloads = new Map<string, AbortController>()
+
+const downloadKey = (repo: string, filename: string): string => `${repo}/${filename}`
 
 /**
- * Cancel the current download in progress.
+ * Cancel a specific download in progress.
+ * If no repo/filename given, cancels ALL active downloads.
  */
-export const cancelDownload = (): void => {
-  if (activeDownloadAbort) {
-    activeDownloadAbort.abort()
-    activeDownloadAbort = null
+export const cancelDownload = (repo?: string, filename?: string): void => {
+  if (repo && filename) {
+    const key = downloadKey(repo, filename)
+    const ctrl = activeDownloads.get(key)
+    if (ctrl) {
+      ctrl.abort()
+      activeDownloads.delete(key)
+    }
+  } else {
+    // Cancel all
+    for (const ctrl of activeDownloads.values()) {
+      ctrl.abort()
+    }
+    activeDownloads.clear()
   }
 }
 
@@ -136,8 +149,13 @@ export const downloadModel = async (
     headers['Authorization'] = `Bearer ${token}`
   }
 
-  activeDownloadAbort = new AbortController()
-  const { signal } = activeDownloadAbort
+  const key = downloadKey(repo, filename)
+  // Cancel any existing download for the same file
+  activeDownloads.get(key)?.abort()
+
+  const abortController = new AbortController()
+  activeDownloads.set(key, abortController)
+  const { signal } = abortController
 
   // Use fetch for streaming download with progress
   const response = await fetch(downloadUrl, {
@@ -183,7 +201,7 @@ export const downloadModel = async (
     writeStream.end()
     // Clean up partial download
     try { fs.unlinkSync(tmpPath) } catch {}
-    activeDownloadAbort = null
+    activeDownloads.delete(downloadKey(repo, filename))
     throw err
   } finally {
     writeStream.end()
@@ -192,7 +210,7 @@ export const downloadModel = async (
 
   // Rename tmp to final
   fs.renameSync(tmpPath, destPath)
-  activeDownloadAbort = null
+  activeDownloads.delete(downloadKey(repo, filename))
 
   // Update manifest
   const manifest = readManifest()
