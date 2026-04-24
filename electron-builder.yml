@@ -15,6 +15,7 @@ extraResources:
     to: CHANGELOG.md
 asarUnpack:
   - resources/**
+  - node_modules/node-pty/**
 win:
   executableName: open-webui
 nsis:
@@ -79,7 +80,8 @@ flatpak:
     - --device=dri
     - --filesystem=home
     - --talk-name=org.freedesktop.Notifications
-npmRebuild: false
+    - --talk-name=org.freedesktop.portal.Desktop
+npmRebuild: true
 publish:
   provider: github
   owner: open-webui

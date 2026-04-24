@@ -829,10 +829,13 @@ export interface AppConfig {
   envVars: Record<string, string>
   showSidebar: boolean
   spotlightPosition: { x: number; y: number } | null
+  spotlightClipboardPaste: boolean
   voiceInputShortcut: string
   voiceInputEnabled: boolean
   callShortcut: string
   callEnabled: boolean
+  windowBounds: { x: number; y: number; width: number; height: number } | null
+  windowMaximized: boolean
 }
 
 const DEFAULT_CONFIG: AppConfig = {
@@ -863,10 +866,13 @@ const DEFAULT_CONFIG: AppConfig = {
   envVars: {},
   showSidebar: false,
   spotlightPosition: null,
+  spotlightClipboardPaste: true,
   voiceInputShortcut: 'Shift+CommandOrControl+Space',
   voiceInputEnabled: true,
   callShortcut: 'Shift+CommandOrControl+C',
-  callEnabled: true
+  callEnabled: true,
+  windowBounds: null,
+  windowMaximized: false
 }
 
 export const getConfig = async (): Promise<AppConfig> => {

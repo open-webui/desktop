@@ -72,6 +72,9 @@
   // Track webview loading per connection
   let webviewLoading: Map<string, boolean> = $state(new Map())
 
+  // Track webview load errors per connection
+  let webviewErrors: Map<string, { code: number; description: string; url: string }> = $state(new Map())
+
   // Content preload path for webview bridge
   let contentPreloadPath: string = $state('')
 
@@ -83,10 +86,35 @@
     )
   )
 
+  const activeWebviewError = $derived(
+    view === 'connected' && activeConnectionId
+      ? webviewErrors.get(activeConnectionId) ?? null
+      : null
+  )
+
   const isLoading = $derived(
     connectingId !== '' ||
-    (serverStarting && activeConnectionId === localConn?.id)
+    (serverStarting && activeConnectionId === localConn?.id) ||
+    (view === 'connected' && !activeWebviewError && webviewLoading.get(activeConnectionId) === true)
   )
+
+  const retryActiveWebview = () => {
+    const wv = document.querySelector(
+      `webview[partition="persist:connection-${activeConnectionId}"]`
+    ) as any
+    if (wv?.reload) {
+      webviewErrors.delete(activeConnectionId)
+      webviewErrors = new Map(webviewErrors)
+      wv.reload()
+    }
+  }
+
+  const openActiveInBrowser = () => {
+    const connUrl = openConnections.get(activeConnectionId)
+    if (connUrl) {
+      window.electronAPI.openInBrowser(connUrl)
+    }
+  }
 
   // Attach load event listeners and IPC forwarding to webviews
   onMount(async () => {
@@ -114,6 +142,51 @@
           webviewLoading.set(connId, false)
           webviewLoading = new Map(webviewLoading)
         })
+
+        // Track load failures so we can show an error overlay
+        wv.addEventListener('did-fail-load', (event: any) => {
+          // Ignore sub-resource failures and aborted navigations (-3)
+          if (event.errorCode === -3 || event.isMainFrame === false) return
+          webviewErrors.set(connId, {
+            code: event.errorCode,
+            description: event.errorDescription || 'Unknown error',
+            url: event.validatedURL || ''
+          })
+          webviewErrors = new Map(webviewErrors)
+        })
+
+        // Clear error when a navigation succeeds (retry, redirect, etc.)
+        wv.addEventListener('did-navigate', () => {
+          if (webviewErrors.has(connId)) {
+            webviewErrors.delete(connId)
+            webviewErrors = new Map(webviewErrors)
+          }
+        })
+
+        // Renderer process crash
+        wv.addEventListener('crashed', () => {
+          webviewErrors.set(connId, {
+            code: -1,
+            description: 'crashed',
+            url: ''
+          })
+          webviewErrors = new Map(webviewErrors)
+        })
+
+        // Log guest page console messages for debugging blank-page issues (#124)
+        wv.addEventListener('console-message', (event: any) => {
+          if (event.level >= 2) { // warnings and errors only
+            console.warn(`[webview:${connId}]`, event.message)
+          }
+        })
+
+        // If this webview was created before the preload path resolved
+        // (race between auto-connect and async IPC), the preload didn't
+        // attach.  Force a reload now so it picks up the correct preload.
+        if (contentPreloadPath && wv.getAttribute('preload') !== contentPreloadPath) {
+          wv.setAttribute('preload', contentPreloadPath)
+          wv.reload()
+        }
 
         // Handle IPC messages from the webview guest (Open WebUI → desktop)
         wv.addEventListener('ipc-message', async (event: any) => {
@@ -200,6 +273,48 @@
       preload={contentPreloadPath}
     ></webview>
   {/each}
+
+  <!-- Error overlay when webview fails to load -->
+  {#if activeWebviewError}
+    <div class="absolute inset-0 z-20 flex items-center justify-center bg-[#eee] dark:bg-[#111]" transition:fade={{ duration: 200 }}>
+      <div class="text-center max-w-sm px-6">
+        <div class="mx-auto mb-4 w-10 h-10 rounded-full bg-black/[0.04] dark:bg-white/[0.06] flex items-center justify-center">
+          {#if activeWebviewError.code === -1}
+            <svg class="w-5 h-5 opacity-30" fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="1.5">
+              <path stroke-linecap="round" stroke-linejoin="round" d="M12 9v3.75m9-.75a9 9 0 11-18 0 9 9 0 0118 0zm-9 3.75h.008v.008H12v-.008z" />
+            </svg>
+          {:else}
+            <svg class="w-5 h-5 opacity-30" fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="1.5">
+              <path stroke-linecap="round" stroke-linejoin="round" d="M12 21a9.004 9.004 0 008.716-6.747M12 21a9.004 9.004 0 01-8.716-6.747M12 21c2.485 0 4.5-4.03 4.5-9S14.485 3 12 3m0 18c-2.485 0-4.5-4.03-4.5-9S9.515 3 12 3m0 0a8.997 8.997 0 017.843 4.582M12 3a8.997 8.997 0 00-7.843 4.582m15.686 0A11.953 11.953 0 0112 10.5c-2.998 0-5.74-1.1-7.843-2.918m15.686 0A8.959 8.959 0 0121 12c0 .778-.099 1.533-.284 2.253m0 0A17.919 17.919 0 0112 16.5a17.92 17.92 0 01-8.716-2.247m0 0A9.015 9.015 0 013 12c0-1.605.42-3.113 1.157-4.418" />
+            </svg>
+          {/if}
+        </div>
+        <div class="text-[14px] font-medium mb-1 opacity-80">
+          {activeWebviewError.code === -1 ? $i18n.t('setup.pageCrashed') : $i18n.t('setup.couldNotLoadPage')}
+        </div>
+        <div class="text-[12px] opacity-30 mb-1">{activeWebviewError.description}</div>
+        {#if activeWebviewError.url}
+          <div class="text-[11px] opacity-20 mb-6 break-all font-mono">{activeWebviewError.url}</div>
+        {:else}
+          <div class="mb-6"></div>
+        {/if}
+        <div class="flex gap-2 justify-center">
+          <button
+            class="px-4 py-2 rounded-xl text-[13px] font-medium bg-black dark:bg-white text-white dark:text-black border-none cursor-pointer transition hover:bg-gray-800 dark:hover:bg-gray-100 active:scale-[0.98]"
+            onclick={retryActiveWebview}
+          >
+            {$i18n.t('common.retry')}
+          </button>
+          <button
+            class="px-4 py-2 rounded-xl text-[13px] bg-black/[0.04] dark:bg-white/[0.06] text-[#1d1d1f] dark:text-[#fafafa] border-none cursor-pointer opacity-60 hover:opacity-90 transition active:scale-[0.98]"
+            onclick={openActiveInBrowser}
+          >
+            {$i18n.t('setup.openInBrowser')}
+          </button>
+        </div>
+      </div>
+    </div>
+  {/if}
 
   <!-- Loading overlay for webview -->
   {#if isLoading}

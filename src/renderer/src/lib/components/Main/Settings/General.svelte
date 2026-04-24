@@ -111,6 +111,9 @@
   let callShortcutInputEl = $state<HTMLButtonElement | null>(null)
   let callEnabled = $state(true)
 
+  // Spotlight clipboard paste
+  let spotlightClipboardPaste = $state(true)
+
   // Keep shortcut value in sync with config store
   $effect(() => {
     if ($config?.globalShortcut !== undefined) {
@@ -121,6 +124,9 @@
   $effect(() => {
     if ($config?.spotlightShortcut !== undefined) {
       spotlightShortcutValue = $config.spotlightShortcut ?? ''
+    }
+    if ($config?.spotlightClipboardPaste !== undefined) {
+      spotlightClipboardPaste = $config.spotlightClipboardPaste ?? true
     }
   })
 
@@ -516,6 +522,22 @@
         </button>
       {/if}
     </div>
+  </div>
+
+  <div class="py-4 flex items-center justify-between">
+    <div>
+      <div class="text-[13px] opacity-70">Clipboard Auto-Paste</div>
+      <div class="text-[11px] opacity-25 mt-0.5">Automatically paste clipboard contents into Spotlight</div>
+    </div>
+    <Switch
+      checked={spotlightClipboardPaste}
+      label="Toggle clipboard auto-paste"
+      onchange={async (value) => {
+        spotlightClipboardPaste = value
+        await window.electronAPI.setConfig({ spotlightClipboardPaste: value })
+        config.set(await window.electronAPI.getConfig())
+      }}
+    />
   </div>
 
   <div class="py-4 flex items-center justify-between">

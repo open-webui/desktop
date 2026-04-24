@@ -93,6 +93,11 @@ import { existsSync, writeFileSync, unlinkSync } from 'fs'
 
 if (process.platform === 'linux') {
   app.commandLine.appendSwitch('no-sandbox')
+
+  // Use the native Wayland backend when available instead of XWayland.
+  // This is required for xdg-desktop-portal features like GlobalShortcuts
+  // to work (the portal is enabled by default in Chromium 134+ / Electron 33+).
+  app.commandLine.appendSwitch('ozone-platform-hint', 'auto')
 }
 
 // ─── GPU Crash Recovery ─────────────────────────────────
@@ -133,81 +138,113 @@ let voiceInputRecording = false
 
 // ─── Global Shortcuts ───────────────────────────────────
 
+/**
+ * Check whether the current environment supports Electron's globalShortcut
+ * API.  Since Chromium 134+ (Electron 33+) the GlobalShortcutsPortal
+ * feature is enabled by default, which lets `globalShortcut.register()`
+ * work transparently on Wayland via `xdg-desktop-portal`.  Combined with
+ * `--ozone-platform-hint=auto` (set above for Linux), shortcuts should
+ * "just work" on most modern desktops.
+ *
+ * We only bail out when we can positively detect an environment where
+ * neither X11 key-grabs nor the portal will succeed (e.g. an older
+ * Flatpak base app that doesn't expose the portal D-Bus name).
+ */
+function isGlobalShortcutSupported(): boolean {
+  if (process.platform !== 'linux') return true
+
+  // On Wayland the portal handles registration.  On X11 the classic
+  // key-grab path is used.  Both should work, so we optimistically
+  // return true and let tryRegisterShortcut surface per-shortcut
+  // failures via notifications.
+  return true
+}
+
+/**
+ * Try to register a single global shortcut.  Returns true on success.
+ * On failure a user-facing notification is shown (unless `silent` is set).
+ */
+function tryRegisterShortcut(
+  accel: string,
+  label: string,
+  callback: () => void,
+  silent = false
+): boolean {
+  try {
+    const ok = globalShortcut.register(accel, callback)
+    if (ok) {
+      log.info(`${label} shortcut "${accel}" registered`)
+      return true
+    }
+    log.warn(`${label} shortcut "${accel}" could not be registered (returned false)`)
+    if (!silent) {
+      new Notification({
+        title: label,
+        body: `Could not register shortcut "${accel}". It may be in use by another application.`
+      }).show()
+    }
+    return false
+  } catch (error) {
+    log.warn(`${label} shortcut "${accel}" registration threw:`, error)
+    if (!silent) {
+      new Notification({
+        title: label,
+        body: `Failed to register shortcut "${accel}". It may conflict with another application.`
+      }).show()
+    }
+    return false
+  }
+}
+
 const registerShortcuts = (globalAccel?: string, spotlightAccel?: string, voiceInputAccel?: string, callAccel?: string): void => {
   globalShortcut.unregisterAll()
 
+  // On Wayland / Flatpak global shortcuts are unsupported — skip silently.
+  if (!isGlobalShortcutSupported()) {
+    log.info(
+      'Global shortcut registration skipped — unsupported environment ' +
+      `(XDG_SESSION_TYPE=${process.env['XDG_SESSION_TYPE'] ?? '(unset)'}, ` +
+      `FLATPAK_ID=${process.env['FLATPAK_ID'] ?? '(unset)'})`
+    )
+    return
+  }
+
   // Global shortcut – bring main window to foreground
   if (globalAccel) {
-    try {
-      globalShortcut.register(globalAccel, () => {
-        if (mainWindow) {
-          mainWindow.show()
-          mainWindow.focus()
-        } else {
-          createMainWindow()
-        }
-      })
-    } catch (error) {
-      log.warn('Failed to register global shortcut:', globalAccel, error)
-    }
+    tryRegisterShortcut(globalAccel, 'Open WebUI', () => {
+      if (mainWindow) {
+        mainWindow.show()
+        mainWindow.focus()
+      } else {
+        createMainWindow()
+      }
+    })
   }
 
   // Spotlight shortcut – toggle the spotlight input bar
   if (spotlightAccel) {
-    try {
-      globalShortcut.register(spotlightAccel, () => {
-        const text = clipboard.readText()?.trim() || ''
-        toggleSpotlight(text)
-      })
-    } catch (error) {
-      log.warn('Failed to register spotlight shortcut:', spotlightAccel, error)
-    }
+    tryRegisterShortcut(spotlightAccel, 'Spotlight', () => {
+      const text = CONFIG?.spotlightClipboardPaste !== false
+        ? (clipboard.readText()?.trim() || '')
+        : ''
+      toggleSpotlight(text)
+    })
   }
 
   // Voice input shortcut – toggle microphone recording
   if (voiceInputAccel && CONFIG?.voiceInputEnabled !== false) {
-    try {
-      const ok = globalShortcut.register(voiceInputAccel, () => {
-        toggleVoiceInput()
-      })
-      log.info(`Voice input shortcut "${voiceInputAccel}" registered: ${ok}`)
-      if (!ok) {
-        new Notification({
-          title: 'Voice Input',
-          body: `Could not register shortcut "${voiceInputAccel}". It may be in use by another application.`
-        }).show()
-      }
-    } catch (error) {
-      log.warn('Failed to register voice input shortcut:', voiceInputAccel, error)
-      new Notification({
-        title: 'Voice Input',
-        body: `Failed to register shortcut "${voiceInputAccel}". It may conflict with another application.`
-      }).show()
-    }
+    tryRegisterShortcut(voiceInputAccel, 'Voice Input', () => {
+      toggleVoiceInput()
+    })
   } else {
     log.info(`Voice input shortcut skipped — accel="${voiceInputAccel}", enabled=${CONFIG?.voiceInputEnabled}`)
   }
 
   // Call shortcut – open the voice/video call overlay
   if (callAccel && CONFIG?.callEnabled !== false) {
-    try {
-      const ok = globalShortcut.register(callAccel, () => {
-        toggleCall()
-      })
-      log.info(`Call shortcut "${callAccel}" registered: ${ok}`)
-      if (!ok) {
-        new Notification({
-          title: 'Call',
-          body: `Could not register shortcut "${callAccel}". It may be in use by another application.`
-        }).show()
-      }
-    } catch (error) {
-      log.warn('Failed to register call shortcut:', callAccel, error)
-      new Notification({
-        title: 'Call',
-        body: `Failed to register shortcut "${callAccel}". It may conflict with another application.`
-      }).show()
-    }
+    tryRegisterShortcut(callAccel, 'Call', () => {
+      toggleCall()
+    })
   } else {
     log.info(`Call shortcut skipped — accel="${callAccel}", enabled=${CONFIG?.callEnabled}`)
   }
@@ -530,12 +567,61 @@ async function toggleCall(): Promise<void> {
 
 // ─── Windows ────────────────────────────────────────────
 
+const DEFAULT_WINDOW_WIDTH = 1280
+const DEFAULT_WINDOW_HEIGHT = 800
+const MIN_WINDOW_WIDTH = 480
+const MIN_WINDOW_HEIGHT = 360
+const BOUNDS_SAVE_DEBOUNCE_MS = 500
+const MIN_VISIBLE_OVERLAP_PX = 100
+
+/** Last known non-maximized bounds, used to preserve restore geometry. */
+let lastNormalBounds: Electron.Rectangle | null = null
+
+/** Debounced persistence of the current window geometry to config. */
+let boundsDebounceTimer: ReturnType<typeof setTimeout> | null = null
+
+function debounceSaveWindowBounds(win: BrowserWindow): void {
+  if (boundsDebounceTimer) clearTimeout(boundsDebounceTimer)
+  boundsDebounceTimer = setTimeout(() => {
+    if (win.isDestroyed()) return
+    const maximized = win.isMaximized()
+    const bounds = maximized ? (lastNormalBounds ?? win.getNormalBounds()) : win.getBounds()
+    setConfig({ windowBounds: bounds, windowMaximized: maximized }).catch((err) =>
+      log.warn('Failed to save window bounds:', err)
+    )
+  }, BOUNDS_SAVE_DEBOUNCE_MS)
+}
+
+/**
+ * Returns true when at least `MIN_VISIBLE_OVERLAP_PX` of the saved
+ * rectangle would be visible on one of the connected displays.
+ */
+function isBoundsOnVisibleDisplay(bounds: { x: number; y: number }): boolean {
+  const { screen } = require('electron')
+  const targetPoint = { x: bounds.x + MIN_VISIBLE_OVERLAP_PX / 2, y: bounds.y + MIN_VISIBLE_OVERLAP_PX / 2 }
+  const display = screen.getDisplayNearestPoint(targetPoint)
+  const { x, y, width, height } = display.workArea
+  return (
+    bounds.x + MIN_VISIBLE_OVERLAP_PX > x &&
+    bounds.x < x + width &&
+    bounds.y + MIN_VISIBLE_OVERLAP_PX > y &&
+    bounds.y < y + height
+  )
+}
+
+function trackNormalBounds(win: BrowserWindow): void {
+  if (!win.isDestroyed() && !win.isMaximized()) {
+    lastNormalBounds = win.getBounds()
+  }
+}
+
 function createMainWindow(show = true): void {
-  mainWindow = new BrowserWindow({
-    width: 1280,
-    height: 800,
-    minWidth: 1280,
-    minHeight: 800,
+  const saved = CONFIG?.windowBounds
+  const windowOpts: Electron.BrowserWindowConstructorOptions = {
+    width: saved?.width ?? DEFAULT_WINDOW_WIDTH,
+    height: saved?.height ?? DEFAULT_WINDOW_HEIGHT,
+    minWidth: MIN_WINDOW_WIDTH,
+    minHeight: MIN_WINDOW_HEIGHT,
     icon: path.join(__dirname, 'assets/icon.png'),
     show: false,
     titleBarStyle: process.platform === 'win32' ? 'default' : 'hidden',
@@ -552,8 +638,21 @@ function createMainWindow(show = true): void {
       sandbox: false,
       webviewTag: true
     }
-  })
+  }
+
+  // Restore position only when the saved location is still on a visible display
+  // (e.g. an external monitor may have been disconnected since last session).
+  if (saved?.x != null && saved?.y != null && isBoundsOnVisibleDisplay(saved)) {
+    windowOpts.x = saved.x
+    windowOpts.y = saved.y
+  }
+
+  mainWindow = new BrowserWindow(windowOpts)
   mainWindow.setIcon(icon)
+
+  if (CONFIG?.windowMaximized) {
+    mainWindow.maximize()
+  }
 
   if (!app.isPackaged) {
     mainWindow.webContents.openDevTools()
@@ -576,6 +675,17 @@ function createMainWindow(show = true): void {
     mainWindow.loadFile(join(__dirname, '../renderer/index.html'))
   }
 
+  // ── Persist window bounds on geometry changes ──
+  const onBoundsChanged = (): void => {
+    if (!mainWindow || mainWindow.isDestroyed()) return
+    trackNormalBounds(mainWindow)
+    debounceSaveWindowBounds(mainWindow)
+  }
+  mainWindow.on('resize', onBoundsChanged)
+  mainWindow.on('move', onBoundsChanged)
+  mainWindow.on('maximize', onBoundsChanged)
+  mainWindow.on('unmaximize', onBoundsChanged)
+
   mainWindow.on('close', (event) => {
     if (!isQuiting) {
       if (CONFIG?.runInBackground === false) {
@@ -597,10 +707,10 @@ function createContentWindow(url: string, connectionId: string): BrowserWindow {
   }
 
   contentWindow = new BrowserWindow({
-    width: 1280,
-    height: 800,
-    minWidth: 1280,
-    minHeight: 800,
+    width: DEFAULT_WINDOW_WIDTH,
+    height: DEFAULT_WINDOW_HEIGHT,
+    minWidth: MIN_WINDOW_WIDTH,
+    minHeight: MIN_WINDOW_HEIGHT,
     icon: path.join(__dirname, 'assets/icon.png'),
     show: false,
     titleBarStyle: process.platform === 'win32' ? 'default' : 'hidden',
@@ -1091,6 +1201,13 @@ if (!gotTheLock) {
     app.on('session-created', (newSession) => {
       newSession.setCertificateVerifyProc((_request, callback) => {
         callback(0)
+      })
+
+      // Grant media / notification permissions for webview partition sessions
+      // so that auth flows, media capture, and notifications work correctly.
+      newSession.setPermissionRequestHandler((_webContents, permission, callback) => {
+        const allowed = ['media', 'mediaKeySystem', 'notifications', 'clipboard-read']
+        callback(allowed.includes(permission))
       })
     })
 
