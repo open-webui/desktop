@@ -94,6 +94,13 @@ import { existsSync, writeFileSync, unlinkSync } from 'fs'
 if (process.platform === 'linux') {
   app.commandLine.appendSwitch('no-sandbox')
 
+  // Work around /dev/shm access failures in AppImage and other containerised
+  // environments.  AppImage's FUSE mount can restrict child-process access to
+  // /dev/shm even when --no-sandbox is set, causing FATAL crashes in the
+  // Chromium zygote/renderer with "Unable to access(W_OK|X_OK) /dev/shm".
+  // This flag tells Chromium to use /tmp for shared memory instead (#136).
+  app.commandLine.appendSwitch('disable-dev-shm-usage')
+
   // Use the native Wayland backend when available instead of XWayland.
   // This is required for xdg-desktop-portal features like GlobalShortcuts
   // to work (the portal is enabled by default in Chromium 134+ / Electron 33+).
