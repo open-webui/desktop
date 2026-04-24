@@ -89,9 +89,30 @@ log.transports.file.resolvePathFn = () => getLogFilePath('main')
 
 import icon from '../../resources/icon.png?asset'
 
+import { existsSync, writeFileSync, unlinkSync } from 'fs'
+
 if (process.platform === 'linux') {
   app.commandLine.appendSwitch('no-sandbox')
 }
+
+// ─── GPU Crash Recovery ─────────────────────────────────
+// When the GPU process crashes fatally (common on certain NVIDIA/Intel
+// driver + Windows combos), we write a marker file and relaunch with
+// --disable-gpu-sandbox so the user doesn't have to manually edit
+// shortcut properties. On the next launch the marker is detected and
+// the switch is applied preemptively.
+
+const gpuCrashMarkerPath = join(app.getPath('userData'), '.gpu-sandbox-disabled')
+const gpuSandboxDisabled = existsSync(gpuCrashMarkerPath)
+
+if (gpuSandboxDisabled) {
+  log.info('GPU sandbox disabled due to previous GPU process crash')
+  app.commandLine.appendSwitch('disable-gpu-sandbox')
+}
+
+// Prevent Chromium from permanently blocking WebGL / 3-D APIs after
+// repeated GPU process crashes within the same session.
+app.disableDomainBlockingFor3DAPIs()
 
 // ─── State ──────────────────────────────────────────────
 
@@ -948,6 +969,15 @@ const resetAppHandler = async () => {
     } catch (e) {
       log.warn('Failed to uninstall llama.cpp during reset:', e)
     }
+    // Remove GPU crash marker so sandbox is re-tested on next launch
+    try {
+      if (existsSync(gpuCrashMarkerPath)) {
+        unlinkSync(gpuCrashMarkerPath)
+        log.info('GPU crash marker removed during reset')
+      }
+    } catch (e) {
+      log.warn('Failed to remove GPU crash marker during reset:', e)
+    }
     await new Promise((resolve) => setTimeout(resolve, 1000))
     await resetApp()
     CONFIG = await getConfig() // reload from defaults since config.json was deleted
@@ -998,6 +1028,43 @@ if (!gotTheLock) {
     }
     electronApp.setAppUserModelId('com.openwebui.desktop')
 
+    // ─── GPU Process Crash Recovery ──────────────────
+    // If the GPU process exits fatally (e.g. sandbox init failure on
+    // certain NVIDIA/Intel drivers), write a marker and relaunch with
+    // --disable-gpu-sandbox so the user doesn't have to manually edit
+    // shortcut targets (see issue #110).
+    app.on('child-process-gone', (_event, details) => {
+      if (details.type === 'GPU') {
+        log.error(
+          `GPU process gone: reason=${details.reason}, exitCode=${details.exitCode}`
+        )
+
+        // Only auto-recover from fatal crashes, not normal/clean exits
+        if (
+          details.reason === 'crashed' ||
+          details.reason === 'launch-failed' ||
+          details.reason === 'abnormal-exit'
+        ) {
+          if (!gpuSandboxDisabled) {
+            log.info('Writing GPU crash marker and relaunching with --disable-gpu-sandbox')
+            try {
+              writeFileSync(gpuCrashMarkerPath, new Date().toISOString(), 'utf-8')
+            } catch (e) {
+              log.warn('Failed to write GPU crash marker:', e)
+            }
+            app.relaunch({ args: [...process.argv.slice(1), '--disable-gpu-sandbox'] })
+            app.exit(0)
+          }
+        }
+      }
+    })
+
+    // If we previously set the GPU sandbox marker and this session
+    // started successfully, log it so it's visible in diagnostics.
+    if (gpuSandboxDisabled) {
+      log.info('Running with GPU sandbox disabled (marker file present)')
+    }
+
     app.on('browser-window-created', (_, window) => {
       optimizer.watchWindowShortcuts(window)
     })
@@ -1010,7 +1077,8 @@ if (!gotTheLock) {
       version: app.getVersion(),
       platform: process.platform,
       arch: process.arch,
-      username: require('os').userInfo().username
+      username: require('os').userInfo().username,
+      gpuSandboxDisabled
     }))
 
     ipcMain.handle('app:contentPreloadPath', () => {
