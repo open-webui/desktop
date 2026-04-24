@@ -28,7 +28,7 @@ Internet required on first launch. After that, everything works offline. [All re
 
 ## How It Works
 
-🖥️ **Run locally.** The app sets up Open WebUI and llama.cpp on your machine. Download models, chat offline, keep everything private. Nothing leaves your computer.
+🖥️ **Run locally.** The app runs Open WebUI on your machine. You can optionally enable the built-in llama.cpp engine to download and run models offline. Nothing leaves your computer.
 
 ☁️ **Connect remotely.** Point the app at any Open WebUI server. Switch between multiple connections from the sidebar.
 
@@ -38,8 +38,8 @@ Use both at the same time.
 
 - ⚡ **Spotlight.** Hit `Shift+Cmd+I` (macOS) or `Shift+Ctrl+I` (Windows/Linux) to summon a floating chat bar over whatever you're doing. Drag to screenshot anything on screen.
 - 🎙️ **Voice input.** System-wide push-to-talk. Press the shortcut from any app to record, and your speech is transcribed and sent to your chat automatically.
-- 🧠 **Local inference.** Download and run models entirely on your hardware. Your data never leaves your machine.
-- 🎯 **One-click setup.** Everything installs itself. Just click "Get Started."
+- 🧠 **Local inference.** Optionally run models entirely on your hardware via the built-in llama.cpp engine. Your data never leaves your machine.
+- 🎯 **One-click setup.** Launch and connect to a server in seconds. Local models can be enabled from the settings.
 - 🔌 **Multiple connections.** Juggle servers and switch between them instantly.
 - 🔄 **Auto-updates.** New releases land in the background.
 - 📡 **Offline-ready.** No internet needed after initial setup.
