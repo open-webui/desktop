@@ -94,6 +94,13 @@ import { existsSync, writeFileSync, unlinkSync } from 'fs'
 if (process.platform === 'linux') {
   app.commandLine.appendSwitch('no-sandbox')
 
+  // Work around /dev/shm access failures in AppImage and other containerised
+  // environments.  AppImage's FUSE mount can restrict child-process access to
+  // /dev/shm even when --no-sandbox is set, causing FATAL crashes in the
+  // Chromium zygote/renderer with "Unable to access(W_OK|X_OK) /dev/shm".
+  // This flag tells Chromium to use /tmp for shared memory instead (#136).
+  app.commandLine.appendSwitch('disable-dev-shm-usage')
+
   // Use the native Wayland backend when available instead of XWayland.
   // This is required for xdg-desktop-portal features like GlobalShortcuts
   // to work (the portal is enabled by default in Chromium 134+ / Electron 33+).
@@ -730,7 +737,7 @@ function createContentWindow(url: string, connectionId: string): BrowserWindow {
   session
     .fromPartition(`persist:connection-${connectionId}`)
     .setPermissionRequestHandler((_webContents, permission, callback) => {
-      const allowedPermissions = ['media', 'mediaKeySystem', 'notifications']
+      const allowedPermissions = ['media', 'mediaKeySystem', 'notifications', 'clipboard-sanitized-write']
       callback(allowedPermissions.includes(permission))
     })
 
@@ -1206,7 +1213,7 @@ if (!gotTheLock) {
       // Grant media / notification permissions for webview partition sessions
       // so that auth flows, media capture, and notifications work correctly.
       newSession.setPermissionRequestHandler((_webContents, permission, callback) => {
-        const allowed = ['media', 'mediaKeySystem', 'notifications', 'clipboard-read']
+        const allowed = ['media', 'mediaKeySystem', 'notifications', 'clipboard-read', 'clipboard-sanitized-write']
         callback(allowed.includes(permission))
       })
     })
