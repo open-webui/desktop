@@ -737,7 +737,7 @@ function createContentWindow(url: string, connectionId: string): BrowserWindow {
   session
     .fromPartition(`persist:connection-${connectionId}`)
     .setPermissionRequestHandler((_webContents, permission, callback) => {
-      const allowedPermissions = ['media', 'mediaKeySystem', 'notifications']
+      const allowedPermissions = ['media', 'mediaKeySystem', 'notifications', 'clipboard-sanitized-write']
       callback(allowedPermissions.includes(permission))
     })
 
@@ -1213,7 +1213,7 @@ if (!gotTheLock) {
       // Grant media / notification permissions for webview partition sessions
       // so that auth flows, media capture, and notifications work correctly.
       newSession.setPermissionRequestHandler((_webContents, permission, callback) => {
-        const allowed = ['media', 'mediaKeySystem', 'notifications', 'clipboard-read']
+        const allowed = ['media', 'mediaKeySystem', 'notifications', 'clipboard-read', 'clipboard-sanitized-write']
         callback(allowed.includes(permission))
       })
     })
