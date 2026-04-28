@@ -319,18 +319,10 @@ function createSpotlightWindow(): BrowserWindow {
   spotlightWindow.on('blur', () => {
     if (blurArmed) {
       spotlightWindow?.hide()
-      // Restore main window when spotlight dismisses
-      if (mainWindow && !mainWindow.isDestroyed()) {
-        mainWindow.show()
-      }
     }
   })
 
   spotlightWindow.on('closed', () => {
-    // Restore main window if spotlight is closed
-    if (mainWindow && !mainWindow.isDestroyed()) {
-      mainWindow.show()
-    }
     spotlightWindow = null
   })
 
@@ -1486,9 +1478,8 @@ if (!gotTheLock) {
 
       sendToRenderer('query', { query, connectionId: conn.id, url, files })
 
-      // Hide spotlight first (blur handler will restore main window)
       spotlightWindow?.hide()
-      // Ensure main window is focused to receive the query
+      // Show main window so it can receive and display the submitted query
       if (mainWindow && !mainWindow.isDestroyed()) {
         mainWindow.show()
         mainWindow.focus()
@@ -1496,7 +1487,6 @@ if (!gotTheLock) {
     })
     ipcMain.handle('spotlight:close', () => {
       spotlightWindow?.hide()
-      // blur handler restores main window
     })
 
     // Persist bar offset within the fullscreen spotlight window
