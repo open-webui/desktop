@@ -19,7 +19,7 @@ asarUnpack:
 win:
   executableName: open-webui
 nsis:
-  artifactName: ${name}-setup.${ext}
+  artifactName: ${name}-${arch}-setup.${ext}
   shortcutName: ${productName}
   uninstallDisplayName: ${productName}
   createDesktopShortcut: always
@@ -63,7 +63,7 @@ deb:
 snap:
   artifactName: ${name}_${arch}.${ext}
 appImage:
-  artifactName: ${name}.${ext}
+  artifactName: ${name}_${arch}.${ext}
 flatpak:
   base: org.electronjs.Electron2.BaseApp
   baseVersion: '23.08'
