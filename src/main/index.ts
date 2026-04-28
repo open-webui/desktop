@@ -106,13 +106,14 @@ if (process.platform === 'linux') {
   // to work (the portal is enabled by default in Chromium 134+ / Electron 33+).
   app.commandLine.appendSwitch('ozone-platform-hint', 'auto')
 
-  // Disable GPU compositing to prevent grey/blank webview rendering on
-  // Linux systems with problematic Intel/NVIDIA drivers or certain Wayland
-  // compositors.  The GPU process may not crash (so the crash-recovery
-  // marker never fires), but the compositor can fail silently — producing
-  // a grey rectangle instead of rendered content.  This is the standard
-  // workaround used by VS Code and other Electron apps (#119).
-  app.commandLine.appendSwitch('disable-gpu-compositing')
+  // Disable GPU acceleration entirely on Linux.  This prevents the GPU
+  // process from spawning, which avoids shared-memory allocation failures
+  // in /dev/shm or /tmp that crash the renderer on Ubuntu 24.04+, certain
+  // Wayland compositors, and AppArmor-restricted environments.  The lighter
+  // --disable-gpu-compositing flag is insufficient because the GPU process
+  // still starts and attempts shared-memory IPC.  Users confirmed that
+  // --disable-gpu resolves both the crash and grey/blank screen (#119, #157).
+  app.commandLine.appendSwitch('disable-gpu')
 }
 
 // ─── GPU Crash Recovery ─────────────────────────────────
