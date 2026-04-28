@@ -105,6 +105,14 @@ if (process.platform === 'linux') {
   // This is required for xdg-desktop-portal features like GlobalShortcuts
   // to work (the portal is enabled by default in Chromium 134+ / Electron 33+).
   app.commandLine.appendSwitch('ozone-platform-hint', 'auto')
+
+  // Disable GPU compositing to prevent grey/blank webview rendering on
+  // Linux systems with problematic Intel/NVIDIA drivers or certain Wayland
+  // compositors.  The GPU process may not crash (so the crash-recovery
+  // marker never fires), but the compositor can fail silently — producing
+  // a grey rectangle instead of rendered content.  This is the standard
+  // workaround used by VS Code and other Electron apps (#119).
+  app.commandLine.appendSwitch('disable-gpu-compositing')
 }
 
 // ─── GPU Crash Recovery ─────────────────────────────────
@@ -1220,6 +1228,30 @@ if (!gotTheLock) {
 
     app.on('browser-window-created', (_, window) => {
       optimizer.watchWindowShortcuts(window)
+
+      // Auto-reload when the renderer process dies so the user doesn't
+      // see a permanent blank/grey screen.
+      window.webContents.on('render-process-gone', (_event, details) => {
+        log.error(
+          `Renderer process gone: reason=${details.reason}, exitCode=${details.exitCode}`
+        )
+        if (details.reason !== 'clean-exit') {
+          window.webContents.reload()
+        }
+      })
+    })
+
+    // Log webview guest renderer crashes for diagnostics — the existing
+    // 'crashed' listener in Content.svelte surfaces these to the user.
+    app.on('web-contents-created', (_event, contents) => {
+      contents.on('render-process-gone', (_e, details) => {
+        if (details.reason !== 'clean-exit') {
+          log.error(
+            `WebContents render-process-gone: type=${contents.getType()}, ` +
+            `reason=${details.reason}, exitCode=${details.exitCode}`
+          )
+        }
+      })
     })
 
     // ─── IPC Handlers ─────────────────────────────────
