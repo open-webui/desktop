@@ -268,7 +268,6 @@
       src={connUrl}
       class="flex-1 min-h-0 border-none"
       style="display: {view === 'connected' && activeConnectionId === connId ? 'flex' : 'none'}"
-      allowpopups
       partition="persist:connection-{connId}"
       preload={contentPreloadPath}
     ></webview>

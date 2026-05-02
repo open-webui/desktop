@@ -1236,6 +1236,10 @@ if (!gotTheLock) {
 
     // Log webview guest renderer crashes for diagnostics — the existing
     // 'crashed' listener in Content.svelte surfaces these to the user.
+    //
+    // For webview guests we also intercept navigation and popup events
+    // so that external links open in the user's default browser instead
+    // of navigating the webview or spawning a new Electron window (#165).
     app.on('web-contents-created', (_event, contents) => {
       contents.on('render-process-gone', (_e, details) => {
         if (details.reason !== 'clean-exit') {
@@ -1245,6 +1249,30 @@ if (!gotTheLock) {
           )
         }
       })
+
+      if (contents.getType() === 'webview') {
+        // ── Popups (target="_blank" links) → open in default browser ──
+        contents.setWindowOpenHandler(({ url }) => {
+          openUrl(url)
+          return { action: 'deny' }
+        })
+
+        // ── In-page navigation to a different origin → open externally ──
+        // This catches regular link clicks (no target) that would navigate
+        // the webview away from the Open WebUI instance.
+        contents.on('will-navigate', (event, url) => {
+          try {
+            const currentOrigin = new URL(contents.getURL()).origin
+            const targetOrigin = new URL(url).origin
+            if (targetOrigin !== currentOrigin) {
+              event.preventDefault()
+              openUrl(url)
+            }
+          } catch {
+            // Malformed URL — let it through so Chromium can handle/reject it
+          }
+        })
+      }
     })
 
     // ─── IPC Handlers ─────────────────────────────────
