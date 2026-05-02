@@ -1272,6 +1272,61 @@ if (!gotTheLock) {
             // Malformed URL — let it through so Chromium can handle/reject it
           }
         })
+
+        // ── Native right-click context menu (#161) ──────────────────
+        // Electron <webview> guests don't show a context menu by default,
+        // which blocks right-click → Paste / Autofill / password-manager
+        // integration on login pages.  Build a native menu with standard
+        // editing actions, spell-check suggestions, and link handling.
+        contents.on('context-menu', (_event, params) => {
+          const menuItems: Electron.MenuItemConstructorOptions[] = []
+
+          // Spell-check suggestions (if any)
+          if (params.misspelledWord && params.dictionarySuggestions?.length) {
+            for (const suggestion of params.dictionarySuggestions) {
+              menuItems.push({
+                label: suggestion,
+                click: () => contents.replaceMisspelling(suggestion)
+              })
+            }
+            menuItems.push({ type: 'separator' })
+          }
+
+          // Link handling
+          if (params.linkURL) {
+            menuItems.push({
+              label: 'Open Link in Browser',
+              click: () => openUrl(params.linkURL)
+            })
+            menuItems.push({
+              label: 'Copy Link',
+              click: () => clipboard.writeText(params.linkURL)
+            })
+            menuItems.push({ type: 'separator' })
+          }
+
+          // Editable field actions (input, textarea, contenteditable)
+          if (params.isEditable) {
+            menuItems.push(
+              { label: 'Undo', role: 'undo', enabled: params.editFlags.canUndo },
+              { label: 'Redo', role: 'redo', enabled: params.editFlags.canRedo },
+              { type: 'separator' },
+              { label: 'Cut', role: 'cut', enabled: params.editFlags.canCut },
+              { label: 'Copy', role: 'copy', enabled: params.editFlags.canCopy },
+              { label: 'Paste', role: 'paste', enabled: params.editFlags.canPaste },
+              { label: 'Select All', role: 'selectAll', enabled: params.editFlags.canSelectAll }
+            )
+          } else if (params.selectionText) {
+            // Non-editable text selection
+            menuItems.push(
+              { label: 'Copy', role: 'copy', enabled: params.editFlags.canCopy }
+            )
+          }
+
+          if (menuItems.length > 0) {
+            Menu.buildFromTemplate(menuItems).popup()
+          }
+        })
       }
     })
 

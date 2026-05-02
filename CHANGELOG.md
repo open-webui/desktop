@@ -5,6 +5,18 @@ All notable changes to this project will be documented in this file.
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/),
 and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
+## [0.0.17] - 2026-05-03
+
+### Added
+
+- **Webview Context Menu.** Right-clicking inside the webview now shows a native context menu with Cut, Copy, Paste, Undo/Redo, spell-check suggestions, and "Open Link in Browser" — enabling system autofill and password manager integration on login pages (#161).
+
+### Changed
+
+- **Windows OpenSSL Compatibility.** The bundled Python's directory is now prepended to `PATH` on Windows so its own OpenSSL DLLs are loaded before any conflicting system-wide installations (Git for Windows, Anaconda, Strawberry Perl, etc.), preventing the `OPENSSL_Uplink: no OPENSSL_Applink` crash on startup (#167).
+- **Links Open in Default Browser on Windows.** Added `allowpopups` to the webview so that `target="_blank"` link clicks correctly propagate to the main process handler and open in the default browser instead of being silently blocked (#165, #170).
+- **Linux System Requirements.** Documentation now specifies glibc 2.28+ as a minimum requirement for Linux installations.
+
 ## [0.0.16] - 2026-05-02
 
 ### Fixed

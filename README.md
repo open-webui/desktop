@@ -54,7 +54,7 @@ Use both at the same time.
 |--|-------------|-------------|
 | **Disk** | 5 GB+ | ~500 MB |
 | **RAM** | 16 GB+ | 4 GB |
-| **OS** | macOS 12+, Windows 10+, modern Linux | Same |
+| **OS** | macOS 12+, Windows 10+, modern Linux (glibc 2.28+) | Same |
 
 > [!NOTE]
 > Local models need serious RAM (7B ≈ 8 GB, 13B ≈ 16 GB). Lighter machine? Connect to a remote server instead.

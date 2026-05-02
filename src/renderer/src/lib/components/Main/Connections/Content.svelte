@@ -270,6 +270,7 @@
       style="display: {view === 'connected' && activeConnectionId === connId ? 'flex' : 'none'}"
       partition="persist:connection-{connId}"
       preload={contentPreloadPath}
+      allowpopups
     ></webview>
   {/each}
 

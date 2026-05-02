@@ -1,6 +1,6 @@
 {
   "name": "open-webui",
-  "version": "0.0.16",
+  "version": "0.0.17",
   "license": "AGPL-3.0",
   "description": "Open WebUI Desktop",
   "main": "./out/main/index.js",
