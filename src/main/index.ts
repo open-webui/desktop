@@ -15,7 +15,8 @@ import {
   Menu,
   ipcMain,
   Tray,
-  dialog
+  dialog,
+  webContents
 } from 'electron'
 import path, { join } from 'path'
 import { readFile, statfs } from 'fs/promises'
@@ -675,6 +676,13 @@ function createMainWindow(show = true): void {
   mainWindow.webContents.setWindowOpenHandler((details) => {
     openUrl(details.url)
     return { action: 'deny' }
+  })
+
+  mainWindow.webContents.on('did-attach-webview', (_event, webContents) => {
+    webContents.setWindowOpenHandler((details) => {
+      openUrl(details.url)
+      return { action: 'deny' }
+    })
   })
 
   if (is.dev && process.env['ELECTRON_RENDERER_URL']) {
