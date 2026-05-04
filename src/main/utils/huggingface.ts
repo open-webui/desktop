@@ -5,7 +5,7 @@
  * Downloads files from HF repos, manages a local model cache,
  * and provides listing/deletion of cached models.
  *
- * Cache dir: <userData>/models/huggingface/<repo-slug>/<filename>
+ * Cache dir: <userData>/models/<repo-slug>/<filename>
  */
 
 import * as fs from 'fs'
@@ -33,10 +33,37 @@ export interface HfDownloadProgress {
 // ─── Paths ──────────────────────────────────────────────
 
 const getHfCacheDir = (): string => {
-  const dir = path.join(getInstallDir(), 'models', 'huggingface')
+  const dir = path.join(getInstallDir(), 'models')
   if (!fs.existsSync(dir)) {
     fs.mkdirSync(dir, { recursive: true })
   }
+
+  // Migrate models from legacy models/huggingface/<slug>/ to models/<slug>/
+  const legacyDir = path.join(dir, 'huggingface')
+  if (fs.existsSync(legacyDir)) {
+    try {
+      const entries = fs.readdirSync(legacyDir, { withFileTypes: true })
+      for (const entry of entries) {
+        if (entry.isDirectory()) {
+          const src = path.join(legacyDir, entry.name)
+          const dest = path.join(dir, entry.name)
+          if (!fs.existsSync(dest)) {
+            fs.renameSync(src, dest)
+            log.info(`[huggingface] Migrated ${entry.name} from legacy cache`)
+          }
+        }
+      }
+      // Remove legacy dir if empty (manifest.json may remain)
+      const remaining = fs.readdirSync(legacyDir)
+      if (remaining.length === 0) {
+        fs.rmdirSync(legacyDir)
+        log.info('[huggingface] Removed empty legacy huggingface/ directory')
+      }
+    } catch (e) {
+      log.warn('[huggingface] Failed to migrate legacy cache:', e)
+    }
+  }
+
   return dir
 }
 

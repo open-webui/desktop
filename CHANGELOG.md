@@ -5,6 +5,12 @@ All notable changes to this project will be documented in this file.
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/),
 and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
+## [0.0.18] - 2026-05-05
+
+### Fixed
+
+- **Downloaded Models Not Recognized by llama.cpp.** Models downloaded from Hugging Face are now stored directly under the `models/` directory instead of a nested `models/huggingface/` subdirectory, so llama-server's model scanner discovers them without manual symlinks. Existing models in the old location are automatically migrated on startup (#177).
+
 ## [0.0.17] - 2026-05-03
 
 ### Added
