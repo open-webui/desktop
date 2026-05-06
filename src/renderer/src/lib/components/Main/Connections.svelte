@@ -62,6 +62,7 @@
   let llamaCppStatus = $state<string | null>(null)
   let llamaCppInfo = $state<{ url?: string; pid?: number } | null>(null)
   let llamaCppSetupStatus = $state('')
+  let openTerminalSetupStatus = $state('')
 
   const startInstall = async (options?: { installOpenTerminal?: boolean; installLlamaCpp?: boolean; installDir?: string }) => {
     installPhase = 'working'
@@ -432,7 +433,8 @@
 
       // ── Desktop-only state (not forwarded to webviews) ─
       if (data.type === 'status:open-terminal') { openTerminalStatus = data.data; return }
-      if (data.type === 'open-terminal:ready') { openTerminalInfo = data.data; openTerminalStatus = 'started'; return }
+      if (data.type === 'status:open-terminal-setup') { openTerminalSetupStatus = data.data ?? ''; return }
+      if (data.type === 'open-terminal:ready') { openTerminalInfo = data.data; openTerminalStatus = 'started'; openTerminalSetupStatus = ''; return }
       if (data.type === 'status:llamacpp') { llamaCppStatus = data.data; return }
       if (data.type === 'status:llamacpp-setup') { llamaCppSetupStatus = data.data ?? ''; return }
       if (data.type === 'llamacpp:ready') { llamaCppInfo = data.data; llamaCppStatus = 'started'; llamaCppSetupStatus = ''; return }
@@ -486,8 +488,10 @@
       await window.electronAPI.stopOpenTerminal()
       openTerminalStatus = null
       openTerminalInfo = null
+      openTerminalSetupStatus = ''
     } else {
       openTerminalStatus = 'starting'
+      openTerminalSetupStatus = ''
       const result = await window.electronAPI.startOpenTerminal()
       if (result) {
         openTerminalInfo = result
@@ -495,6 +499,7 @@
       } else {
         openTerminalStatus = 'failed'
       }
+      openTerminalSetupStatus = ''
     }
   }
 
@@ -580,7 +585,7 @@
       statusText={activeLog === 'server'
         ? (serverStatus === 'starting' ? 'Starting Open WebUI…' : serverStatus === 'running' && !serverReachable ? 'Waiting for server…' : installStatus || '')
         : activeLog === 'open-terminal'
-          ? (openTerminalStatus === 'stopping' ? 'Stopping Open Terminal…' : openTerminalStatus === 'starting' ? 'Starting Open Terminal…' : '')
+          ? (openTerminalStatus === 'stopping' ? 'Stopping Open Terminal…' : openTerminalSetupStatus || (openTerminalStatus === 'starting' ? 'Starting Open Terminal…' : ''))
           : (llamaCppStatus === 'stopping' ? 'Stopping llama-server…' : llamaCppSetupStatus || (llamaCppStatus === 'starting' ? 'Starting llama-server…' : llamaCppStatus === 'setting-up' ? 'Setting up llama.cpp…' : ''))}
       connectPty={getConnectPty(activeLog)}
       disconnectPty={getDisconnectPty(activeLog)}

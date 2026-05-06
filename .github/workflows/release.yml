@@ -263,7 +263,10 @@ jobs:
                       const yaml = require('js-yaml');
                       const x64 = yaml.load(fs.readFileSync('$X64_YML', 'utf8'));
                       const arm = yaml.load(fs.readFileSync('$ARM_YML', 'utf8'));
-                      x64.files = [...(x64.files || []), ...(arm.files || [])];
+                      const all = [...(x64.files || []), ...(arm.files || [])];
+                      const map = new Map();
+                      for (const f of all) map.set(f.url, f);
+                      x64.files = [...map.values()];
                       const out = yaml.dump(x64, { lineWidth: -1 });
                       fs.writeFileSync('$X64_YML', out);
                       console.log(out);
@@ -286,7 +289,10 @@ jobs:
                       const yaml = require('js-yaml');
                       const x64 = yaml.load(fs.readFileSync('$X64_YML', 'utf8'));
                       const arm = yaml.load(fs.readFileSync('$ARM_YML', 'utf8'));
-                      x64.files = [...(x64.files || []), ...(arm.files || [])];
+                      const all = [...(x64.files || []), ...(arm.files || [])];
+                      const map = new Map();
+                      for (const f of all) map.set(f.url, f);
+                      x64.files = [...map.values()];
                       const out = yaml.dump(x64, { lineWidth: -1 });
                       fs.writeFileSync('$X64_YML', out);
                       console.log(out);
@@ -309,7 +315,10 @@ jobs:
                       const yaml = require('js-yaml');
                       const x64 = yaml.load(fs.readFileSync('$X64_YML', 'utf8'));
                       const arm = yaml.load(fs.readFileSync('$ARM_YML', 'utf8'));
-                      x64.files = [...(x64.files || []), ...(arm.files || [])];
+                      const all = [...(x64.files || []), ...(arm.files || [])];
+                      const map = new Map();
+                      for (const f of all) map.set(f.url, f);
+                      x64.files = [...map.values()];
                       const out = yaml.dump(x64, { lineWidth: -1 });
                       fs.writeFileSync('$X64_YML', out);
                       console.log(out);
@@ -319,6 +328,72 @@ jobs:
                     echo "Skipping merge — need both $X64_YML and $ARM_YML"
                     ls -la windows-*-*/latest.yml 2>/dev/null || true
                   fi
+
+            - name: Reconcile update manifest hashes
+              run: |
+                  # Recompute SHA512 from actual artifact files to ensure manifests
+                  # match the real binaries (fixes signed/unsigned hash mismatches)
+                  node -e "
+                    const fs = require('fs');
+                    const crypto = require('crypto');
+                    const yaml = require('js-yaml');
+                    const path = require('path');
+
+                    const manifests = [
+                      { prefix: 'macos-latest-', file: 'latest-mac.yml' },
+                      { prefix: 'ubuntu-',        file: 'latest-linux.yml' },
+                      { prefix: 'windows-',       file: 'latest.yml' },
+                    ];
+
+                    const allDirs = fs.readdirSync('.').filter(d => {
+                      try { return fs.statSync(d).isDirectory(); } catch { return false; }
+                    });
+
+                    for (const { prefix, file } of manifests) {
+                      const dirs = allDirs.filter(d => d.startsWith(prefix));
+                      let ymlPath = null;
+                      for (const dir of dirs) {
+                        const p = path.join(dir, file);
+                        if (fs.existsSync(p)) { ymlPath = p; break; }
+                      }
+                      if (!ymlPath) { console.log('No ' + file + ' found, skipping'); continue; }
+
+                      const manifest = yaml.load(fs.readFileSync(ymlPath, 'utf8'));
+                      let fixed = 0;
+
+                      for (const entry of manifest.files) {
+                        for (const dir of dirs) {
+                          const filePath = path.join(dir, entry.url);
+                          if (fs.existsSync(filePath)) {
+                            const buf = fs.readFileSync(filePath);
+                            const hash = crypto.createHash('sha512').update(buf).digest('base64');
+                            if (hash !== entry.sha512) {
+                              console.log('[' + file + '] Fix: ' + entry.url);
+                              entry.sha512 = hash;
+                              entry.size = buf.length;
+                              fixed++;
+                            }
+                            break;
+                          }
+                        }
+                      }
+
+                      if (manifest.path) {
+                        for (const dir of dirs) {
+                          const filePath = path.join(dir, manifest.path);
+                          if (fs.existsSync(filePath)) {
+                            const buf = fs.readFileSync(filePath);
+                            manifest.sha512 = crypto.createHash('sha512').update(buf).digest('base64');
+                            break;
+                          }
+                        }
+                      }
+
+                      const out = yaml.dump(manifest, { lineWidth: -1 });
+                      fs.writeFileSync(ymlPath, out);
+                      console.log('[' + file + '] ' + (fixed ? 'Fixed ' + fixed + ' entries' : 'All hashes OK'));
+                    }
+                  "
 
             - name: Create Release
               uses: softprops/action-gh-release@v2

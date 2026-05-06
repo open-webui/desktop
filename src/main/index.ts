@@ -106,14 +106,26 @@ if (process.platform === 'linux') {
   // to work (the portal is enabled by default in Chromium 134+ / Electron 33+).
   app.commandLine.appendSwitch('ozone-platform-hint', 'auto')
 
-  // Disable GPU acceleration entirely on Linux.  This prevents the GPU
-  // process from spawning, which avoids shared-memory allocation failures
-  // in /dev/shm or /tmp that crash the renderer on Ubuntu 24.04+, certain
-  // Wayland compositors, and AppArmor-restricted environments.  The lighter
-  // --disable-gpu-compositing flag is insufficient because the GPU process
-  // still starts and attempts shared-memory IPC.  Users confirmed that
-  // --disable-gpu resolves both the crash and grey/blank screen (#119, #157).
-  app.commandLine.appendSwitch('disable-gpu')
+  // Run the GPU service in-process instead of in a separate sandboxed
+  // process.  The out-of-process GPU crashes on Ubuntu 24.04+, certain
+  // Wayland compositors, and AppArmor-restricted environments because of
+  // shared-memory allocation failures in /dev/shm or /tmp (#119, #157).
+  //
+  // Previous attempts:
+  //   --disable-gpu-compositing  → GPU process still spawns & crashes.
+  //   --disable-gpu              → fixes crashes but kills the display
+  //                                compositor, so <webview> guest surfaces
+  //                                are never painted (gray rectangle #178).
+  //
+  // --in-process-gpu moves the GPU thread into the browser process, which
+  // sidesteps the cross-process shared-memory IPC entirely while keeping
+  // the display compositor alive so webview content renders normally.
+  app.commandLine.appendSwitch('in-process-gpu')
+
+  // Disable the GPU sandbox — it is the sandbox setup that triggers the
+  // shared-memory failures.  With --in-process-gpu the GPU thread lives
+  // in the browser process which is already un-sandboxed (--no-sandbox).
+  app.commandLine.appendSwitch('disable-gpu-sandbox')
 }
 
 // ─── GPU Crash Recovery ─────────────────────────────────
@@ -295,6 +307,9 @@ function createSpotlightWindow(): BrowserWindow {
     hasShadow: false,
     show: false,
     focusable: true,
+    // Ensure the window appears on whichever Space/desktop the user is
+    // currently on, rather than pulling them back to the primary Space.
+    visibleOnAllWorkspaces: true,
     icon: path.join(__dirname, 'assets/icon.png'),
     webPreferences: {
       preload: join(__dirname, '../preload/spotlight-preload.js'),
@@ -331,8 +346,12 @@ function createSpotlightWindow(): BrowserWindow {
 }
 
 function showAndFocusSpotlight(win: BrowserWindow, initialQuery?: string): void {
+  // On macOS, avoid `app.focus({ steal: true })` — it activates the whole
+  // application and causes the window manager to switch back to whichever
+  // Space the app was originally launched on (#179).  Instead, ensure the
+  // window is visible on all workspaces and focus it directly.
   if (process.platform === 'darwin') {
-    app.focus({ steal: true })
+    win.setVisibleOnAllWorkspaces(true, { skipTransformProcessType: true })
   }
 
   // Reposition fullscreen window to the active display
@@ -1828,7 +1847,9 @@ if (!gotTheLock) {
     ipcMain.handle('open-terminal:start', async () => {
       try {
         sendToRenderer('status:open-terminal', 'starting')
-        const result = await startOpenTerminal(CONFIG?.openTerminal?.port ?? null)
+        const result = await startOpenTerminal(CONFIG?.openTerminal?.port ?? null, (status) => {
+          sendToRenderer('status:open-terminal-setup', status)
+        })
         sendToRenderer('status:open-terminal', 'started')
         sendToRenderer('open-terminal:ready', result)
         // Notify webview to register terminal server at system level
@@ -2099,7 +2120,9 @@ if (!gotTheLock) {
     if (CONFIG?.openTerminal?.enabled) {
       try {
         sendToRenderer('status:open-terminal', 'starting')
-        const result = await startOpenTerminal(CONFIG?.openTerminal?.port ?? null)
+        const result = await startOpenTerminal(CONFIG?.openTerminal?.port ?? null, (status) => {
+          sendToRenderer('status:open-terminal-setup', status)
+        })
         sendToRenderer('status:open-terminal', 'started')
         sendToRenderer('open-terminal:ready', result)
       } catch (error) {

@@ -5,6 +5,15 @@ All notable changes to this project will be documented in this file.
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/),
 and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
+## [0.0.19] - 2026-05-06
+
+### Fixed
+
+- **Spotlight Pulls to First Desktop on macOS.** Spotlight no longer switches Spaces when triggered from a non-primary desktop. The window is now visible on all workspaces, and `app.focus({ steal: true })` — which activated the entire app and caused the Space switch — has been replaced with targeted window-level focus (#179).
+- **Gray Screen When Connecting to Server on Linux.** Replaced the `--disable-gpu` Chromium flag with `--in-process-gpu`, which keeps the display compositor alive so `<webview>` guest surfaces actually paint instead of showing a gray rectangle. The previous flag fixed GPU process crashes but broke webview rendering on Debian and Ubuntu (#178).
+- **Open Terminal Fails Silently Without Python.** Open Terminal now automatically installs Python when it's missing instead of throwing an opaque error. Progress status is surfaced in the UI during installation.
+- **Corrupt Auto-Update Manifests.** Fixed the release workflow to deduplicate artifact entries during manifest merging, preventing SHA512 checksum mismatches that caused updates to fail silently.
+
 ## [0.0.18] - 2026-05-05
 
 ### Fixed

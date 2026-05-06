@@ -10,6 +10,7 @@ import {
   installPackage,
   isPackageInstalled,
   isPythonInstalled,
+  installPython,
   portInUse
 } from './index'
 import { ServiceLock, isProcessAlive } from './service-lock'
@@ -38,7 +39,8 @@ export const getOpenTerminalPty = (): pty.IPty | null => ptyProcess
 export const getOpenTerminalLog = (): string[] => logBuffer
 
 export const startOpenTerminal = async (
-  port: number | null = null
+  port: number | null = null,
+  onStatus?: (status: string) => void
 ): Promise<{ url: string; apiKey: string; pid: number }> => {
   if (!lock.acquire()) {
     return { url, apiKey, pid }
@@ -46,9 +48,27 @@ export const startOpenTerminal = async (
 
   await stopOpenTerminal()
 
-  if (!isPythonInstalled()) throw new Error('Python is not installed')
+  if (!isPythonInstalled()) {
+    log.info('Python not installed — installing automatically for Open Terminal…')
+    onStatus?.('Installing Python…')
+    try {
+      const ok = await installPython(undefined, onStatus)
+      if (!ok) throw new Error('Python installation returned false')
+    } catch (err) {
+      throw new Error(
+        `Python is required for Open Terminal but installation failed: ${err?.message ?? err}`
+      )
+    }
+    if (!isPythonInstalled()) {
+      throw new Error(
+        'Python was installed but could not be verified. Please restart the app and try again.'
+      )
+    }
+  }
+
   if (!isPackageInstalled('open-terminal')) {
     log.info('open-terminal not installed, attempting install...')
+    onStatus?.('Installing Open Terminal package…')
     try {
       await installPackage('open-terminal')
     } catch (err) {
