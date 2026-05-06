@@ -106,25 +106,24 @@ if (process.platform === 'linux') {
   // to work (the portal is enabled by default in Chromium 134+ / Electron 33+).
   app.commandLine.appendSwitch('ozone-platform-hint', 'auto')
 
-  // Run the GPU service in-process instead of in a separate sandboxed
-  // process.  The out-of-process GPU crashes on Ubuntu 24.04+, certain
-  // Wayland compositors, and AppArmor-restricted environments because of
-  // shared-memory allocation failures in /dev/shm or /tmp (#119, #157).
+  // Force software GL rendering via SwiftShader.  The out-of-process GPU
+  // crashes on Ubuntu 24.04+, certain Wayland compositors, and AppArmor-
+  // restricted environments due to shared-memory allocation failures in
+  // /dev/shm or /tmp (#119, #157).
   //
-  // Previous attempts:
-  //   --disable-gpu-compositing  → GPU process still spawns & crashes.
-  //   --disable-gpu              → fixes crashes but kills the display
-  //                                compositor, so <webview> guest surfaces
-  //                                are never painted (gray rectangle #178).
+  // --disable-gpu kills the display compositor so <webview> guest surfaces
+  // are never painted (#178).  --in-process-gpu breaks <webview> guest
+  // compositing entirely (blank webviews on all Linux).
   //
-  // --in-process-gpu moves the GPU thread into the browser process, which
-  // sidesteps the cross-process shared-memory IPC entirely while keeping
-  // the display compositor alive so webview content renders normally.
-  app.commandLine.appendSwitch('in-process-gpu')
+  // SwiftShader keeps the GPU process out-of-process (required for
+  // <webview> compositing) while using software rendering to avoid
+  // driver-level crashes.
+  app.commandLine.appendSwitch('use-gl', 'angle')
+  app.commandLine.appendSwitch('use-angle', 'swiftshader')
 
-  // Disable the GPU sandbox — it is the sandbox setup that triggers the
-  // shared-memory failures.  With --in-process-gpu the GPU thread lives
-  // in the browser process which is already un-sandboxed (--no-sandbox).
+  // Disable the GPU sandbox — the sandbox setup triggers shared-memory
+  // allocation failures in /dev/shm.  The browser process is already
+  // un-sandboxed (--no-sandbox above).
   app.commandLine.appendSwitch('disable-gpu-sandbox')
 }
 
@@ -507,21 +506,12 @@ async function toggleVoiceInput(): Promise<void> {
 
   // Pre-flight: check a connection is configured
   try {
-    const config = await getConfig()
-    if (!config.defaultConnectionId || config.connections.length === 0) {
+    const conn = await getDefaultConnection()
+    if (!conn) {
       log.warn('Voice input: no connection configured')
       new Notification({
         title: 'Voice Input',
         body: 'No connection configured. Set up a connection in Settings before using voice input.'
-      }).show()
-      return
-    }
-    const conn = config.connections.find((c) => c.id === config.defaultConnectionId)
-    if (!conn) {
-      log.warn('Voice input: default connection not found')
-      new Notification({
-        title: 'Voice Input',
-        body: 'Default connection not found. Check your connection settings.'
       }).show()
       return
     }
@@ -554,8 +544,8 @@ async function toggleVoiceInput(): Promise<void> {
 async function toggleCall(): Promise<void> {
   // Pre-flight: check a connection is configured
   try {
-    const config = await getConfig()
-    if (!config.defaultConnectionId || config.connections.length === 0) {
+    const conn = await getDefaultConnection()
+    if (!conn) {
       log.warn('Call: no connection configured')
       new Notification({
         title: 'Call',
@@ -563,24 +553,8 @@ async function toggleCall(): Promise<void> {
       }).show()
       return
     }
-    const conn = config.connections.find((c) => c.id === config.defaultConnectionId)
-    if (!conn) {
-      log.warn('Call: default connection not found')
-      new Notification({
-        title: 'Call',
-        body: 'Default connection not found. Check your connection settings.'
-      }).show()
-      return
-    }
 
-    let url = conn.url
-    if (conn.type === 'local' && SERVER_URL) {
-      url = SERVER_URL
-    }
-    if (url.startsWith('http://0.0.0.0')) {
-      url = url.replace('http://0.0.0.0', 'http://localhost')
-    }
-
+    const url = resolveConnectionUrl(conn)
     sendToRenderer('call', { connectionId: conn.id, url })
 
     if (mainWindow && !mainWindow.isDestroyed()) {
@@ -796,7 +770,8 @@ function createContentWindow(url: string, connectionId: string): BrowserWindow {
 const updateTray = () => {
   if (!tray || !CONFIG) return
 
-  const connectionItems = (CONFIG.connections || []).map((conn) => ({
+  // Remote connections from config
+  const remoteItems = (CONFIG.connections || []).map((conn) => ({
     label: `${conn.id === CONFIG.defaultConnectionId ? '★ ' : ''}${conn.name}`,
     sublabel: conn.url,
     click: async () => {
@@ -804,6 +779,20 @@ const updateTray = () => {
       if (result) sendToRenderer('connection:open', result)
     }
   }))
+
+  // Virtual local connection (when package is installed)
+  const localItem = isPackageInstalled('open-webui')
+    ? [{
+        label: `${CONFIG.defaultConnectionId === 'local' ? '★ ' : ''}Open WebUI (Local)`,
+        sublabel: SERVER_URL || `http://127.0.0.1:${CONFIG.localServer?.port ?? 8080}`,
+        click: async () => {
+          const result = await connectTo(buildLocalConnection())
+          if (result) sendToRenderer('connection:open', result)
+        }
+      }]
+    : []
+
+  const allItems = [...localItem, ...remoteItems]
 
   const trayMenuTemplate = [
     {
@@ -814,10 +803,10 @@ const updateTray = () => {
       }
     },
     { type: 'separator' },
-    ...(connectionItems.length > 0
+    ...(allItems.length > 0
       ? [
           { label: 'Connections', enabled: false },
-          ...connectionItems,
+          ...allItems,
           { type: 'separator' }
         ]
       : []),
@@ -848,6 +837,38 @@ const updateTray = () => {
 }
 
 // ─── Connection Management ──────────────────────────────
+
+// Build a virtual local connection object from current config.
+// The local server is never stored in the connections array — it's
+// implicit when the open-webui package is installed.
+const buildLocalConnection = (): Connection => {
+  const port = CONFIG?.localServer?.port ?? 8080
+  return {
+    id: 'local',
+    name: 'Open WebUI',
+    type: 'local',
+    url: SERVER_URL || `http://127.0.0.1:${port}`
+  }
+}
+
+// Resolve the default connection.  'local' is a virtual ID that
+// synthesises a Connection on the fly; everything else is looked
+// up in the persisted connections array (remote only).
+const getDefaultConnection = async (): Promise<Connection | null> => {
+  const config = await getConfig()
+  if (!config.defaultConnectionId) return null
+  if (config.defaultConnectionId === 'local') return buildLocalConnection()
+  return config.connections.find((c) => c.id === config.defaultConnectionId) ?? null
+}
+
+// Resolve the URL for a connection, preferring the live SERVER_URL
+// for local connections and normalising 0.0.0.0 to localhost.
+const resolveConnectionUrl = (conn: Connection): string => {
+  let url = conn.url
+  if (conn.type === 'local' && SERVER_URL) url = SERVER_URL
+  if (url.startsWith('http://0.0.0.0')) url = url.replace('http://0.0.0.0', 'http://localhost')
+  return url
+}
 
 const connectTo = async (connection: Connection) => {
   let url = connection.url
@@ -902,6 +923,27 @@ const startServerHandler = async (): Promise<boolean> => {
 
   try {
     CONFIG = await getConfig()
+
+    // Auto-update the open-webui pip package to latest before starting.
+    // Only when autoUpdate is enabled (default) and no version pin is set.
+    const autoUpdate = CONFIG?.localServer?.autoUpdate !== false
+    const versionPin = CONFIG?.localServer?.version
+    if (autoUpdate && !versionPin && isPackageInstalled('open-webui')) {
+      try {
+        log.info('[server] Auto-updating open-webui package to latest…')
+        sendToRenderer('status:install', 'Updating Open WebUI…')
+        await installPackage('open-webui', undefined, (status: string) => {
+          sendToRenderer('status:install', status)
+        })
+        sendToRenderer('status:install', '')
+        log.info('[server] Auto-update complete')
+      } catch (e) {
+        // Non-fatal — start the existing version if upgrade fails
+        log.warn('[server] Auto-update failed, starting existing version:', e)
+        sendToRenderer('status:install', '')
+      }
+    }
+
     const { url, pid } = await startServer(
       CONFIG?.localServer?.serveOnLocalNetwork ?? false,
       CONFIG?.localServer?.port ?? null
@@ -1430,6 +1472,18 @@ if (!gotTheLock) {
           log.warn('open-terminal install failed (non-fatal):', e)
         )
         sendToRenderer('status:package', true)
+        // Notify renderer of install state change
+        sendToRenderer('packages:changed', {
+          'open-webui': isPackageInstalled('open-webui')
+        })
+        // Auto-set local as default if no default configured
+        const cfg = await getConfig()
+        if (!cfg.defaultConnectionId) {
+          cfg.defaultConnectionId = 'local'
+          await setConfig(cfg)
+          CONFIG = cfg
+        }
+        updateTray()
         return true
       } catch (error) {
         sendToRenderer('status:package', false)
@@ -1460,7 +1514,7 @@ if (!gotTheLock) {
       reachable: SERVER_REACHABLE
     }))
 
-    // Connections
+    // Connections (remote only — local is virtual)
     ipcMain.handle('connections:list', async () => {
       const config = await getConfig()
       return config.connections
@@ -1475,6 +1529,7 @@ if (!gotTheLock) {
       await setConfig(config)
       CONFIG = config
       updateTray()
+      sendToRenderer('connections:changed', config.connections)
       return config.connections
     })
 
@@ -1482,11 +1537,12 @@ if (!gotTheLock) {
       const config = await getConfig()
       config.connections = config.connections.filter((c) => c.id !== id)
       if (config.defaultConnectionId === id) {
-        config.defaultConnectionId = config.connections[0]?.id || null
+        config.defaultConnectionId = config.connections[0]?.id || 'local'
       }
       await setConfig(config)
       CONFIG = config
       updateTray()
+      sendToRenderer('connections:changed', config.connections)
       return config.connections
     })
 
@@ -1498,6 +1554,7 @@ if (!gotTheLock) {
         await setConfig(config)
         CONFIG = config
         updateTray()
+        sendToRenderer('connections:changed', config.connections)
       }
       return config.connections
     })
@@ -1511,6 +1568,10 @@ if (!gotTheLock) {
     })
 
     ipcMain.handle('connections:connect', async (_event, id: string) => {
+      // 'local' is a virtual connection — synthesize it
+      if (id === 'local') {
+        return await connectTo(buildLocalConnection())
+      }
       const config = await getConfig()
       const conn = config.connections.find((c) => c.id === id)
       if (conn) {
@@ -1551,26 +1612,14 @@ if (!gotTheLock) {
 
     // Spotlight
     ipcMain.handle('spotlight:submit', async (_event, query: string, images?: string[]) => {
-      const config = await getConfig()
-      if (!config.defaultConnectionId || config.connections.length === 0) {
-        mainWindow?.show()
-        mainWindow?.focus()
-        return
-      }
-      const conn = config.connections.find((c) => c.id === config.defaultConnectionId)
+      const conn = await getDefaultConnection()
       if (!conn) {
         mainWindow?.show()
         mainWindow?.focus()
         return
       }
 
-      let url = conn.url
-      if (conn.type === 'local' && SERVER_URL) {
-        url = SERVER_URL
-      }
-      if (url.startsWith('http://0.0.0.0')) {
-        url = url.replace('http://0.0.0.0', 'http://localhost')
-      }
+      const url = resolveConnectionUrl(conn)
 
       // Build files payload from screenshot images
       const files = images?.map((dataUrl, i) => ({
@@ -1697,20 +1746,10 @@ if (!gotTheLock) {
     // Transcribe audio via the connected server's STT endpoint
     ipcMain.handle('voiceInput:transcribe', async (_event, audioBuffer: ArrayBuffer, rendererToken?: string) => {
       try {
-        const config = await getConfig()
-        if (!config.defaultConnectionId || config.connections.length === 0) {
-          throw new Error('No connection configured. Set up a connection in Settings first.')
-        }
-        const conn = config.connections.find((c) => c.id === config.defaultConnectionId)
-        if (!conn) throw new Error('Default connection not found. Check your connection settings.')
+        const conn = await getDefaultConnection()
+        if (!conn) throw new Error('No connection configured. Set up a connection in Settings first.')
 
-        let url = conn.url
-        if (conn.type === 'local' && SERVER_URL) {
-          url = SERVER_URL
-        }
-        if (url.startsWith('http://0.0.0.0')) {
-          url = url.replace('http://0.0.0.0', 'http://localhost')
-        }
+        const url = resolveConnectionUrl(conn)
 
         // Use stored auth token (relayed from webview), fall back to renderer-provided or contentWindow
         let token = AUTH_TOKEN || rendererToken || ''
@@ -1795,27 +1834,14 @@ if (!gotTheLock) {
       if (!text?.trim()) return
 
       // Deliver text through the same path as Spotlight
-      const config = await getConfig()
-      if (!config.defaultConnectionId || config.connections.length === 0) {
-        mainWindow?.show()
-        mainWindow?.focus()
-        return
-      }
-      const conn = config.connections.find((c) => c.id === config.defaultConnectionId)
+      const conn = await getDefaultConnection()
       if (!conn) {
         mainWindow?.show()
         mainWindow?.focus()
         return
       }
 
-      let url = conn.url
-      if (conn.type === 'local' && SERVER_URL) {
-        url = SERVER_URL
-      }
-      if (url.startsWith('http://0.0.0.0')) {
-        url = url.replace('http://0.0.0.0', 'http://localhost')
-      }
-
+      const url = resolveConnectionUrl(conn)
       sendToRenderer('query', { query: text.trim(), connectionId: conn.id, url })
 
       if (mainWindow && !mainWindow.isDestroyed()) {
@@ -1924,7 +1950,8 @@ if (!gotTheLock) {
         if (result.url) {
           sendToRenderer('connections:openai', {
             action: 'add',
-            url: `${result.url}/v1`
+            url: `${result.url}/v1`,
+            config: { provider: 'llama.cpp', connection_type: 'local' }
           })
           // Refresh model list after backend registers the endpoint
           setTimeout(() => sendToRenderer('models:refresh'), 1000)
@@ -2029,7 +2056,13 @@ if (!gotTheLock) {
 
     ipcMain.handle('package:version', (_event, packageName: string) => getPackageVersion(packageName))
     ipcMain.handle('package:uninstall', async (_event, packageName: string) => {
-      return uninstallPackage(packageName)
+      const result = uninstallPackage(packageName)
+      // Notify renderer of install state change
+      sendToRenderer('packages:changed', {
+        'open-webui': isPackageInstalled('open-webui')
+      })
+      updateTray()
+      return result
     })
 
     ipcMain.handle('dialog:selectFolder', async () => {
@@ -2146,18 +2179,23 @@ if (!gotTheLock) {
       }
     }
 
-    // Check if already configured, auto-connect to default
-    if (CONFIG.defaultConnectionId && CONFIG.connections.length > 0) {
-      const defaultConn = CONFIG.connections.find(
-        (c) => c.id === CONFIG.defaultConnectionId
-      )
-      if (defaultConn) {
-        createMainWindow()
-        const result = await connectTo(defaultConn)
-        if (result) sendToRenderer('connection:open', result)
-      } else {
-        createMainWindow()
+    // Migrate legacy local connection entries out of the connections array
+    if (CONFIG.connections.some((c) => c.type === 'local')) {
+      CONFIG.connections = CONFIG.connections.filter((c) => c.type !== 'local')
+      // Preserve 'local' as default if it was the default
+      if (!CONFIG.defaultConnectionId || CONFIG.defaultConnectionId === 'local') {
+        CONFIG.defaultConnectionId = 'local'
       }
+      await setConfig(CONFIG)
+      log.info('Migrated legacy local connection entry from connections array')
+    }
+
+    // Check if already configured, auto-connect to default
+    const defaultConn = await getDefaultConnection()
+    if (defaultConn) {
+      createMainWindow()
+      const result = await connectTo(defaultConn)
+      if (result) sendToRenderer('connection:open', result)
     } else {
       createMainWindow()
     }

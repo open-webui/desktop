@@ -5,6 +5,12 @@ All notable changes to this project will be documented in this file.
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/),
 and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
+## [0.0.20] - 2026-05-07
+
+### Fixed
+
+- **Blank Webview on Linux.** Replaced the `--in-process-gpu` Chromium flag with SwiftShader software rendering (`--use-gl=angle --use-angle=swiftshader`). The in-process GPU flag broke `<webview>` guest compositing entirely, leaving connection views blank on all Linux configurations. SwiftShader keeps the GPU process out-of-process (required for webview compositing) while avoiding driver-level crashes (#178).
+
 ## [0.0.19] - 2026-05-06
 
 ### Fixed

@@ -1,7 +1,7 @@
 <script lang="ts">
   import { onMount } from 'svelte'
   import { fade, fly } from 'svelte/transition'
-  import { connections, config, serverInfo, appState } from '../../../stores'
+  import { config, serverInfo, appState } from '../../../stores'
   import i18n from '../../../i18n'
   import LocalInstall from '../../Setup/LocalInstall.svelte'
   import GetStartedModal from './GetStartedModal.svelte'
@@ -80,7 +80,7 @@
 
   // Server is starting up (local)
   const serverStarting = $derived(
-    localConn && localInstalled && (
+    localInstalled && (
       $serverInfo?.status === 'starting' ||
       ($serverInfo?.status === 'running' && !$serverInfo?.reachable)
     )
@@ -94,7 +94,7 @@
 
   const isLoading = $derived(
     connectingId !== '' ||
-    (serverStarting && activeConnectionId === localConn?.id) ||
+    (serverStarting && activeConnectionId === 'local') ||
     (view === 'connected' && !activeWebviewError && webviewLoading.get(activeConnectionId) === true)
   )
 
@@ -389,7 +389,7 @@
 
     <div class="flex-1 flex items-center justify-center px-6 relative overflow-hidden">
       {#if view === 'welcome'}
-        {#if remoteConnections.length > 0 || (localConn && localInstalled)}
+        {#if remoteConnections.length > 0 || localInstalled}
           <div class="text-center max-w-[320px]" in:fade={{ duration: 200 }}>
             <div class="text-lg opacity-80 mb-1.5">{$i18n.t('app.name')}</div>
             <div class="text-[12px] opacity-30 mb-6">
@@ -487,7 +487,6 @@
             autoStart={autoInstall}
             onBack={() => { autoInstall = false; onSetView('welcome') }}
             onComplete={async () => {
-              connections.set(await window.electronAPI.getConnections())
               config.set(await window.electronAPI.getConfig())
               onSetView('welcome')
             }}

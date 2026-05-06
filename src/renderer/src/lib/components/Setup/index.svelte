@@ -1,7 +1,7 @@
 <script lang="ts">
   import { onMount } from 'svelte'
   import { fly, fade } from 'svelte/transition'
-  import { appState, connections, config } from '../../stores'
+  import { appState, config } from '../../stores'
   import i18n from '../../i18n'
   import LocalInstall from './LocalInstall.svelte'
 
@@ -30,16 +30,15 @@
     try {
       const valid = await window.electronAPI.validateUrl(u)
       if (!valid) { error = $i18n.t('setup.couldNotReachServer'); connecting = false; return }
+      const connId = crypto.randomUUID()
       await window.electronAPI.addConnection({
-        id: crypto.randomUUID(),
+        id: connId,
         name: new URL(u).hostname,
         type: 'remote',
         url: u
       })
-      connections.set(await window.electronAPI.getConnections())
       config.set(await window.electronAPI.getConfig())
-      const conns = await window.electronAPI.getConnections()
-      await window.electronAPI.connectTo(conns[conns.length - 1].id)
+      await window.electronAPI.connectTo(connId)
       appState.set('ready')
     } catch {
       error = $i18n.t('setup.connectionFailed')

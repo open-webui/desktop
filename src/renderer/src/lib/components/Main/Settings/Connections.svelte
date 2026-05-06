@@ -4,7 +4,6 @@
 
   const remove = async (id: string) => {
     await window.electronAPI.removeConnection(id)
-    connections.set(await window.electronAPI.getConnections())
     config.set(await window.electronAPI.getConfig())
   }
 </script>

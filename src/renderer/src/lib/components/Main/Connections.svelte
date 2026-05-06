@@ -50,9 +50,11 @@
   const serverReachable = $derived($serverInfo?.reachable)
 
   const isInitializing = $derived($appState === 'initializing')
-  const hasLocal = $derived(($connections ?? []).some((c) => c.type === 'local'))
-  const localConn = $derived(($connections ?? []).find((c) => c.type === 'local'))
-  const remoteConnections = $derived(($connections ?? []).filter((c) => c.type !== 'local'))
+  const localConn = $derived(localInstalled
+    ? { id: 'local', name: 'Open WebUI', type: 'local' as const, url: `http://127.0.0.1:${$config?.localServer?.port ?? 8080}` }
+    : null
+  )
+  const remoteConnections = $derived($connections ?? [])
 
   // Open Terminal state
   let openTerminalStatus = $state<string | null>(null)
@@ -110,14 +112,7 @@
       const info = await window.electronAPI.getServerInfo()
 
       installStatus = $i18n.t('main.install.settingUpConnection')
-      await window.electronAPI.addConnection({
-        id: 'local',
-        name: 'Local',
-        type: 'local',
-        url: info?.url || 'http://127.0.0.1:8080'
-      })
       await window.electronAPI.setDefaultConnection('local')
-      connections.set(await window.electronAPI.getConnections())
       config.set(await window.electronAPI.getConfig())
 
       // Wait for server to actually be reachable before showing connected view
@@ -141,7 +136,6 @@
 
       // Now connect — the server is ready
       installStatus = ''
-      localInstalled = true
       connect('local')
       installPhase = 'idle'
     } catch (e: any) {
@@ -178,7 +172,6 @@
         type: 'remote',
         url: u
       })
-      connections.set(await window.electronAPI.getConnections())
       config.set(await window.electronAPI.getConfig())
       url = ''
       error = ''
@@ -212,13 +205,10 @@
       return
     }
 
-    const conn = ($connections ?? []).find((c) => c.id === id)
-    if (!conn) return
-
     activeConnectionId = id
 
-    if (conn.type === 'local') {
-      // Local needs server start — use IPC
+    if (id === 'local') {
+      // Local needs server start — use IPC (no renderer-side conn needed)
       connectingId = id
       view = 'welcome'
       window.electronAPI.connectTo(id).then((result: any) => {
@@ -240,6 +230,8 @@
         }
       })
     } else {
+      const conn = ($connections ?? []).find((c) => c.id === id)
+      if (!conn) return
       // Remote — open immediately, no IPC needed
       connectingId = ''
       openConnections.set(id, conn.url)
@@ -257,7 +249,6 @@
 
   const remove = async (id: string) => {
     await window.electronAPI.removeConnection(id)
-    connections.set(await window.electronAPI.getConnections())
     config.set(await window.electronAPI.getConfig())
     if (activeConnectionId === id) {
       disconnect()
@@ -266,11 +257,15 @@
     openConnections = new Map(openConnections)
   }
 
-  // Sync active connection info to parent
   $effect(() => {
-    const conn = ($connections ?? []).find((c) => c.id === activeConnectionId)
-    activeConnectionName = conn?.name ?? ''
-    isLocalConnection = conn?.type === 'local'
+    if (activeConnectionId === 'local') {
+      activeConnectionName = localConn?.name ?? 'Open WebUI'
+      isLocalConnection = true
+    } else {
+      const conn = ($connections ?? []).find((c) => c.id === activeConnectionId)
+      activeConnectionName = conn?.name ?? ''
+      isLocalConnection = false
+    }
   })
 
   // React to showingLogs from parent — open the server log panel
@@ -439,6 +434,14 @@
       if (data.type === 'status:llamacpp-setup') { llamaCppSetupStatus = data.data ?? ''; return }
       if (data.type === 'llamacpp:ready') { llamaCppInfo = data.data; llamaCppStatus = 'started'; llamaCppSetupStatus = ''; return }
       if (data.type === 'status:install') { installStatus = data.data ?? ''; return }
+      if (data.type === 'packages:changed') {
+        localInstalled = !!data.data?.['open-webui']
+        return
+      }
+      if (data.type === 'connections:changed') {
+        connections.set(data.data ?? [])
+        return
+      }
 
       // ── Everything else → broadcast to all webviews ───
       sendToWebview(data)
@@ -543,7 +546,6 @@
         {onOpenSettings}
         onRename={async (id, name) => {
           await window.electronAPI.updateConnection(id, { name })
-          connections.set(await window.electronAPI.getConnections())
         }}
         onRemove={remove}
         {openGithub}
