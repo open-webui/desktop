@@ -66,9 +66,9 @@ appImage:
   artifactName: ${name}_${arch}.${ext}
 flatpak:
   base: org.electronjs.Electron2.BaseApp
-  baseVersion: '23.08'
+  baseVersion: '25.08'
   runtime: org.freedesktop.Platform
-  runtimeVersion: '23.08'
+  runtimeVersion: '25.08'
   sdk: org.freedesktop.Sdk
   artifactName: ${name}.flatpak
   finishArgs:
