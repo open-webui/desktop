@@ -99,6 +99,54 @@ const detectBestVariant = (): string => {
     // nvidia-smi not available or no NVIDIA GPU
   }
 
+  try {
+    // Linux: check for ROCm (AMD GPU)
+    if (platform === 'linux') {
+        if (fs.existsSync('/opt/rocm') || fs.existsSync('/usr/lib/rocm')) {
+          return 'rocm'
+        }
+    } else if (platform === 'win32') {
+      // Windows: check for AMD GPU via DirectX diagnostics
+      const supportedGfx = [
+        'gfx1030', 'gfx1031', 'gfx1032',
+        'gfx1100', 'gfx1101', 'gfx1102', 'gfx1151',
+        'gfx1200', 'gfx1201'
+      ]
+
+      execFileSync('dxdiag', ['/t', 'dxdiag_output.txt'], { timeout: 10000 })
+      const dxContent = fs.readFileSync('dxdiag_output.txt', 'utf-8')
+      
+      // Parse dxdiag output to find Adapter Family
+      const lines = dxContent.split(/\r?\n/)
+      for (const line of lines) {
+        if (line.trimStart().startsWith('Adapter Family:')) {
+          // Extract gfx identifier (e.g. "gfx1201" from "Adapter Family: AMD_NAVI48:gfx1201")
+          const parts = line.split(':')
+          const lastPart = parts[parts.length - 1].trim()
+          
+          // Check if the extracted identifier is in our supported list
+          if (supportedGfx.includes(lastPart)) {
+            return 'rocm'
+          }
+          break
+        }
+      }
+      
+      // Clean up temporary file
+      fs.unlinkSync('dxdiag_output.txt')
+    }
+  } catch {
+    // ROCm not available or error occurred
+    // Ensure cleanup of temporary file if error happened
+    try {
+      if (fs.existsSync('dxdiag_output.txt')) {
+        fs.unlinkSync('dxdiag_output.txt')
+      }
+    } catch {
+      // ROCm not available
+    }
+  }
+
   // Check for Vulkan support
   try {
     if (platform === 'win32') {
@@ -109,17 +157,6 @@ const detectBestVariant = (): string => {
     return 'vulkan'
   } catch {
     // Vulkan not available
-  }
-
-  // Linux: check for ROCm (AMD GPU)
-  if (platform === 'linux') {
-    try {
-      if (fs.existsSync('/opt/rocm') || fs.existsSync('/usr/lib/rocm')) {
-        return 'rocm'
-      }
-    } catch {
-      // ROCm not available
-    }
   }
 
   return 'cpu'
@@ -165,7 +202,8 @@ const getAssetPattern = (tag: string, variant: string): { pattern: string; isZip
       cpu: `llama-${tag}-bin-win-cpu-${archStr}.zip`,
       'cuda-12.4': `llama-${tag}-bin-win-cuda-12.4-x64.zip`,
       'cuda-13.1': `llama-${tag}-bin-win-cuda-13.1-x64.zip`,
-      vulkan: `llama-${tag}-bin-win-vulkan-x64.zip`
+      vulkan: `llama-${tag}-bin-win-vulkan-x64.zip`,
+      rocm: `llama-${tag}-bin-win-hip-radeon-x64.zip`
     }
     const name = variantMap[variant] ?? variantMap.cpu
     return { pattern: name, isZip: true }

@@ -61,7 +61,8 @@
       { value: 'cpu', label: $i18n.t('settings.inference.variantCPU') },
       { value: 'cuda-12.4', label: 'CUDA 12.4' },
       { value: 'cuda-13.1', label: 'CUDA 13.1' },
-      { value: 'vulkan', label: 'Vulkan' }
+      { value: 'vulkan', label: 'Vulkan' },
+      { value: 'rocm', label: 'ROCm' }
     ]
     return [
       autoOption,
