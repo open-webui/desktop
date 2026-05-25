@@ -262,7 +262,10 @@ const checkInternet = async () => {
   }
 }
 
-export const installPython = async (installationDir?: string, onStatus?: (status: string) => void): Promise<boolean> => {
+export const installPython = async (
+  installationDir?: string,
+  onStatus?: (status: string) => void
+): Promise<boolean> => {
   const pythonDownloadPath = getPythonDownloadPath()
   if (!fs.existsSync(pythonDownloadPath)) {
     if (!(await checkInternet())) {
@@ -296,10 +299,10 @@ export const installPython = async (installationDir?: string, onStatus?: (status
   } catch (error) {
     log.error(error)
     // Remove possibly-corrupted download so next retry re-downloads
-    try { fs.unlinkSync(pythonDownloadPath) } catch {}
-    throw new Error(
-      'Failed to extract Python. The download may be corrupted. Please try again.'
-    )
+    try {
+      fs.unlinkSync(pythonDownloadPath)
+    } catch {}
+    throw new Error('Failed to extract Python. The download may be corrupted. Please try again.')
   }
 
   if (!isPythonInstalled(installationDir)) {
@@ -435,10 +438,16 @@ export const uninstallPython = (installationDir?: string): boolean => {
 
 // ─── Package Management ─────────────────────────────────
 
-export const installPackage = (packageName: string, version?: string, onStatus?: (status: string) => void): Promise<boolean> => {
+export const installPackage = (
+  packageName: string,
+  version?: string,
+  onStatus?: (status: string) => void
+): Promise<boolean> => {
   return new Promise((resolve, reject) => {
     if (!isPythonInstalled()) {
-      return reject(new Error('Python is not installed. Please reinstall the app or run setup again.'))
+      return reject(
+        new Error('Python is not installed. Please reinstall the app or run setup again.')
+      )
     }
     const pythonPath = getPythonPath()
     const commandProcess = execFile(
@@ -477,9 +486,12 @@ export const installPackage = (packageName: string, version?: string, onStatus?:
       if (code === 0) {
         resolve(true)
       } else {
-        reject(new Error(
-          lastLine || `Package installation failed (exit code ${code}). Please check your internet connection and try again.`
-        ))
+        reject(
+          new Error(
+            lastLine ||
+              `Package installation failed (exit code ${code}). Please check your internet connection and try again.`
+          )
+        )
       }
     })
     commandProcess.on('error', (error) => {
@@ -489,10 +501,7 @@ export const installPackage = (packageName: string, version?: string, onStatus?:
   })
 }
 
-export const installPackages = async (
-  packages: string[],
-  version?: string
-): Promise<boolean> => {
+export const installPackages = async (packages: string[], version?: string): Promise<boolean> => {
   for (const pkg of packages) {
     const ok = await installPackage(pkg, version)
     if (!ok) return false
@@ -607,9 +616,7 @@ export const startServer = async (
       })
     })
   } catch (error) {
-    throw new Error(
-      `Failed to spawn PTY with ${pythonPath}: ${error?.message ?? error}`
-    )
+    throw new Error(`Failed to spawn PTY with ${pythonPath}: ${error?.message ?? error}`)
   }
 
   const pid = ptyProcess.pid
@@ -638,7 +645,6 @@ export const startServer = async (
 
   return { url, pid }
 }
-
 
 export async function stopAllServers(): Promise<void> {
   log.info('Stopping all servers...')
@@ -792,7 +798,10 @@ export const checkUrlAndOpen = async (url: string, callback: Function = async ()
 
 export const validateRemoteUrl = async (url: string): Promise<boolean> => {
   try {
-    const response = await electronNet.fetch(url, { method: 'HEAD', signal: AbortSignal.timeout(5000) })
+    const response = await electronNet.fetch(url, {
+      method: 'HEAD',
+      signal: AbortSignal.timeout(5000)
+    })
     return response.ok
   } catch {
     return false
@@ -806,6 +815,14 @@ export interface Connection {
   name: string
   type: 'local' | 'remote'
   url: string
+  auth?: {
+    type: 'none' | 'trustedHeader'
+    browserAuth?: boolean
+    trustedHeaders?: Array<{
+      name: string
+      value: string
+    }>
+  }
 }
 
 export interface AppConfig {
@@ -904,7 +921,9 @@ export const setConfig = async (config: Partial<AppConfig>): Promise<void> => {
   // Serialize writes so concurrent callers don't race on the tmp file
   const previous = configWriteLock
   let resolve: () => void
-  configWriteLock = new Promise<void>((r) => { resolve = r })
+  configWriteLock = new Promise<void>((r) => {
+    resolve = r
+  })
   await previous
 
   const configPath = path.join(getUserDataPath(), 'config.json')

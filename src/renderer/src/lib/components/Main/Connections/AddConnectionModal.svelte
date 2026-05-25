@@ -6,6 +6,16 @@
     url: string
     connecting: boolean
     error: string
+    trustedHeaderAuth: boolean
+    browserAuth: boolean
+    trustedEmailHeaderName: string
+    trustedEmailHeaderValue: string
+    trustedNameHeaderName: string
+    trustedNameHeaderValue: string
+    trustedGroupsHeaderName: string
+    trustedGroupsHeaderValue: string
+    trustedRoleHeaderName: string
+    trustedRoleHeaderValue: string
     onConnect: () => void
     onCancel: () => void
   }
@@ -14,6 +24,16 @@
     url = $bindable(''),
     connecting = $bindable(false),
     error = $bindable(''),
+    trustedHeaderAuth = $bindable(false),
+    browserAuth = $bindable(false),
+    trustedEmailHeaderName = $bindable('X-User-Email'),
+    trustedEmailHeaderValue = $bindable(''),
+    trustedNameHeaderName = $bindable('X-User-Name'),
+    trustedNameHeaderValue = $bindable(''),
+    trustedGroupsHeaderName = $bindable('X-User-Groups'),
+    trustedGroupsHeaderValue = $bindable(''),
+    trustedRoleHeaderName = $bindable('X-User-Role'),
+    trustedRoleHeaderValue = $bindable(''),
     onConnect,
     onCancel
   }: Props = $props()
@@ -29,7 +49,7 @@
   <div class="absolute inset-0 bg-black/50 backdrop-blur-sm"></div>
 
   <div
-    class="relative mx-4 w-full max-w-lg overflow-hidden rounded-3xl bg-white shadow-2xl dark:bg-gray-950"
+    class="relative mx-4 max-h-[calc(100vh-2rem)] w-full max-w-lg overflow-hidden rounded-3xl bg-white shadow-2xl dark:bg-gray-950"
     transition:scale={{ start: 0.97, duration: 180 }}
     onmousedown={(e) => e.stopPropagation()}
   >
@@ -68,7 +88,7 @@
     </div>
 
     <!-- Body -->
-    <div class="px-6 py-5">
+    <div class="max-h-[calc(100vh-17rem)] overflow-y-auto px-6 py-5">
       <label class="block text-[11px] text-gray-400 dark:text-gray-500"
         >{$i18n.t('setup.connectionManager.serverUrl')}</label
       >
@@ -83,6 +103,95 @@
       {#if error}
         <p class="mt-2 text-[11px] text-red-400">{error}</p>
       {/if}
+
+      <div class="mt-5 border-t border-black/[0.06] pt-4 dark:border-white/[0.08]">
+        <label class="flex items-center justify-between gap-3">
+          <span>
+            <span class="block text-[13px] font-medium text-[#1d1d1f] dark:text-[#fafafa]">
+              Trusted header SSO
+            </span>
+            <span class="mt-0.5 block text-[11px] leading-4 text-gray-400 dark:text-gray-500">
+              Send configured headers with this connection.
+            </span>
+          </span>
+          <input
+            type="checkbox"
+            bind:checked={trustedHeaderAuth}
+            class="h-4 w-4 accent-gray-900 dark:accent-white"
+          />
+        </label>
+
+        {#if trustedHeaderAuth}
+          <div class="mt-4 space-y-3">
+            <label class="flex items-center justify-between gap-3">
+              <span>
+                <span class="block text-[12px] text-[#1d1d1f] dark:text-[#fafafa]">
+                  Browser auth
+                </span>
+                <span class="mt-0.5 block text-[11px] leading-4 text-gray-400 dark:text-gray-500">
+                  Open a login window that shares cookies with this server.
+                </span>
+              </span>
+              <input
+                type="checkbox"
+                bind:checked={browserAuth}
+                class="h-4 w-4 accent-gray-900 dark:accent-white"
+              />
+            </label>
+
+            <div class="grid grid-cols-[minmax(0,1fr)_minmax(0,1fr)] gap-2">
+              <input
+                type="text"
+                bind:value={trustedEmailHeaderName}
+                placeholder="X-User-Email"
+                class="min-w-0 rounded-lg border border-black/[0.08] bg-transparent px-3 py-2 text-[12px] outline-none dark:border-white/[0.08]"
+              />
+              <input
+                type="text"
+                bind:value={trustedEmailHeaderValue}
+                placeholder="user@example.com"
+                class="min-w-0 rounded-lg border border-black/[0.08] bg-transparent px-3 py-2 text-[12px] outline-none dark:border-white/[0.08]"
+              />
+              <input
+                type="text"
+                bind:value={trustedNameHeaderName}
+                placeholder="X-User-Name"
+                class="min-w-0 rounded-lg border border-black/[0.08] bg-transparent px-3 py-2 text-[12px] outline-none dark:border-white/[0.08]"
+              />
+              <input
+                type="text"
+                bind:value={trustedNameHeaderValue}
+                placeholder="Display name"
+                class="min-w-0 rounded-lg border border-black/[0.08] bg-transparent px-3 py-2 text-[12px] outline-none dark:border-white/[0.08]"
+              />
+              <input
+                type="text"
+                bind:value={trustedGroupsHeaderName}
+                placeholder="X-User-Groups"
+                class="min-w-0 rounded-lg border border-black/[0.08] bg-transparent px-3 py-2 text-[12px] outline-none dark:border-white/[0.08]"
+              />
+              <input
+                type="text"
+                bind:value={trustedGroupsHeaderValue}
+                placeholder="admins,users"
+                class="min-w-0 rounded-lg border border-black/[0.08] bg-transparent px-3 py-2 text-[12px] outline-none dark:border-white/[0.08]"
+              />
+              <input
+                type="text"
+                bind:value={trustedRoleHeaderName}
+                placeholder="X-User-Role"
+                class="min-w-0 rounded-lg border border-black/[0.08] bg-transparent px-3 py-2 text-[12px] outline-none dark:border-white/[0.08]"
+              />
+              <input
+                type="text"
+                bind:value={trustedRoleHeaderValue}
+                placeholder="admin, user, or pending"
+                class="min-w-0 rounded-lg border border-black/[0.08] bg-transparent px-3 py-2 text-[12px] outline-none dark:border-white/[0.08]"
+              />
+            </div>
+          </div>
+        {/if}
+      </div>
     </div>
 
     <!-- Footer -->

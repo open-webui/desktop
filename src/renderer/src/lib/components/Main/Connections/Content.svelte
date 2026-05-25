@@ -24,8 +24,22 @@
     url: string
     connecting: boolean
     error: string
+    trustedHeaderAuth: boolean
+    browserAuth: boolean
+    trustedEmailHeaderName: string
+    trustedEmailHeaderValue: string
+    trustedNameHeaderName: string
+    trustedNameHeaderValue: string
+    trustedGroupsHeaderName: string
+    trustedGroupsHeaderValue: string
+    trustedRoleHeaderName: string
+    trustedRoleHeaderValue: string
     autoInstall: boolean
-    onStartInstall: (options?: { installOpenTerminal?: boolean; installLlamaCpp?: boolean; installDir?: string }) => void
+    onStartInstall: (options?: {
+      installOpenTerminal?: boolean
+      installLlamaCpp?: boolean
+      installDir?: string
+    }) => void
     onAddConnection: () => void
     onSetView: (v: string) => void
     showAddConnectionModal: boolean
@@ -47,6 +61,16 @@
     url = $bindable(''),
     connecting = $bindable(false),
     error = $bindable(''),
+    trustedHeaderAuth = $bindable(false),
+    browserAuth = $bindable(false),
+    trustedEmailHeaderName = $bindable('X-User-Email'),
+    trustedEmailHeaderValue = $bindable(''),
+    trustedNameHeaderName = $bindable('X-User-Name'),
+    trustedNameHeaderValue = $bindable(''),
+    trustedGroupsHeaderName = $bindable('X-User-Groups'),
+    trustedGroupsHeaderValue = $bindable(''),
+    trustedRoleHeaderName = $bindable('X-User-Role'),
+    trustedRoleHeaderValue = $bindable(''),
     autoInstall = $bindable(false),
     onStartInstall,
     onAddConnection,
@@ -58,44 +82,42 @@
 
   const isInitializing = $derived($appState === 'initializing')
   const insufficientStorage = $derived(
-    $appState?.startsWith('insufficient-storage:')
-      ? $appState.split(':')[1]
-      : null
+    $appState?.startsWith('insufficient-storage:') ? $appState.split(':')[1] : null
   )
   const installFailed = $derived(
-    $appState?.startsWith('install-failed:')
-      ? $appState.substring('install-failed:'.length)
-      : null
+    $appState?.startsWith('install-failed:') ? $appState.substring('install-failed:'.length) : null
   )
-
 
   // Track webview loading per connection
   let webviewLoading: Map<string, boolean> = $state(new Map())
 
   // Track webview load errors per connection
-  let webviewErrors: Map<string, { code: number; description: string; url: string }> = $state(new Map())
+  let webviewErrors: Map<string, { code: number; description: string; url: string }> = $state(
+    new Map()
+  )
 
   // Content preload path for webview bridge
   let contentPreloadPath: string = $state('')
 
   // Server is starting up (local)
   const serverStarting = $derived(
-    localInstalled && (
-      $serverInfo?.status === 'starting' ||
-      ($serverInfo?.status === 'running' && !$serverInfo?.reachable)
-    )
+    localInstalled &&
+      ($serverInfo?.status === 'starting' ||
+        ($serverInfo?.status === 'running' && !$serverInfo?.reachable))
   )
 
   const activeWebviewError = $derived(
     view === 'connected' && activeConnectionId
-      ? webviewErrors.get(activeConnectionId) ?? null
+      ? (webviewErrors.get(activeConnectionId) ?? null)
       : null
   )
 
   const isLoading = $derived(
     connectingId !== '' ||
-    (serverStarting && activeConnectionId === 'local') ||
-    (view === 'connected' && !activeWebviewError && webviewLoading.get(activeConnectionId) === true)
+      (serverStarting && activeConnectionId === 'local') ||
+      (view === 'connected' &&
+        !activeWebviewError &&
+        webviewLoading.get(activeConnectionId) === true)
   )
 
   const retryActiveWebview = () => {
@@ -175,7 +197,8 @@
 
         // Log guest page console messages for debugging blank-page issues (#124)
         wv.addEventListener('console-message', (event: any) => {
-          if (event.level >= 2) { // warnings and errors only
+          if (event.level >= 2) {
+            // warnings and errors only
             console.warn(`[webview:${connId}]`, event.message)
           }
         })
@@ -234,7 +257,9 @@
               // Resolve and apply CSS class
               let resolved = desktopTheme
               if (desktopTheme === 'system') {
-                resolved = window.matchMedia('(prefers-color-scheme: dark)').matches ? 'dark' : 'light'
+                resolved = window.matchMedia('(prefers-color-scheme: dark)').matches
+                  ? 'dark'
+                  : 'light'
               }
               document.documentElement.classList.remove('light', 'dark')
               document.documentElement.classList.add(resolved)
@@ -276,25 +301,54 @@
 
   <!-- Error overlay when webview fails to load -->
   {#if activeWebviewError}
-    <div class="absolute inset-0 z-20 flex items-center justify-center bg-[#eee] dark:bg-[#111]" transition:fade={{ duration: 200 }}>
+    <div
+      class="absolute inset-0 z-20 flex items-center justify-center bg-[#eee] dark:bg-[#111]"
+      transition:fade={{ duration: 200 }}
+    >
       <div class="text-center max-w-sm px-6">
-        <div class="mx-auto mb-4 w-10 h-10 rounded-full bg-black/[0.04] dark:bg-white/[0.06] flex items-center justify-center">
+        <div
+          class="mx-auto mb-4 w-10 h-10 rounded-full bg-black/[0.04] dark:bg-white/[0.06] flex items-center justify-center"
+        >
           {#if activeWebviewError.code === -1}
-            <svg class="w-5 h-5 opacity-30" fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="1.5">
-              <path stroke-linecap="round" stroke-linejoin="round" d="M12 9v3.75m9-.75a9 9 0 11-18 0 9 9 0 0118 0zm-9 3.75h.008v.008H12v-.008z" />
+            <svg
+              class="w-5 h-5 opacity-30"
+              fill="none"
+              viewBox="0 0 24 24"
+              stroke="currentColor"
+              stroke-width="1.5"
+            >
+              <path
+                stroke-linecap="round"
+                stroke-linejoin="round"
+                d="M12 9v3.75m9-.75a9 9 0 11-18 0 9 9 0 0118 0zm-9 3.75h.008v.008H12v-.008z"
+              />
             </svg>
           {:else}
-            <svg class="w-5 h-5 opacity-30" fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="1.5">
-              <path stroke-linecap="round" stroke-linejoin="round" d="M12 21a9.004 9.004 0 008.716-6.747M12 21a9.004 9.004 0 01-8.716-6.747M12 21c2.485 0 4.5-4.03 4.5-9S14.485 3 12 3m0 18c-2.485 0-4.5-4.03-4.5-9S9.515 3 12 3m0 0a8.997 8.997 0 017.843 4.582M12 3a8.997 8.997 0 00-7.843 4.582m15.686 0A11.953 11.953 0 0112 10.5c-2.998 0-5.74-1.1-7.843-2.918m15.686 0A8.959 8.959 0 0121 12c0 .778-.099 1.533-.284 2.253m0 0A17.919 17.919 0 0112 16.5a17.92 17.92 0 01-8.716-2.247m0 0A9.015 9.015 0 013 12c0-1.605.42-3.113 1.157-4.418" />
+            <svg
+              class="w-5 h-5 opacity-30"
+              fill="none"
+              viewBox="0 0 24 24"
+              stroke="currentColor"
+              stroke-width="1.5"
+            >
+              <path
+                stroke-linecap="round"
+                stroke-linejoin="round"
+                d="M12 21a9.004 9.004 0 008.716-6.747M12 21a9.004 9.004 0 01-8.716-6.747M12 21c2.485 0 4.5-4.03 4.5-9S14.485 3 12 3m0 18c-2.485 0-4.5-4.03-4.5-9S9.515 3 12 3m0 0a8.997 8.997 0 017.843 4.582M12 3a8.997 8.997 0 00-7.843 4.582m15.686 0A11.953 11.953 0 0112 10.5c-2.998 0-5.74-1.1-7.843-2.918m15.686 0A8.959 8.959 0 0121 12c0 .778-.099 1.533-.284 2.253m0 0A17.919 17.919 0 0112 16.5a17.92 17.92 0 01-8.716-2.247m0 0A9.015 9.015 0 013 12c0-1.605.42-3.113 1.157-4.418"
+              />
             </svg>
           {/if}
         </div>
         <div class="text-[14px] font-medium mb-1 opacity-80">
-          {activeWebviewError.code === -1 ? $i18n.t('setup.pageCrashed') : $i18n.t('setup.couldNotLoadPage')}
+          {activeWebviewError.code === -1
+            ? $i18n.t('setup.pageCrashed')
+            : $i18n.t('setup.couldNotLoadPage')}
         </div>
         <div class="text-[12px] opacity-30 mb-1">{activeWebviewError.description}</div>
         {#if activeWebviewError.url}
-          <div class="text-[11px] opacity-20 mb-6 break-all font-mono">{activeWebviewError.url}</div>
+          <div class="text-[11px] opacity-20 mb-6 break-all font-mono">
+            {activeWebviewError.url}
+          </div>
         {:else}
           <div class="mb-6"></div>
         {/if}
@@ -318,9 +372,14 @@
 
   <!-- Loading overlay for webview -->
   {#if isLoading}
-    <div class="absolute inset-0 z-10 flex items-center justify-center bg-[#eee] dark:bg-[#111]" transition:fade={{ duration: 200 }}>
+    <div
+      class="absolute inset-0 z-10 flex items-center justify-center bg-[#eee] dark:bg-[#111]"
+      transition:fade={{ duration: 200 }}
+    >
       <div class="flex flex-col items-center gap-3">
-        <div class="w-6 h-6 rounded-full border-2 border-black/10 dark:border-white/15 border-t-black/50 dark:border-t-white/50 animate-spin"></div>
+        <div
+          class="w-6 h-6 rounded-full border-2 border-black/10 dark:border-white/15 border-t-black/50 dark:border-t-white/50 animate-spin"
+        ></div>
         <span class="text-[11px] opacity-30">{$i18n.t('common.loading')}</span>
       </div>
     </div>
@@ -330,7 +389,9 @@
     {#if insufficientStorage}
       <div class="px-5 py-2.5 flex items-center gap-3 bg-red-500/[0.06] border-b border-red-500/10">
         <div class="flex-1">
-          <div class="text-[12px] text-red-400 font-medium">{$i18n.t('main.notEnoughDiskSpace')}</div>
+          <div class="text-[12px] text-red-400 font-medium">
+            {$i18n.t('main.notEnoughDiskSpace')}
+          </div>
           <div class="text-[11px] opacity-40 mt-0.5">
             {$i18n.t('main.diskSpaceRequired', { available: insufficientStorage })}
           </div>
@@ -346,9 +407,14 @@
               return
             }
             appState.set('initializing')
-            window.electronAPI.installPython().then(() => appState.set('ready')).catch((e: any) => {
-              appState.set(`install-failed:${e?.message || 'Python installation failed. Please try again.'}`)
-            })
+            window.electronAPI
+              .installPython()
+              .then(() => appState.set('ready'))
+              .catch((e: any) => {
+                appState.set(
+                  `install-failed:${e?.message || 'Python installation failed. Please try again.'}`
+                )
+              })
           }}
         >
           {$i18n.t('common.retry')}
@@ -357,7 +423,9 @@
     {:else if installFailed}
       <div class="px-5 py-2.5 flex items-center gap-3 bg-red-500/[0.06] border-b border-red-500/10">
         <div class="flex-1">
-          <div class="text-[12px] text-red-400 font-medium">{$i18n.t('error.installFailedGeneric')}</div>
+          <div class="text-[12px] text-red-400 font-medium">
+            {$i18n.t('error.installFailedGeneric')}
+          </div>
           <div class="text-[11px] opacity-40 mt-0.5 line-clamp-2">
             {installFailed}
           </div>
@@ -373,9 +441,14 @@
               return
             }
             appState.set('initializing')
-            window.electronAPI.installPython().then(() => appState.set('ready')).catch((e: any) => {
-              appState.set(`install-failed:${e?.message || 'Python installation failed. Please try again.'}`)
-            })
+            window.electronAPI
+              .installPython()
+              .then(() => appState.set('ready'))
+              .catch((e: any) => {
+                appState.set(
+                  `install-failed:${e?.message || 'Python installation failed. Please try again.'}`
+                )
+              })
           }}
         >
           {$i18n.t('common.retry')}
@@ -411,13 +484,21 @@
             </video>
 
             <!-- Gradient overlay -->
-            <div class="absolute inset-0 bg-gradient-to-t from-[#fafafa] dark:from-[#111] via-[#fafafa]/30 dark:via-[#111]/30 to-transparent pointer-events-none"></div>
+            <div
+              class="absolute inset-0 bg-gradient-to-t from-[#fafafa] dark:from-[#111] via-[#fafafa]/30 dark:via-[#111]/30 to-transparent pointer-events-none"
+            ></div>
 
             <!-- Content positioned bottom-left -->
             <div class="absolute bottom-0 left-0 right-0 p-10" in:fade={{ duration: 300 }}>
               <div class="max-w-sm">
-                <div class="text-3xl font-medium mb-3 tracking-tight text-[#1d1d1f] dark:text-[#fafafa]">{$i18n.t('app.name')}</div>
-                <div class="text-base opacity-50 mb-8 leading-relaxed text-[#1d1d1f] dark:text-[#fafafa]">
+                <div
+                  class="text-3xl font-medium mb-3 tracking-tight text-[#1d1d1f] dark:text-[#fafafa]"
+                >
+                  {$i18n.t('app.name')}
+                </div>
+                <div
+                  class="text-base opacity-50 mb-8 leading-relaxed text-[#1d1d1f] dark:text-[#fafafa]"
+                >
                   {$i18n.t('main.heroDescription')}
                 </div>
 
@@ -434,37 +515,64 @@
                     disabled={installPhase === 'working'}
                   >
                     {#if installPhase === 'working'}
-                      <div class="w-3.5 h-3.5 rounded-full border-2 border-white/30 dark:border-black/30 border-t-white dark:border-t-black animate-spin"></div>
+                      <div
+                        class="w-3.5 h-3.5 rounded-full border-2 border-white/30 dark:border-black/30 border-t-white dark:border-t-black animate-spin"
+                      ></div>
                       {$i18n.t('common.installing')}
                     {:else if installPhase === 'error'}
                       {$i18n.t('common.retry')}
-                      <svg class="h-3.5 w-3.5" fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="1.5">
-                        <path stroke-linecap="round" stroke-linejoin="round" d="M16.023 9.348h4.992v-.001M2.985 19.644v-4.992m0 0h4.992m-4.993 0l3.181 3.183a8.25 8.25 0 0013.803-3.7M20.015 4.356v4.992m0 0h-4.992m4.993 0l-3.181-3.183a8.25 8.25 0 00-13.803 3.7" />
+                      <svg
+                        class="h-3.5 w-3.5"
+                        fill="none"
+                        viewBox="0 0 24 24"
+                        stroke="currentColor"
+                        stroke-width="1.5"
+                      >
+                        <path
+                          stroke-linecap="round"
+                          stroke-linejoin="round"
+                          d="M16.023 9.348h4.992v-.001M2.985 19.644v-4.992m0 0h4.992m-4.993 0l3.181 3.183a8.25 8.25 0 0013.803-3.7M20.015 4.356v4.992m0 0h-4.992m4.993 0l-3.181-3.183a8.25 8.25 0 00-13.803 3.7"
+                        />
                       </svg>
                     {:else}
                       {$i18n.t('main.getStarted')}
-                      <svg class="h-3.5 w-3.5" fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="1.5">
-                        <path stroke-linecap="round" stroke-linejoin="round" d="M17 8l4 4m0 0l-4 4m4-4H3" />
+                      <svg
+                        class="h-3.5 w-3.5"
+                        fill="none"
+                        viewBox="0 0 24 24"
+                        stroke="currentColor"
+                        stroke-width="1.5"
+                      >
+                        <path
+                          stroke-linecap="round"
+                          stroke-linejoin="round"
+                          d="M17 8l4 4m0 0l-4 4m4-4H3"
+                        />
                       </svg>
                     {/if}
                   </button>
 
                   {#if installPhase === 'working' && installStatus}
-                    <div class="mt-3 text-[12px] opacity-40 font-mono line-clamp-1" in:fade={{ duration: 200 }}>
+                    <div
+                      class="mt-3 text-[12px] opacity-40 font-mono line-clamp-1"
+                      in:fade={{ duration: 200 }}
+                    >
                       {installStatus}
                     </div>
                   {/if}
                 {/if}
 
                 {#if installPhase !== 'working'}
-                <div class="mt-6">
-                  <button
-                    class="text-sm opacity-40 hover:opacity-70 transition bg-transparent border-none text-[#1d1d1f] dark:text-[#fafafa]"
-                    onclick={() => { showAddConnectionModal = true }}
-                  >
-                    {$i18n.t('setup.connectToServer')}
-                  </button>
-                </div>
+                  <div class="mt-6">
+                    <button
+                      class="text-sm opacity-40 hover:opacity-70 transition bg-transparent border-none text-[#1d1d1f] dark:text-[#fafafa]"
+                      onclick={() => {
+                        showAddConnectionModal = true
+                      }}
+                    >
+                      {$i18n.t('setup.connectToServer')}
+                    </button>
+                  </div>
                 {/if}
               </div>
             </div>
@@ -485,7 +593,10 @@
         <div class="w-full max-w-[260px]">
           <LocalInstall
             autoStart={autoInstall}
-            onBack={() => { autoInstall = false; onSetView('welcome') }}
+            onBack={() => {
+              autoInstall = false
+              onSetView('welcome')
+            }}
             onComplete={async () => {
               config.set(await window.electronAPI.getConfig())
               onSetView('welcome')
@@ -502,7 +613,9 @@
         showGetStartedModal = false
         onStartInstall(options)
       }}
-      onCancel={() => { showGetStartedModal = false }}
+      onCancel={() => {
+        showGetStartedModal = false
+      }}
     />
   {/if}
 
@@ -511,6 +624,16 @@
       bind:url
       bind:connecting
       bind:error
+      bind:trustedHeaderAuth
+      bind:browserAuth
+      bind:trustedEmailHeaderName
+      bind:trustedEmailHeaderValue
+      bind:trustedNameHeaderName
+      bind:trustedNameHeaderValue
+      bind:trustedGroupsHeaderName
+      bind:trustedGroupsHeaderValue
+      bind:trustedRoleHeaderName
+      bind:trustedRoleHeaderValue
       onConnect={() => {
         onAddConnection()
       }}
