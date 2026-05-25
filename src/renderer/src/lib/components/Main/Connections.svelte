@@ -192,17 +192,14 @@
           .filter((header) => header.name && header.value)
       : []
 
-    if (trustedHeaderAuth && trustedHeaders.length === 0 && !browserAuth) {
-      error = 'Add at least one trusted header or enable browser auth'
+    if (trustedHeaderAuth && trustedHeaders.length === 0) {
+      error = 'Add at least one custom HTTP header'
       return
     }
 
     connecting = true
     try {
-      const valid =
-        trustedHeaderAuth && browserAuth
-          ? true
-          : await window.electronAPI.validateUrl(u, trustedHeaders)
+      const valid = browserAuth ? true : await window.electronAPI.validateUrl(u, trustedHeaders)
       if (!valid) {
         error = $i18n.t('setup.couldNotReachServer')
         connecting = false
@@ -220,9 +217,11 @@
               browserAuth,
               trustedHeaders
             }
-          : { type: 'none' }
+          : browserAuth
+            ? { type: 'browser', browserAuth: true }
+            : { type: 'none' }
       })
-      if (trustedHeaderAuth && browserAuth) {
+      if (browserAuth) {
         await window.electronAPI.authenticateConnection?.(connectionId)
       }
       config.set(await window.electronAPI.getConfig())

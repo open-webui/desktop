@@ -816,7 +816,7 @@ export interface Connection {
   type: 'local' | 'remote'
   url: string
   auth?: {
-    type: 'none' | 'trustedHeader'
+    type: 'none' | 'browser' | 'trustedHeader'
     browserAuth?: boolean
     trustedHeaders?: Array<{
       name: string

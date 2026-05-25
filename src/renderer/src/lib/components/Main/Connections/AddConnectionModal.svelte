@@ -108,10 +108,26 @@
         <label class="flex items-center justify-between gap-3">
           <span>
             <span class="block text-[13px] font-medium text-[#1d1d1f] dark:text-[#fafafa]">
-              Trusted header SSO
+              Open authentication in new window
             </span>
             <span class="mt-0.5 block text-[11px] leading-4 text-gray-400 dark:text-gray-500">
-              Send configured headers with this connection.
+              Use a browser login window that shares cookies with this server.
+            </span>
+          </span>
+          <input
+            type="checkbox"
+            bind:checked={browserAuth}
+            class="h-4 w-4 accent-gray-900 dark:accent-white"
+          />
+        </label>
+
+        <label class="mt-4 flex items-center justify-between gap-3">
+          <span>
+            <span class="block text-[13px] font-medium text-[#1d1d1f] dark:text-[#fafafa]">
+              Add custom HTTP headers
+            </span>
+            <span class="mt-0.5 block text-[11px] leading-4 text-gray-400 dark:text-gray-500">
+              Send trusted SSO headers with this connection.
             </span>
           </span>
           <input
@@ -123,22 +139,6 @@
 
         {#if trustedHeaderAuth}
           <div class="mt-4 space-y-3">
-            <label class="flex items-center justify-between gap-3">
-              <span>
-                <span class="block text-[12px] text-[#1d1d1f] dark:text-[#fafafa]">
-                  Browser auth
-                </span>
-                <span class="mt-0.5 block text-[11px] leading-4 text-gray-400 dark:text-gray-500">
-                  Open a login window that shares cookies with this server.
-                </span>
-              </span>
-              <input
-                type="checkbox"
-                bind:checked={browserAuth}
-                class="h-4 w-4 accent-gray-900 dark:accent-white"
-              />
-            </label>
-
             <div class="grid grid-cols-[minmax(0,1fr)_minmax(0,1fr)] gap-2">
               <input
                 type="text"
