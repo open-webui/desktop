@@ -15,11 +15,7 @@
     activeConnectionName?: string
   }
 
-  let {
-    onOpenSettings,
-    sidebarOpen,
-    activeConnectionName = $bindable('')
-  }: Props = $props()
+  let { onOpenSettings, sidebarOpen, activeConnectionName = $bindable('') }: Props = $props()
 
   let isLocalConnection = $state(false)
   let showingLogs = $state(false)
@@ -27,6 +23,16 @@
   let url = $state('')
   let connecting = $state(false)
   let error = $state('')
+  let trustedHeaderAuth = $state(false)
+  let browserAuth = $state(false)
+  let trustedEmailHeaderName = $state('X-User-Email')
+  let trustedEmailHeaderValue = $state('')
+  let trustedNameHeaderName = $state('X-User-Name')
+  let trustedNameHeaderValue = $state('')
+  let trustedGroupsHeaderName = $state('X-User-Groups')
+  let trustedGroupsHeaderValue = $state('')
+  let trustedRoleHeaderName = $state('X-User-Role')
+  let trustedRoleHeaderValue = $state('')
   let view = $state('welcome') // welcome | install | connected
   let autoInstall = $state(false)
   let installPhase = $state('idle') // idle | working | error
@@ -50,9 +56,15 @@
   const serverReachable = $derived($serverInfo?.reachable)
 
   const isInitializing = $derived($appState === 'initializing')
-  const localConn = $derived(localInstalled
-    ? { id: 'local', name: 'Open WebUI', type: 'local' as const, url: `http://127.0.0.1:${$config?.localServer?.port ?? 8080}` }
-    : null
+  const localConn = $derived(
+    localInstalled
+      ? {
+          id: 'local',
+          name: 'Open WebUI',
+          type: 'local' as const,
+          url: `http://127.0.0.1:${$config?.localServer?.port ?? 8080}`
+        }
+      : null
   )
   const remoteConnections = $derived($connections ?? [])
 
@@ -66,7 +78,11 @@
   let llamaCppSetupStatus = $state('')
   let openTerminalSetupStatus = $state('')
 
-  const startInstall = async (options?: { installOpenTerminal?: boolean; installLlamaCpp?: boolean; installDir?: string }) => {
+  const startInstall = async (options?: {
+    installOpenTerminal?: boolean
+    installLlamaCpp?: boolean
+    installDir?: string
+  }) => {
     installPhase = 'working'
     installError = ''
     installStatus = ''
@@ -85,7 +101,9 @@
       const disk = await window.electronAPI.getDiskSpace()
       if (disk?.free >= 0 && disk.free < MINIMUM_DISK_BYTES) {
         const availableGB = (disk.free / (1024 * 1024 * 1024)).toFixed(1)
-        throw new Error(`Not enough disk space. At least 5 GB is required (${availableGB} GB available).`)
+        throw new Error(
+          `Not enough disk space. At least 5 GB is required (${availableGB} GB available).`
+        )
       }
 
       // Ensure Python and uv are installed before attempting package install
@@ -143,7 +161,9 @@
       installError = e?.message || $i18n.t('error.somethingWentWrong')
       toastVisible = true
       if (toastTimeout) clearTimeout(toastTimeout)
-      toastTimeout = setTimeout(() => { toastVisible = false }, 5000)
+      toastTimeout = setTimeout(() => {
+        toastVisible = false
+      }, 5000)
     }
   }
 
@@ -158,23 +178,65 @@
       error = $i18n.t('setup.invalidUrl')
       return
     }
+    const trustedHeaders = trustedHeaderAuth
+      ? [
+          { name: trustedEmailHeaderName, value: trustedEmailHeaderValue },
+          { name: trustedNameHeaderName, value: trustedNameHeaderValue },
+          { name: trustedGroupsHeaderName, value: trustedGroupsHeaderValue },
+          { name: trustedRoleHeaderName, value: trustedRoleHeaderValue }
+        ]
+          .map((header) => ({
+            name: header.name.trim(),
+            value: header.value.trim()
+          }))
+          .filter((header) => header.name && header.value)
+      : []
+
+    if (trustedHeaderAuth && trustedHeaders.length === 0) {
+      error = 'Add at least one custom HTTP header'
+      return
+    }
+
     connecting = true
     try {
-      const valid = await window.electronAPI.validateUrl(u)
+      const valid = browserAuth ? true : await window.electronAPI.validateUrl(u, trustedHeaders)
       if (!valid) {
         error = $i18n.t('setup.couldNotReachServer')
         connecting = false
         return
       }
+      const connectionId = crypto.randomUUID()
       await window.electronAPI.addConnection({
-        id: crypto.randomUUID(),
+        id: connectionId,
         name: new URL(u).hostname,
         type: 'remote',
-        url: u
+        url: u,
+        auth: trustedHeaderAuth
+          ? {
+              type: 'trustedHeader',
+              browserAuth,
+              trustedHeaders
+            }
+          : browserAuth
+            ? { type: 'browser', browserAuth: true }
+            : { type: 'none' }
       })
+      if (browserAuth) {
+        await window.electronAPI.authenticateConnection?.(connectionId)
+      }
       config.set(await window.electronAPI.getConfig())
       url = ''
       error = ''
+      trustedHeaderAuth = false
+      browserAuth = false
+      trustedEmailHeaderName = 'X-User-Email'
+      trustedEmailHeaderValue = ''
+      trustedNameHeaderName = 'X-User-Name'
+      trustedNameHeaderValue = ''
+      trustedGroupsHeaderName = 'X-User-Groups'
+      trustedGroupsHeaderValue = ''
+      trustedRoleHeaderName = 'X-User-Role'
+      trustedRoleHeaderValue = ''
       showAddConnectionModal = false
       view = 'welcome'
     } catch {
@@ -232,12 +294,24 @@
     } else {
       const conn = ($connections ?? []).find((c) => c.id === id)
       if (!conn) return
-      // Remote — open immediately, no IPC needed
-      connectingId = ''
-      openConnections.set(id, conn.url)
-      openConnections = new Map(openConnections)
-      connectedUrl = conn.url
-      view = 'connected'
+      connectingId = id
+      view = 'welcome'
+      window.electronAPI.connectTo(id).then((result: any) => {
+        if (!result?.url) {
+          if (connectingId === id) connectingId = ''
+          return
+        }
+        if (!openConnections.has(result.connectionId)) {
+          openConnections.set(result.connectionId, result.url)
+          openConnections = new Map(openConnections)
+        }
+        if (connectingId === id) {
+          connectedUrl = result.url
+          activeConnectionId = result.connectionId
+          connectingId = ''
+          view = 'connected'
+        }
+      })
     }
   }
 
@@ -341,7 +415,9 @@
     if (!container) return
 
     const webviews = connId
-      ? [container.querySelector(`webview[partition="persist:connection-${connId}"]`) as any].filter(Boolean)
+      ? [
+          container.querySelector(`webview[partition="persist:connection-${connId}"]`) as any
+        ].filter(Boolean)
       : Array.from(container.querySelectorAll('webview'))
 
     for (const wv of webviews) {
@@ -352,7 +428,9 @@
         // Webview not ready — queue delivery until dom-ready
         const onReady = () => {
           wv.removeEventListener('dom-ready', onReady)
-          try { wv.send('desktop:event', event) } catch (_) {}
+          try {
+            wv.send('desktop:event', event)
+          } catch (_) {}
         }
         wv.addEventListener('dom-ready', onReady)
       }
@@ -427,13 +505,38 @@
       }
 
       // ── Desktop-only state (not forwarded to webviews) ─
-      if (data.type === 'status:open-terminal') { openTerminalStatus = data.data; return }
-      if (data.type === 'status:open-terminal-setup') { openTerminalSetupStatus = data.data ?? ''; return }
-      if (data.type === 'open-terminal:ready') { openTerminalInfo = data.data; openTerminalStatus = 'started'; openTerminalSetupStatus = ''; return }
-      if (data.type === 'status:llamacpp') { llamaCppStatus = data.data; return }
-      if (data.type === 'status:llamacpp-setup') { llamaCppSetupStatus = data.data ?? ''; return }
-      if (data.type === 'llamacpp:ready') { llamaCppInfo = data.data; llamaCppStatus = 'started'; llamaCppSetupStatus = ''; return }
-      if (data.type === 'status:install') { installStatus = data.data ?? ''; return }
+      if (data.type === 'status:open-terminal') {
+        openTerminalStatus = data.data
+        return
+      }
+      if (data.type === 'status:open-terminal-setup') {
+        openTerminalSetupStatus = data.data ?? ''
+        return
+      }
+      if (data.type === 'open-terminal:ready') {
+        openTerminalInfo = data.data
+        openTerminalStatus = 'started'
+        openTerminalSetupStatus = ''
+        return
+      }
+      if (data.type === 'status:llamacpp') {
+        llamaCppStatus = data.data
+        return
+      }
+      if (data.type === 'status:llamacpp-setup') {
+        llamaCppSetupStatus = data.data ?? ''
+        return
+      }
+      if (data.type === 'llamacpp:ready') {
+        llamaCppInfo = data.data
+        llamaCppStatus = 'started'
+        llamaCppSetupStatus = ''
+        return
+      }
+      if (data.type === 'status:install') {
+        installStatus = data.data ?? ''
+        return
+      }
       if (data.type === 'packages:changed') {
         localInstalled = !!data.data?.['open-webui']
         return
@@ -528,7 +631,10 @@
 
 <!-- svelte-ignore a11y_click_events_have_key_events -->
 <!-- svelte-ignore a11y_no_static_element_interactions -->
-<div class="h-full w-full flex flex-col bg-[#f5f5f7] dark:bg-[#0a0a0a] text-[#1d1d1f] dark:text-[#fafafa]" in:fade={{ duration: 200 }}>
+<div
+  class="h-full w-full flex flex-col bg-[#f5f5f7] dark:bg-[#0a0a0a] text-[#1d1d1f] dark:text-[#fafafa]"
+  in:fade={{ duration: 200 }}
+>
   <div class="flex-1 min-h-0 flex">
     {#if sidebarOpen}
       <Sidebar
@@ -542,7 +648,9 @@
         bind:settingsOpen
         onConnect={connect}
         onDisconnect={disconnect}
-        onAddView={() => { showAddConnectionModal = true }}
+        onAddView={() => {
+          showAddConnectionModal = true
+        }}
         {onOpenSettings}
         onRename={async (id, name) => {
           await window.electronAPI.updateConnection(id, { name })
@@ -568,11 +676,23 @@
       bind:url
       bind:connecting
       bind:error
+      bind:trustedHeaderAuth
+      bind:browserAuth
+      bind:trustedEmailHeaderName
+      bind:trustedEmailHeaderValue
+      bind:trustedNameHeaderName
+      bind:trustedNameHeaderValue
+      bind:trustedGroupsHeaderName
+      bind:trustedGroupsHeaderValue
+      bind:trustedRoleHeaderName
+      bind:trustedRoleHeaderValue
       bind:showAddConnectionModal
       bind:autoInstall
       onStartInstall={startInstall}
       onAddConnection={addConnection}
-      onSetView={(v) => { view = v }}
+      onSetView={(v) => {
+        view = v
+      }}
     />
   </div>
 
@@ -585,17 +705,38 @@
           ? openTerminalStatus === 'started'
           : llamaCppStatus === 'started'}
       statusText={activeLog === 'server'
-        ? (serverStatus === 'starting' ? 'Starting Open WebUI…' : serverStatus === 'running' && !serverReachable ? 'Waiting for server…' : installStatus || '')
+        ? serverStatus === 'starting'
+          ? 'Starting Open WebUI…'
+          : serverStatus === 'running' && !serverReachable
+            ? 'Waiting for server…'
+            : installStatus || ''
         : activeLog === 'open-terminal'
-          ? (openTerminalStatus === 'stopping' ? 'Stopping Open Terminal…' : openTerminalSetupStatus || (openTerminalStatus === 'starting' ? 'Starting Open Terminal…' : ''))
-          : (llamaCppStatus === 'stopping' ? 'Stopping llama-server…' : llamaCppSetupStatus || (llamaCppStatus === 'starting' ? 'Starting llama-server…' : llamaCppStatus === 'setting-up' ? 'Setting up llama.cpp…' : ''))}
+          ? openTerminalStatus === 'stopping'
+            ? 'Stopping Open Terminal…'
+            : openTerminalSetupStatus ||
+              (openTerminalStatus === 'starting' ? 'Starting Open Terminal…' : '')
+          : llamaCppStatus === 'stopping'
+            ? 'Stopping llama-server…'
+            : llamaCppSetupStatus ||
+              (llamaCppStatus === 'starting'
+                ? 'Starting llama-server…'
+                : llamaCppStatus === 'setting-up'
+                  ? 'Setting up llama.cpp…'
+                  : '')}
       connectPty={getConnectPty(activeLog)}
       disconnectPty={getDisconnectPty(activeLog)}
       readonly={activeLog !== 'server'}
       onWrite={getOnWrite(activeLog)}
       onResize={getOnResize(activeLog)}
-      onStop={activeLog === 'open-terminal' ? toggleOpenTerminal : activeLog === 'llama-server' ? toggleLlamaCpp : undefined}
-      onClose={() => { activeLog = null; showingLogs = false }}
+      onStop={activeLog === 'open-terminal'
+        ? toggleOpenTerminal
+        : activeLog === 'llama-server'
+          ? toggleLlamaCpp
+          : undefined}
+      onClose={() => {
+        activeLog = null
+        showingLogs = false
+      }}
     />
   {/if}
 

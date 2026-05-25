@@ -162,6 +162,7 @@ let SERVER_REACHABLE = false
 let SERVER_PID: number | null = null
 let AUTH_TOKEN: string | null = null
 let voiceInputRecording = false
+const trustedHeaderSessions = new Set<string>()
 
 // ─── Global Shortcuts ───────────────────────────────────
 
@@ -223,15 +224,20 @@ function tryRegisterShortcut(
   }
 }
 
-const registerShortcuts = (globalAccel?: string, spotlightAccel?: string, voiceInputAccel?: string, callAccel?: string): void => {
+const registerShortcuts = (
+  globalAccel?: string,
+  spotlightAccel?: string,
+  voiceInputAccel?: string,
+  callAccel?: string
+): void => {
   globalShortcut.unregisterAll()
 
   // On Wayland / Flatpak global shortcuts are unsupported — skip silently.
   if (!isGlobalShortcutSupported()) {
     log.info(
       'Global shortcut registration skipped — unsupported environment ' +
-      `(XDG_SESSION_TYPE=${process.env['XDG_SESSION_TYPE'] ?? '(unset)'}, ` +
-      `FLATPAK_ID=${process.env['FLATPAK_ID'] ?? '(unset)'})`
+        `(XDG_SESSION_TYPE=${process.env['XDG_SESSION_TYPE'] ?? '(unset)'}, ` +
+        `FLATPAK_ID=${process.env['FLATPAK_ID'] ?? '(unset)'})`
     )
     return
   }
@@ -251,9 +257,8 @@ const registerShortcuts = (globalAccel?: string, spotlightAccel?: string, voiceI
   // Spotlight shortcut – toggle the spotlight input bar
   if (spotlightAccel) {
     tryRegisterShortcut(spotlightAccel, 'Spotlight', () => {
-      const text = CONFIG?.spotlightClipboardPaste !== false
-        ? (clipboard.readText()?.trim() || '')
-        : ''
+      const text =
+        CONFIG?.spotlightClipboardPaste !== false ? clipboard.readText()?.trim() || '' : ''
       toggleSpotlight(text)
     })
   }
@@ -264,7 +269,9 @@ const registerShortcuts = (globalAccel?: string, spotlightAccel?: string, voiceI
       toggleVoiceInput()
     })
   } else {
-    log.info(`Voice input shortcut skipped — accel="${voiceInputAccel}", enabled=${CONFIG?.voiceInputEnabled}`)
+    log.info(
+      `Voice input shortcut skipped — accel="${voiceInputAccel}", enabled=${CONFIG?.voiceInputEnabled}`
+    )
   }
 
   // Call shortcut – open the voice/video call overlay
@@ -458,7 +465,10 @@ function playChime(ascending: boolean): Promise<void> {
     const exists = fs.existsSync(soundPath)
     log.info(`playChime: ${ascending ? 'start' : 'stop'}, path=${soundPath}, exists=${exists}`)
 
-    if (!exists) { resolve(); return }
+    if (!exists) {
+      resolve()
+      return
+    }
 
     if (process.platform === 'darwin') {
       execFile('afplay', [soundPath], (err, stdout, stderr) => {
@@ -466,9 +476,11 @@ function playChime(ascending: boolean): Promise<void> {
         resolve()
       })
     } else if (process.platform === 'win32') {
-      execFile('powershell', ['-NoProfile', '-Command',
-        `(New-Object Media.SoundPlayer '${soundPath}').PlaySync()`
-      ], () => resolve())
+      execFile(
+        'powershell',
+        ['-NoProfile', '-Command', `(New-Object Media.SoundPlayer '${soundPath}').PlaySync()`],
+        () => resolve()
+      )
     } else {
       execFile('paplay', [soundPath], (err) => {
         if (err) execFile('aplay', [soundPath], () => resolve())
@@ -599,7 +611,10 @@ function debounceSaveWindowBounds(win: BrowserWindow): void {
  */
 function isBoundsOnVisibleDisplay(bounds: { x: number; y: number }): boolean {
   const { screen } = require('electron')
-  const targetPoint = { x: bounds.x + MIN_VISIBLE_OVERLAP_PX / 2, y: bounds.y + MIN_VISIBLE_OVERLAP_PX / 2 }
+  const targetPoint = {
+    x: bounds.x + MIN_VISIBLE_OVERLAP_PX / 2,
+    y: bounds.y + MIN_VISIBLE_OVERLAP_PX / 2
+  }
   const display = screen.getDisplayNearestPoint(targetPoint)
   const { x, y, width, height } = display.workArea
   return (
@@ -731,7 +746,12 @@ function createContentWindow(url: string, connectionId: string): BrowserWindow {
   session
     .fromPartition(`persist:connection-${connectionId}`)
     .setPermissionRequestHandler((_webContents, permission, callback) => {
-      const allowedPermissions = ['media', 'mediaKeySystem', 'notifications', 'clipboard-sanitized-write']
+      const allowedPermissions = [
+        'media',
+        'mediaKeySystem',
+        'notifications',
+        'clipboard-sanitized-write'
+      ]
       callback(allowedPermissions.includes(permission))
     })
 
@@ -782,14 +802,16 @@ const updateTray = () => {
 
   // Virtual local connection (when package is installed)
   const localItem = isPackageInstalled('open-webui')
-    ? [{
-        label: `${CONFIG.defaultConnectionId === 'local' ? '★ ' : ''}Open WebUI (Local)`,
-        sublabel: SERVER_URL || `http://127.0.0.1:${CONFIG.localServer?.port ?? 8080}`,
-        click: async () => {
-          const result = await connectTo(buildLocalConnection())
-          if (result) sendToRenderer('connection:open', result)
+    ? [
+        {
+          label: `${CONFIG.defaultConnectionId === 'local' ? '★ ' : ''}Open WebUI (Local)`,
+          sublabel: SERVER_URL || `http://127.0.0.1:${CONFIG.localServer?.port ?? 8080}`,
+          click: async () => {
+            const result = await connectTo(buildLocalConnection())
+            if (result) sendToRenderer('connection:open', result)
+          }
         }
-      }]
+      ]
     : []
 
   const allItems = [...localItem, ...remoteItems]
@@ -804,11 +826,7 @@ const updateTray = () => {
     },
     { type: 'separator' },
     ...(allItems.length > 0
-      ? [
-          { label: 'Connections', enabled: false },
-          ...allItems,
-          { type: 'separator' }
-        ]
+      ? [{ label: 'Connections', enabled: false }, ...allItems, { type: 'separator' }]
       : []),
     ...(SERVER_STATUS === 'started' && SERVER_URL
       ? [
@@ -870,7 +888,86 @@ const resolveConnectionUrl = (conn: Connection): string => {
   return url
 }
 
-const connectTo = async (connection: Connection) => {
+const getConnectionPartition = (connectionId: string): string =>
+  `persist:connection-${connectionId}`
+
+const getTrustedHeaderEntries = (
+  connection: Connection
+): Array<{ name: string; value: string }> => {
+  if (connection.auth?.type !== 'trustedHeader') return []
+  return (connection.auth.trustedHeaders ?? [])
+    .map((header) => ({
+      name: String(header?.name ?? '').trim(),
+      value: String(header?.value ?? '').trim()
+    }))
+    .filter((header) => header.name && header.value)
+}
+
+const configureTrustedHeaderSession = (connection: Connection, url: string): void => {
+  const partition = getConnectionPartition(connection.id)
+  const ses = session.fromPartition(partition)
+  const headers = getTrustedHeaderEntries(connection)
+
+  if (trustedHeaderSessions.has(partition)) {
+    ses.webRequest.onBeforeSendHeaders(null)
+    trustedHeaderSessions.delete(partition)
+  }
+
+  if (!headers.length) return
+
+  let origin: string
+  try {
+    origin = new URL(url).origin
+  } catch {
+    return
+  }
+
+  ses.webRequest.onBeforeSendHeaders({ urls: [`${origin}/*`] }, (details, callback) => {
+    const requestHeaders = { ...details.requestHeaders }
+    for (const header of headers) {
+      requestHeaders[header.name] = header.value
+    }
+    callback({ requestHeaders })
+  })
+  trustedHeaderSessions.add(partition)
+}
+
+const openBrowserAuthWindow = async (connection: Connection): Promise<boolean> => {
+  const authUrl = resolveConnectionUrl(connection)
+  if (!authUrl) return false
+
+  return await new Promise<boolean>((resolve) => {
+    const authWindow = new BrowserWindow({
+      width: 980,
+      height: 760,
+      show: false,
+      title: `${connection.name || 'Open WebUI'} Authentication`,
+      autoHideMenuBar: true,
+      parent: mainWindow ?? undefined,
+      webPreferences: {
+        partition: getConnectionPartition(connection.id),
+        sandbox: false
+      }
+    })
+
+    authWindow.webContents.setWindowOpenHandler((details) => {
+      authWindow.loadURL(details.url)
+      return { action: 'deny' }
+    })
+
+    authWindow.once('ready-to-show', () => authWindow.show())
+    authWindow.once('closed', () => resolve(true))
+    authWindow.loadURL(authUrl).catch((error) => {
+      log.warn('Browser auth window failed to load:', error)
+      if (!authWindow.isDestroyed()) authWindow.close()
+      resolve(false)
+    })
+  })
+}
+
+const connectTo = async (
+  connection: Connection
+): Promise<{ url: string; connectionId: string } | null> => {
   let url = connection.url
 
   if (connection.type === 'local') {
@@ -902,6 +999,8 @@ const connectTo = async (connection: Connection) => {
   if (url.startsWith('http://0.0.0.0')) {
     url = url.replace('http://0.0.0.0', 'http://localhost')
   }
+
+  configureTrustedHeaderSession(connection, url)
 
   return { url, connectionId: connection.id }
 }
@@ -1214,9 +1313,7 @@ if (!gotTheLock) {
     // shortcut targets (see issue #110).
     app.on('child-process-gone', (_event, details) => {
       if (details.type === 'GPU') {
-        log.error(
-          `GPU process gone: reason=${details.reason}, exitCode=${details.exitCode}`
-        )
+        log.error(`GPU process gone: reason=${details.reason}, exitCode=${details.exitCode}`)
 
         // Only auto-recover from fatal crashes, not normal/clean exits
         if (
@@ -1253,7 +1350,7 @@ if (!gotTheLock) {
     app.on('certificate-error', (event, _webContents, url, error, certificate, callback) => {
       log.warn(
         `Certificate error: ${error} for ${url} ` +
-        `(subject: ${certificate.subjectName}, issuer: ${certificate.issuerName})`
+          `(subject: ${certificate.subjectName}, issuer: ${certificate.issuerName})`
       )
       event.preventDefault()
       callback(true)
@@ -1275,7 +1372,13 @@ if (!gotTheLock) {
       // Grant media / notification permissions for webview partition sessions
       // so that auth flows, media capture, and notifications work correctly.
       newSession.setPermissionRequestHandler((_webContents, permission, callback) => {
-        const allowed = ['media', 'mediaKeySystem', 'notifications', 'clipboard-read', 'clipboard-sanitized-write']
+        const allowed = [
+          'media',
+          'mediaKeySystem',
+          'notifications',
+          'clipboard-read',
+          'clipboard-sanitized-write'
+        ]
         callback(allowed.includes(permission))
       })
     })
@@ -1286,9 +1389,7 @@ if (!gotTheLock) {
       // Auto-reload when the renderer process dies so the user doesn't
       // see a permanent blank/grey screen.
       window.webContents.on('render-process-gone', (_event, details) => {
-        log.error(
-          `Renderer process gone: reason=${details.reason}, exitCode=${details.exitCode}`
-        )
+        log.error(`Renderer process gone: reason=${details.reason}, exitCode=${details.exitCode}`)
         if (details.reason !== 'clean-exit') {
           window.webContents.reload()
         }
@@ -1306,7 +1407,7 @@ if (!gotTheLock) {
         if (details.reason !== 'clean-exit') {
           log.error(
             `WebContents render-process-gone: type=${contents.getType()}, ` +
-            `reason=${details.reason}, exitCode=${details.exitCode}`
+              `reason=${details.reason}, exitCode=${details.exitCode}`
           )
         }
       })
@@ -1379,9 +1480,7 @@ if (!gotTheLock) {
             )
           } else if (params.selectionText) {
             // Non-editable text selection
-            menuItems.push(
-              { label: 'Copy', role: 'copy', enabled: params.editFlags.canCopy }
-            )
+            menuItems.push({ label: 'Copy', role: 'copy', enabled: params.editFlags.canCopy })
           }
 
           if (menuItems.length > 0) {
@@ -1431,7 +1530,12 @@ if (!gotTheLock) {
       CONFIG = await getConfig()
       updateTray()
       voiceInputRecording = false
-      registerShortcuts(CONFIG.globalShortcut, CONFIG.spotlightShortcut, CONFIG.voiceInputShortcut, CONFIG.callShortcut)
+      registerShortcuts(
+        CONFIG.globalShortcut,
+        CONFIG.spotlightShortcut,
+        CONFIG.voiceInputShortcut,
+        CONFIG.callShortcut
+      )
     })
 
     // Python/uv
@@ -1445,7 +1549,11 @@ if (!gotTheLock) {
         return res
       } catch (error) {
         sendToRenderer('status:python', false)
-        sendToRenderer('error', { message: error?.message ?? 'Python installation failed. Please check your internet connection and try again.' })
+        sendToRenderer('error', {
+          message:
+            error?.message ??
+            'Python installation failed. Please check your internet connection and try again.'
+        })
         return false
       }
     })
@@ -1468,9 +1576,7 @@ if (!gotTheLock) {
         sendToRenderer('status:install', 'Installing Open Terminal…')
         await installPackage('open-terminal', otVersion, (status: string) => {
           sendToRenderer('status:install', status)
-        }).catch((e) =>
-          log.warn('open-terminal install failed (non-fatal):', e)
-        )
+        }).catch((e) => log.warn('open-terminal install failed (non-fatal):', e))
         sendToRenderer('status:package', true)
         // Notify renderer of install state change
         sendToRenderer('packages:changed', {
@@ -1487,7 +1593,11 @@ if (!gotTheLock) {
         return true
       } catch (error) {
         sendToRenderer('status:package', false)
-        sendToRenderer('error', { message: error?.message ?? 'Package installation failed. Please check your internet connection and try again.' })
+        sendToRenderer('error', {
+          message:
+            error?.message ??
+            'Package installation failed. Please check your internet connection and try again.'
+        })
         return false
       }
     })
@@ -1546,18 +1656,21 @@ if (!gotTheLock) {
       return config.connections
     })
 
-    ipcMain.handle('connections:update', async (_event, id: string, updates: Partial<Connection>) => {
-      const config = await getConfig()
-      const idx = config.connections.findIndex((c) => c.id === id)
-      if (idx !== -1) {
-        config.connections[idx] = { ...config.connections[idx], ...updates }
-        await setConfig(config)
-        CONFIG = config
-        updateTray()
-        sendToRenderer('connections:changed', config.connections)
+    ipcMain.handle(
+      'connections:update',
+      async (_event, id: string, updates: Partial<Connection>) => {
+        const config = await getConfig()
+        const idx = config.connections.findIndex((c) => c.id === id)
+        if (idx !== -1) {
+          config.connections[idx] = { ...config.connections[idx], ...updates }
+          await setConfig(config)
+          CONFIG = config
+          updateTray()
+          sendToRenderer('connections:changed', config.connections)
+        }
+        return config.connections
       }
-      return config.connections
-    })
+    )
 
     ipcMain.handle('connections:setDefault', async (_event, id: string) => {
       const config = await getConfig()
@@ -1580,9 +1693,38 @@ if (!gotTheLock) {
       return null
     })
 
-    ipcMain.handle('validate:url', async (_event, url: string) => {
-      return await validateRemoteUrl(url)
+    ipcMain.handle('connections:authenticate', async (_event, id: string) => {
+      const config = await getConfig()
+      const conn = config.connections.find((c) => c.id === id)
+      if (!conn) return false
+      configureTrustedHeaderSession(conn, resolveConnectionUrl(conn))
+      return await openBrowserAuthWindow(conn)
     })
+
+    ipcMain.handle(
+      'validate:url',
+      async (_event, url: string, headers?: Array<{ name: string; value: string }>) => {
+        if (!headers?.length) return await validateRemoteUrl(url)
+        try {
+          const requestHeaders = Object.fromEntries(
+            headers
+              .map((header) => [
+                String(header?.name ?? '').trim(),
+                String(header?.value ?? '').trim()
+              ])
+              .filter(([name, value]) => name && value)
+          )
+          const response = await session.defaultSession.fetch(url, {
+            method: 'HEAD',
+            headers: requestHeaders,
+            signal: AbortSignal.timeout(5000)
+          })
+          return response.ok
+        } catch {
+          return false
+        }
+      }
+    )
 
     // Updater
     ipcMain.handle('updater:check', () => checkForUpdates())
@@ -1664,9 +1806,11 @@ if (!gotTheLock) {
                 body: 'Open WebUI needs Screen Recording access to capture screenshots. Please enable it in System Settings → Privacy & Security → Screen Recording, then restart the app.'
               }).show()
               // Open the correct System Preferences pane
-              shell.openExternal(
-                'x-apple.systempreferences:com.apple.preference.security?Privacy_ScreenCapture'
-              ).catch(() => {})
+              shell
+                .openExternal(
+                  'x-apple.systempreferences:com.apple.preference.security?Privacy_ScreenCapture'
+                )
+                .catch(() => {})
               return 'no-permission'
             }
           }
@@ -1691,8 +1835,7 @@ if (!gotTheLock) {
           })
 
           // Find the source matching this display
-          const source =
-            sources.find((s) => s.display_id === String(display.id)) || sources[0]
+          const source = sources.find((s) => s.display_id === String(display.id)) || sources[0]
           if (!source) {
             spotlightWindow?.setOpacity(1)
             return null
@@ -1744,84 +1887,95 @@ if (!gotTheLock) {
     })
 
     // Transcribe audio via the connected server's STT endpoint
-    ipcMain.handle('voiceInput:transcribe', async (_event, audioBuffer: ArrayBuffer, rendererToken?: string) => {
-      try {
-        const conn = await getDefaultConnection()
-        if (!conn) throw new Error('No connection configured. Set up a connection in Settings first.')
+    ipcMain.handle(
+      'voiceInput:transcribe',
+      async (_event, audioBuffer: ArrayBuffer, rendererToken?: string) => {
+        try {
+          const conn = await getDefaultConnection()
+          if (!conn)
+            throw new Error('No connection configured. Set up a connection in Settings first.')
 
-        const url = resolveConnectionUrl(conn)
+          const url = resolveConnectionUrl(conn)
 
-        // Use stored auth token (relayed from webview), fall back to renderer-provided or contentWindow
-        let token = AUTH_TOKEN || rendererToken || ''
-        if (!token) {
-          // Scan all webContents to find the Open WebUI webview and read its token
-          try {
-            const { webContents: wc } = require('electron')
-            const allContents = wc.getAllWebContents()
-            for (const contents of allContents) {
-              try {
-                if (contents.getType() === 'webview' && !contents.isDestroyed()) {
-                  const t = await contents.executeJavaScript(
-                    `localStorage.getItem('token') || ''`
-                  )
-                  if (t) { token = t; break }
+          // Use stored auth token (relayed from webview), fall back to renderer-provided or contentWindow
+          let token = AUTH_TOKEN || rendererToken || ''
+          if (!token) {
+            // Scan all webContents to find the Open WebUI webview and read its token
+            try {
+              const { webContents: wc } = require('electron')
+              const allContents = wc.getAllWebContents()
+              for (const contents of allContents) {
+                try {
+                  if (contents.getType() === 'webview' && !contents.isDestroyed()) {
+                    const t = await contents.executeJavaScript(
+                      `localStorage.getItem('token') || ''`
+                    )
+                    if (t) {
+                      token = t
+                      break
+                    }
+                  }
+                } catch {
+                  // Skip inaccessible webContents
                 }
-              } catch {
-                // Skip inaccessible webContents
               }
+            } catch {
+              log.warn('voiceInput:transcribe — could not extract token from webviews')
             }
-          } catch {
-            log.warn('voiceInput:transcribe — could not extract token from webviews')
           }
+
+          if (!token) {
+            throw new Error(
+              'Not authenticated. Open a connection and sign in before using voice input.'
+            )
+          }
+
+          // Build multipart form data manually using Node.js
+          const boundary = '----VoiceInput' + Date.now()
+          const buffer = Buffer.from(audioBuffer)
+          const filename = `recording-${Date.now()}.wav`
+
+          const header = [
+            `--${boundary}`,
+            `Content-Disposition: form-data; name="file"; filename="${filename}"`,
+            `Content-Type: audio/wav`,
+            '',
+            ''
+          ].join('\r\n')
+
+          const footer = `\r\n--${boundary}--\r\n`
+          const headerBuf = Buffer.from(header, 'utf-8')
+          const footerBuf = Buffer.from(footer, 'utf-8')
+          const body = Buffer.concat([headerBuf, buffer, footerBuf])
+
+          const response = await fetch(`${url}/api/v1/audio/transcriptions`, {
+            method: 'POST',
+            headers: {
+              Authorization: `Bearer ${token}`,
+              'Content-Type': `multipart/form-data; boundary=${boundary}`
+            },
+            body
+          })
+
+          if (!response.ok) {
+            const text = await response.text().catch(() => '')
+            throw new Error(
+              `Transcription failed (HTTP ${response.status}). ${text || 'Check that your server has Speech-to-Text configured.'}`
+            )
+          }
+
+          const result = await response.json()
+          return result
+        } catch (error: any) {
+          log.error('voiceInput:transcribe failed:', error)
+          new Notification({
+            title: 'Voice Input Failed',
+            body: error?.message || 'Transcription failed. Check logs for details.'
+          }).show()
+          throw error
         }
-
-        if (!token) {
-          throw new Error('Not authenticated. Open a connection and sign in before using voice input.')
-        }
-
-        // Build multipart form data manually using Node.js
-        const boundary = '----VoiceInput' + Date.now()
-        const buffer = Buffer.from(audioBuffer)
-        const filename = `recording-${Date.now()}.wav`
-
-        const header = [
-          `--${boundary}`,
-          `Content-Disposition: form-data; name="file"; filename="${filename}"`,
-          `Content-Type: audio/wav`,
-          '',
-          ''
-        ].join('\r\n')
-
-        const footer = `\r\n--${boundary}--\r\n`
-        const headerBuf = Buffer.from(header, 'utf-8')
-        const footerBuf = Buffer.from(footer, 'utf-8')
-        const body = Buffer.concat([headerBuf, buffer, footerBuf])
-
-        const response = await fetch(`${url}/api/v1/audio/transcriptions`, {
-          method: 'POST',
-          headers: {
-            'Authorization': `Bearer ${token}`,
-            'Content-Type': `multipart/form-data; boundary=${boundary}`
-          },
-          body
-        })
-
-        if (!response.ok) {
-          const text = await response.text().catch(() => '')
-          throw new Error(`Transcription failed (HTTP ${response.status}). ${text || 'Check that your server has Speech-to-Text configured.'}`)
-        }
-
-        const result = await response.json()
-        return result
-      } catch (error: any) {
-        log.error('voiceInput:transcribe failed:', error)
-        new Notification({
-          title: 'Voice Input Failed',
-          body: error?.message || 'Transcription failed. Check logs for details.'
-        }).show()
-        throw error
       }
-    })
+    )
 
     // Voice input completed — deliver text to chat
     ipcMain.handle('voiceInput:done', async (_event, text: string) => {
@@ -2026,29 +2180,56 @@ if (!gotTheLock) {
     ipcMain.handle('huggingface:repo:files', async (_event, repo: string, token?: string) => {
       return getRepoFiles(repo, token)
     })
-    ipcMain.handle('huggingface:models:download', async (_event, repo: string, filename: string, token?: string, expectedSize?: number) => {
-      try {
-        sendToRenderer('status:huggingface-download', { repo, filename, status: 'downloading', percent: 0 })
-        const filepath = await downloadModel(repo, filename, (progress) => {
+    ipcMain.handle(
+      'huggingface:models:download',
+      async (_event, repo: string, filename: string, token?: string, expectedSize?: number) => {
+        try {
           sendToRenderer('status:huggingface-download', {
-            repo, filename,
+            repo,
+            filename,
             status: 'downloading',
-            percent: progress.percent,
-            downloadedBytes: progress.downloadedBytes,
-            totalBytes: progress.totalBytes
+            percent: 0
           })
-        }, token, expectedSize)
-        sendToRenderer('status:huggingface-download', { repo, filename, status: 'done', filepath })
-        return filepath
-      } catch (error) {
-        log.error('Failed to download model:', error)
-        sendToRenderer('status:huggingface-download', { repo, filename, status: 'failed', error: error?.message })
-        sendToRenderer('error', { message: `Model download failed: ${error?.message}` })
-        return null
+          const filepath = await downloadModel(
+            repo,
+            filename,
+            (progress) => {
+              sendToRenderer('status:huggingface-download', {
+                repo,
+                filename,
+                status: 'downloading',
+                percent: progress.percent,
+                downloadedBytes: progress.downloadedBytes,
+                totalBytes: progress.totalBytes
+              })
+            },
+            token,
+            expectedSize
+          )
+          sendToRenderer('status:huggingface-download', {
+            repo,
+            filename,
+            status: 'done',
+            filepath
+          })
+          return filepath
+        } catch (error) {
+          log.error('Failed to download model:', error)
+          sendToRenderer('status:huggingface-download', {
+            repo,
+            filename,
+            status: 'failed',
+            error: error?.message
+          })
+          sendToRenderer('error', { message: `Model download failed: ${error?.message}` })
+          return null
+        }
       }
-    })
+    )
 
-    ipcMain.handle('package:version', (_event, packageName: string) => getPackageVersion(packageName))
+    ipcMain.handle('package:version', (_event, packageName: string) =>
+      getPackageVersion(packageName)
+    )
     ipcMain.handle('package:uninstall', async (_event, packageName: string) => {
       const result = uninstallPackage(packageName)
       // Notify renderer of install state change
@@ -2063,7 +2244,7 @@ if (!gotTheLock) {
       const result = await dialog.showOpenDialog(mainWindow!, {
         properties: ['openDirectory']
       })
-      return result.canceled ? null : result.filePaths[0] ?? null
+      return result.canceled ? null : (result.filePaths[0] ?? null)
     })
 
     ipcMain.handle('app:launchAtLogin:get', () => {
@@ -2124,10 +2305,13 @@ if (!gotTheLock) {
     tray.setToolTip('Open WebUI')
     updateTray()
 
-
-
     // Global shortcut
-    registerShortcuts(CONFIG.globalShortcut, CONFIG.spotlightShortcut, CONFIG.voiceInputShortcut, CONFIG.callShortcut)
+    registerShortcuts(
+      CONFIG.globalShortcut,
+      CONFIG.spotlightShortcut,
+      CONFIG.voiceInputShortcut,
+      CONFIG.callShortcut
+    )
 
     // Enable screen capture
     session.defaultSession.setDisplayMediaRequestHandler(
