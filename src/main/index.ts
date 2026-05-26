@@ -1313,7 +1313,20 @@ if (!gotTheLock) {
 
       if (contents.getType() === 'webview') {
         // ── Popups (target="_blank" links) → open in default browser ──
+        // OAuth popup windows (Google, Microsoft, GitHub, etc.) must open
+        // inside Electron so the opener page can receive the postMessage
+        // callback. All other popups go to the system browser.
+        const OAUTH_HOSTS = [
+          'accounts.google.com',
+          'login.microsoftonline.com',
+          'github.com/login',
+          'github.com/oauth',
+        ]
         contents.setWindowOpenHandler(({ url }) => {
+          const isOAuth = OAUTH_HOSTS.some((h) => url.includes(h))
+          if (isOAuth) {
+            return { action: 'allow' }
+          }
           openUrl(url)
           return { action: 'deny' }
         })
