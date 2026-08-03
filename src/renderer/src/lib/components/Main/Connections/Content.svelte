@@ -197,19 +197,14 @@
             // Handle auth token relay from webview
             if (requestData.type === 'token:update' && requestData.token) {
               window.electronAPI.setAuthToken?.(requestData.token)
-              return
             }
 
-            try {
-              const response = await window.electronAPI[requestData.type]?.(requestData)
-              if (requestData._requestId) {
-                wv.send('desktop:response', {
-                  _responseId: requestData._requestId,
-                  data: response
-                })
-              }
-            } catch (e) {
-              console.error('webview:send handler error:', e)
+            // Never dispatch on a guest-supplied type; always reply so its send() promise settles.
+            if (requestData._requestId) {
+              wv.send('desktop:response', {
+                _responseId: requestData._requestId,
+                data: null
+              })
             }
           } else if (event.channel === 'webview:load') {
             const page = event.args?.[0]
