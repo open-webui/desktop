@@ -20,7 +20,7 @@ Your AI, right on your desktop. [Open WebUI](https://github.com/open-webui/open-
 | macOS (Intel) | [**Download .dmg**](https://github.com/open-webui/desktop/releases/latest/download/open-webui-x64.dmg) |
 | Windows x64 | [**Download .exe**](https://github.com/open-webui/desktop/releases/latest/download/open-webui-x64-setup.exe) |
 | Windows ARM64 | [**Download .exe**](https://github.com/open-webui/desktop/releases/latest/download/open-webui-arm64-setup.exe) |
-| Linux x64 (AppImage) | [**Download .AppImage**](https://github.com/open-webui/desktop/releases/latest/download/open-webui_x64.AppImage) |
+| Linux x64 (AppImage) | [**Download .AppImage**](https://github.com/open-webui/desktop/releases/latest/download/open-webui_x86_64.AppImage) |
 | Linux x64 (Debian/Ubuntu) | [**Download .deb**](https://github.com/open-webui/desktop/releases/latest/download/open-webui_amd64.deb) |
 | Linux x64 (Snap) | [**Download .snap**](https://github.com/open-webui/desktop/releases/latest/download/open-webui_amd64.snap) |
 | Linux x64 (Flatpak) | [**Download .flatpak**](https://github.com/open-webui/desktop/releases/latest/download/open-webui.flatpak) |
