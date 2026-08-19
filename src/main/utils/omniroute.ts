@@ -1,6 +1,7 @@
 import { spawn, type ChildProcess } from 'child_process'
 import { constants } from 'fs'
 import { access } from 'fs/promises'
+import http from 'http'
 import net from 'net'
 import { join } from 'path'
 
@@ -9,7 +10,8 @@ import log from 'electron-log'
 const OMNIROUTE_HOST = '127.0.0.1'
 const OMNIROUTE_PORT = 20128
 const CONNECT_TIMEOUT_MS = 500
-const READINESS_TIMEOUT_MS = 90_000
+const HTTP_READINESS_REQUEST_TIMEOUT_MS = 2_000
+const READINESS_TIMEOUT_MS = 120_000
 const READINESS_POLL_INTERVAL_MS = 250
 
 const delay = (durationMs: number): Promise<void> =>
@@ -49,6 +51,37 @@ export const isOmniRouteRunning = (timeoutMs = CONNECT_TIMEOUT_MS): Promise<bool
   })
 }
 
+const isOmniRouteReady = (timeoutMs = HTTP_READINESS_REQUEST_TIMEOUT_MS): Promise<boolean> => {
+  return new Promise((resolve) => {
+    let settled = false
+
+    const request = http.get(
+      {
+        host: OMNIROUTE_HOST,
+        port: OMNIROUTE_PORT,
+        path: '/v1/models',
+        headers: { accept: 'application/json' }
+      },
+      (response) => {
+        response.resume()
+        finish(response.statusCode !== undefined && response.statusCode < 500)
+      }
+    )
+
+    const finish = (isReady: boolean): void => {
+      if (settled) return
+      settled = true
+      request.removeAllListeners()
+      request.destroy()
+      resolve(isReady)
+    }
+
+    request.setTimeout(timeoutMs)
+    request.once('error', () => finish(false))
+    request.once('timeout', () => finish(false))
+  })
+}
+
 export const startOmniRoute = async (): Promise<ChildProcess> => {
   const { nodePath, entryPointPath } = getOmniRoutePaths()
 
@@ -76,7 +109,7 @@ const waitForOmniRoute = async (child: ChildProcess): Promise<boolean> => {
   const deadline = Date.now() + READINESS_TIMEOUT_MS
 
   while (Date.now() < deadline) {
-    if (await isOmniRouteRunning()) return true
+    if (await isOmniRouteReady()) return true
 
     if (child.exitCode !== null || child.signalCode !== null) {
       const exitReason =
@@ -87,7 +120,7 @@ const waitForOmniRoute = async (child: ChildProcess): Promise<boolean> => {
     await delay(READINESS_POLL_INTERVAL_MS)
   }
 
-  return isOmniRouteRunning()
+  return isOmniRouteReady()
 }
 
 export const ensureOmniRouteRunning = async (): Promise<void> => {
@@ -95,7 +128,7 @@ export const ensureOmniRouteRunning = async (): Promise<void> => {
 
   try {
     if (await isOmniRouteRunning()) {
-      log.info(`OmniRoute already running on port ${OMNIROUTE_PORT}`)
+      log.info(`OmniRoute already running or starting on port ${OMNIROUTE_PORT}`)
       return
     }
 
