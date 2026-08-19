@@ -82,6 +82,8 @@ import {
   getRepoFiles
 } from './utils/huggingface'
 
+import { ensureOmniRouteRunning } from './utils/omniroute'
+
 import { initUpdater, checkForUpdates, downloadUpdate, installUpdate } from './updater'
 
 import log from 'electron-log'
@@ -1206,6 +1208,10 @@ if (!gotTheLock) {
       app.dock.setIcon(icon)
     }
     electronApp.setAppUserModelId('com.openwebui.desktop')
+
+    if (CONFIG.omniRoute?.enabled) {
+      await ensureOmniRouteRunning()
+    }
 
     // ─── GPU Process Crash Recovery ──────────────────
     // If the GPU process exits fatally (e.g. sandbox init failure on

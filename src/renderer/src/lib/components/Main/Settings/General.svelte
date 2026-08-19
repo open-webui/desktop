@@ -6,6 +6,7 @@
 
   let launchAtLogin = $state(false)
   let runInBackground = $state(true)
+  let omniRouteEnabled = $state(false)
   let resetting = $state(false)
   let theme = $state<string>('system')
   let advancedOpen = $state(false)
@@ -23,6 +24,7 @@
     launchAtLogin = await window.electronAPI.getLaunchAtLogin()
     const cfg = await window.electronAPI.getConfig()
     runInBackground = cfg?.runInBackground ?? true
+    omniRouteEnabled = cfg?.omniRoute?.enabled ?? false
     const vars = cfg?.envVars ?? {}
     envEntries = Object.entries(vars).map(([key, value]) => ({ key, value: value as string }))
     theme = cfg?.theme ?? 'system'
@@ -411,6 +413,22 @@
       onchange={async (value) => {
         runInBackground = value
         await window.electronAPI.setConfig({ runInBackground })
+        config.set(await window.electronAPI.getConfig())
+      }}
+    />
+  </div>
+
+  <div class="py-4 flex items-center justify-between">
+    <div>
+      <div class="text-[13px] opacity-70">{$i18n.t('settings.general.omniRouteAutostart')}</div>
+      <div class="text-[11px] opacity-25 mt-0.5">{$i18n.t('settings.general.omniRouteAutostartDesc')}</div>
+    </div>
+    <Switch
+      checked={omniRouteEnabled}
+      label={$i18n.t('settings.general.toggleOmniRouteAutostart')}
+      onchange={async (value) => {
+        omniRouteEnabled = value
+        await window.electronAPI.setConfig({ omniRoute: { enabled: value } })
         config.set(await window.electronAPI.getConfig())
       }}
     />

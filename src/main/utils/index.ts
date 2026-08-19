@@ -835,6 +835,9 @@ export interface AppConfig {
     variant: string
     extraArgs: string[]
   }
+  omniRoute: {
+    enabled: boolean
+  }
   envVars: Record<string, string>
   showSidebar: boolean
   spotlightPosition: { x: number; y: number } | null
@@ -871,6 +874,9 @@ const DEFAULT_CONFIG: AppConfig = {
     version: 'latest',
     variant: 'cpu',
     extraArgs: []
+  },
+  omniRoute: {
+    enabled: false
   },
   envVars: {},
   showSidebar: false,
