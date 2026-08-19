@@ -1210,7 +1210,7 @@ if (!gotTheLock) {
     electronApp.setAppUserModelId('com.openwebui.desktop')
 
     if (CONFIG.omniRoute?.enabled) {
-      await ensureOmniRouteRunning()
+      void ensureOmniRouteRunning()
     }
 
     // ─── GPU Process Crash Recovery ──────────────────

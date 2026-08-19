@@ -9,7 +9,7 @@ import log from 'electron-log'
 const OMNIROUTE_HOST = '127.0.0.1'
 const OMNIROUTE_PORT = 20128
 const CONNECT_TIMEOUT_MS = 500
-const READINESS_TIMEOUT_MS = 10_000
+const READINESS_TIMEOUT_MS = 90_000
 const READINESS_POLL_INTERVAL_MS = 250
 
 const delay = (durationMs: number): Promise<void> =>
