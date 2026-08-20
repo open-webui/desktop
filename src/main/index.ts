@@ -82,7 +82,7 @@ import {
   getRepoFiles
 } from './utils/huggingface'
 
-import { ensureOmniRouteRunning } from './utils/omniroute'
+import { destroyOmniRouteTray, ensureOmniRouteRunning } from './utils/omniroute'
 
 import { initUpdater, checkForUpdates, downloadUpdate, installUpdate } from './updater'
 
@@ -2222,6 +2222,7 @@ if (!gotTheLock) {
 
   app.on('before-quit', async () => {
     isQuiting = true
+    destroyOmniRouteTray()
     await stopLlamaCpp()
     await stopOpenTerminal()
     await stopServerHandler()

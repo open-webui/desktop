@@ -5,6 +5,7 @@ import http from 'http'
 import net from 'net'
 import { join } from 'path'
 
+import { Menu, nativeImage, shell, Tray } from 'electron'
 import log from 'electron-log'
 
 const OMNIROUTE_HOST = '127.0.0.1'
@@ -13,11 +14,24 @@ const CONNECT_TIMEOUT_MS = 500
 const HTTP_READINESS_REQUEST_TIMEOUT_MS = 2_000
 const READINESS_TIMEOUT_MS = 120_000
 const READINESS_POLL_INTERVAL_MS = 250
+const OMNIROUTE_DASHBOARD_URL = `http://${OMNIROUTE_HOST}:${OMNIROUTE_PORT}`
+
+let omniRouteTray: Tray | null = null
+let canCreateOmniRouteTray = true
+
+const removeOmniRouteTray = (): void => {
+  omniRouteTray?.destroy()
+  omniRouteTray = null
+}
 
 const delay = (durationMs: number): Promise<void> =>
   new Promise((resolve) => setTimeout(resolve, durationMs))
 
-const getOmniRoutePaths = (): { nodePath: string; entryPointPath: string } => {
+const getOmniRoutePaths = (): {
+  nodePath: string
+  entryPointPath: string
+  trayIconPath: string
+} => {
   const programFilesPath = process.env.ProgramFiles
   const appDataPath = process.env.APPDATA
 
@@ -27,7 +41,86 @@ const getOmniRoutePaths = (): { nodePath: string; entryPointPath: string } => {
 
   return {
     nodePath: join(programFilesPath, 'nodejs', 'node.exe'),
-    entryPointPath: join(appDataPath, 'npm', 'node_modules', 'omniroute', 'bin', 'omniroute.mjs')
+    entryPointPath: join(appDataPath, 'npm', 'node_modules', 'omniroute', 'bin', 'omniroute.mjs'),
+    trayIconPath: join(
+      appDataPath,
+      'npm',
+      'node_modules',
+      'omniroute',
+      'bin',
+      'cli',
+      'tray',
+      'icon.png'
+    )
+  }
+}
+
+const createOmniRouteTray = (): void => {
+  if (!canCreateOmniRouteTray || omniRouteTray) return
+
+  try {
+    const { trayIconPath } = getOmniRoutePaths()
+    const trayIcon = nativeImage.createFromPath(trayIconPath)
+
+    if (trayIcon.isEmpty()) {
+      log.warn(`OmniRoute tray icon was not found at ${trayIconPath}`)
+      return
+    }
+
+    omniRouteTray = new Tray(trayIcon.resize({ width: 16, height: 16 }))
+    omniRouteTray.setToolTip('OmniRoute')
+    omniRouteTray.setContextMenu(
+      Menu.buildFromTemplate([
+        {
+          label: 'Open OmniRoute Dashboard',
+          click: () => void shell.openExternal(OMNIROUTE_DASHBOARD_URL)
+        },
+        { type: 'separator' },
+        {
+          label: 'Stop OmniRoute',
+          click: () => void stopOmniRoute()
+        }
+      ])
+    )
+    omniRouteTray.on('click', () => void shell.openExternal(OMNIROUTE_DASHBOARD_URL))
+    log.info('OmniRoute tray icon created')
+  } catch (error) {
+    log.error('Failed to create OmniRoute tray icon:', error)
+  }
+}
+
+export const destroyOmniRouteTray = (): void => {
+  canCreateOmniRouteTray = false
+  removeOmniRouteTray()
+}
+
+export const stopOmniRoute = async (): Promise<void> => {
+  try {
+    const { nodePath, entryPointPath } = getOmniRoutePaths()
+    await Promise.all([access(nodePath, constants.F_OK), access(entryPointPath, constants.F_OK)])
+
+    await new Promise<void>((resolve, reject) => {
+      const child = spawn(nodePath, [entryPointPath, 'stop'], {
+        detached: false,
+        shell: false,
+        windowsHide: true,
+        stdio: 'ignore'
+      })
+
+      child.once('error', reject)
+      child.once('exit', (code) => {
+        if (code === 0) {
+          resolve()
+        } else {
+          reject(new Error(`OmniRoute stop command exited with code ${code ?? 'unknown'}`))
+        }
+      })
+    })
+
+    removeOmniRouteTray()
+    log.info('OmniRoute stopped')
+  } catch (error) {
+    log.error('Failed to stop OmniRoute:', error)
   }
 }
 
@@ -55,6 +148,12 @@ const isOmniRouteReady = (timeoutMs = HTTP_READINESS_REQUEST_TIMEOUT_MS): Promis
   return new Promise((resolve) => {
     let settled = false
 
+    const finish = (isReady: boolean): void => {
+      if (settled) return
+      settled = true
+      resolve(isReady)
+    }
+
     const request = http.get(
       {
         host: OMNIROUTE_HOST,
@@ -63,22 +162,19 @@ const isOmniRouteReady = (timeoutMs = HTTP_READINESS_REQUEST_TIMEOUT_MS): Promis
         headers: { accept: 'application/json' }
       },
       (response) => {
+        request.setTimeout(0)
+        response.on('error', () => finish(false))
         response.resume()
         finish(response.statusCode !== undefined && response.statusCode < 500)
       }
     )
 
-    const finish = (isReady: boolean): void => {
-      if (settled) return
-      settled = true
-      request.removeAllListeners()
-      request.destroy()
-      resolve(isReady)
-    }
-
     request.setTimeout(timeoutMs)
-    request.once('error', () => finish(false))
-    request.once('timeout', () => finish(false))
+    request.on('error', () => finish(false))
+    request.once('timeout', () => {
+      request.destroy()
+      finish(false)
+    })
   })
 }
 
@@ -88,12 +184,16 @@ export const startOmniRoute = async (): Promise<ChildProcess> => {
   await Promise.all([access(nodePath, constants.F_OK), access(entryPointPath, constants.F_OK)])
 
   return new Promise((resolve, reject) => {
-    const child = spawn(nodePath, [entryPointPath, 'serve', '--no-open', '--tray'], {
-      detached: true,
-      shell: false,
-      windowsHide: true,
-      stdio: 'ignore'
-    })
+    const child = spawn(
+      nodePath,
+      [entryPointPath, 'serve', '--no-open', '--max-restarts', '0'],
+      {
+        detached: false,
+        shell: false,
+        windowsHide: true,
+        stdio: 'ignore'
+      }
+    )
 
     child.once('error', reject)
     child.once('spawn', () => {
@@ -129,6 +229,7 @@ export const ensureOmniRouteRunning = async (): Promise<void> => {
   try {
     if (await isOmniRouteRunning()) {
       log.info(`OmniRoute already running or starting on port ${OMNIROUTE_PORT}`)
+      createOmniRouteTray()
       return
     }
 
@@ -137,6 +238,7 @@ export const ensureOmniRouteRunning = async (): Promise<void> => {
 
     if (await waitForOmniRoute(child)) {
       log.info('OmniRoute is ready')
+      createOmniRouteTray()
     } else {
       log.error(
         `Failed to start OmniRoute: not reachable on ${OMNIROUTE_HOST}:${OMNIROUTE_PORT} ` +
