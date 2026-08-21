@@ -82,7 +82,7 @@ import {
   getRepoFiles
 } from './utils/huggingface'
 
-import { destroyOmniRouteTray, ensureOmniRouteRunning } from './utils/omniroute'
+import { initializeManagedServices } from './services'
 
 import { initUpdater, checkForUpdates, downloadUpdate, installUpdate } from './updater'
 
@@ -1209,9 +1209,7 @@ if (!gotTheLock) {
     }
     electronApp.setAppUserModelId('com.openwebui.desktop')
 
-    if (CONFIG.omniRoute?.enabled) {
-      void ensureOmniRouteRunning()
-    }
+    void initializeManagedServices()
 
     // ─── GPU Process Crash Recovery ──────────────────
     // If the GPU process exits fatally (e.g. sandbox init failure on
@@ -2222,7 +2220,6 @@ if (!gotTheLock) {
 
   app.on('before-quit', async () => {
     isQuiting = true
-    destroyOmniRouteTray()
     await stopLlamaCpp()
     await stopOpenTerminal()
     await stopServerHandler()

@@ -1,5 +1,6 @@
 import { ipcRenderer, contextBridge } from 'electron'
 import { electronAPI } from '@electron-toolkit/preload'
+import { managedServicesApi } from './services'
 
 // ─── PTY MessagePort ────────────────────────────────────
 // MessagePorts stay in the preload (cannot cross contextBridge).
@@ -73,6 +74,7 @@ const api = {
   // Config
   getConfig: () => ipcRenderer.invoke('get:config'),
   setConfig: (config: Record<string, any>) => ipcRenderer.invoke('set:config', config),
+  ...managedServicesApi,
 
   // Python/uv
   installPython: () => ipcRenderer.invoke('install:python'),

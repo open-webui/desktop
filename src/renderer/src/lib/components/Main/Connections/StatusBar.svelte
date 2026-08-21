@@ -3,6 +3,7 @@
   import i18n from '../../../i18n'
   import { tooltip } from '../../../actions/tooltip'
   import { appInfo } from '../../../stores'
+  import ManagedServicesStatus from '../../../services/ManagedServicesStatus.svelte'
   import trayIcon from '../../../../../../../resources/tray.png'
 
   interface Props {
@@ -175,6 +176,8 @@
     <span>{$i18n.t('sidebar.llamaCpp')}</span>
   </button>
   {/if}
+
+  <ManagedServicesStatus />
 
   <!-- Version (right-aligned) -->
   <span class="ml-auto text-[10px] opacity-25 select-none">v{$appInfo?.version ?? ''}</span>
