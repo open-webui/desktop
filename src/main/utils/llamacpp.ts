@@ -165,6 +165,8 @@ const getAssetPattern = (tag: string, variant: string): { pattern: string; isZip
       cpu: `llama-${tag}-bin-win-cpu-${archStr}.zip`,
       'cuda-12.4': `llama-${tag}-bin-win-cuda-12.4-x64.zip`,
       'cuda-13.1': `llama-${tag}-bin-win-cuda-13.1-x64.zip`,
+      'cuda-13.3': `llama-${tag}-bin-win-cuda-13.3-x64.zip`,   // new
+      'cuda-13.4': `llama-${tag}-bin-win-cuda-13.4-x64.zip`,   // new
       vulkan: `llama-${tag}-bin-win-vulkan-x64.zip`
     }
     const name = variantMap[variant] ?? variantMap.cpu
