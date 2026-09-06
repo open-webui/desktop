@@ -1,4 +1,5 @@
 import assert from 'node:assert/strict'
+import path from 'node:path'
 import { test } from 'node:test'
 import {
   assertSafeRepo,
@@ -24,7 +25,7 @@ test('assertSafeFilename is GGUF-only and rejects traversal', () => {
 
 test('confinedModelPath stays under the cache root', () => {
   const dest = confinedModelPath('/tmp/models', 'org/name', 'w.gguf')
-  assert.equal(dest, '/tmp/models/org--name/w.gguf')
+  assert.equal(dest, path.resolve('/tmp/models', 'org--name', 'w.gguf'))
   assert.equal(repoSlug('org/name'), 'org--name')
 })
 

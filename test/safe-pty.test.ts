@@ -41,12 +41,37 @@ test('safePtyWrite swallows throws after exit', () => {
   assert.equal(safePtyWrite(fake, 'x'), false)
 })
 
+function spawnExitingPty() {
+  // cmd.exe is the authentic Windows conpty path (#255). Linux/mac use sh.
+  if (process.platform === 'win32') {
+    return pty.spawn(process.env.ComSpec || 'cmd.exe', ['/d', '/s', '/c', 'exit 0'], {
+      name: 'xterm',
+      cols: 80,
+      rows: 24
+    })
+  }
+  return pty.spawn('sh', ['-c', 'exit 0'], { name: 'xterm', cols: 80, rows: 24 })
+}
+
 test('live node-pty: resize after exit does not throw out of the helper', async () => {
-  const child = pty.spawn('sh', ['-c', 'exit 0'], { name: 'xterm', cols: 80, rows: 24 })
-  await new Promise<void>((resolve) => {
-    child.onExit(() => resolve())
-  })
-  assert.doesNotThrow(() => safePtyResize(child, 100, 30))
-  assert.equal(safePtyResize(child, 100, 30), false)
-  assert.doesNotThrow(() => safePtyWrite(child, 'x'))
+  const child = spawnExitingPty()
+  try {
+    await new Promise<void>((resolve, reject) => {
+      const timer = setTimeout(() => reject(new Error('PTY did not exit')), 10_000)
+      child.onExit(() => {
+        clearTimeout(timer)
+        resolve()
+      })
+    })
+    assert.doesNotThrow(() => safePtyResize(child, 100, 30))
+    assert.equal(safePtyResize(child, 100, 30), false)
+    assert.doesNotThrow(() => safePtyWrite(child, 'x'))
+  } finally {
+    try {
+      child.kill()
+    } catch {
+      // Windows conpty can throw here after exit; the agent must still be torn down
+      // so node:test can leave the event loop.
+    }
+  }
 })
