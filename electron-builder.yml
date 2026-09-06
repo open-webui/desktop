@@ -16,6 +16,16 @@ extraResources:
 asarUnpack:
   - resources/**
   - node_modules/node-pty/**
+# Flip Chromium/Electron security fuses at pack time. runAsNode off blocks
+# ELECTRON_RUN_AS_NODE=1 (the app does not use process.fork). ASAR integrity
+# is macOS + Windows; Linux still gets the other fuses.
+electronFuses:
+  runAsNode: false
+  enableNodeOptionsEnvironmentVariable: false
+  enableNodeCliInspectArguments: false
+  enableEmbeddedAsarIntegrityValidation: true
+  onlyLoadAppFromAsar: true
+  grantFileProtocolExtraPrivileges: false
 win:
   executableName: open-webui
 nsis:

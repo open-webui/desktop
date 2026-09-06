@@ -43,6 +43,6 @@ if (process.contextIsolated) {
     console.error(error)
   }
 } else {
-  // @ts-ignore
+  // @ts-ignore -- window.voiceInputAPI is not on the DOM lib
   window.voiceInputAPI = api
 }

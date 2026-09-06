@@ -1,4 +1,3 @@
-// @ts-nocheck
 
 /**
  * ServiceLock — reusable singleton lock for managed child processes.
@@ -10,8 +9,14 @@
  * Usage:
  *   const lock = new ServiceLock('my-service')
  *   if (!lock.acquire()) return existingResult
- *   try { ... } catch { lock.release() }
- *   // release in stop(), not in start()
+ *   try {
+ *     await stop({ retainLock: true })
+ *     // spawn...
+ *   } catch {
+ *     lock.release()
+ *     throw
+ *   }
+ *   // release in stop() / onExit, not after a successful start
  */
 
 import log from 'electron-log'

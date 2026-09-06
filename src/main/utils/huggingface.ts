@@ -1,4 +1,3 @@
-// @ts-nocheck
 
 /**
  * Reusable Hugging Face utility module.
@@ -12,7 +11,18 @@ import * as fs from 'fs'
 import * as path from 'path'
 import log from 'electron-log'
 
-import { getInstallDir, downloadFileWithProgress } from './index'
+import { getInstallDir } from './index'
+import {
+  confinedModelPath,
+  huggingfaceDownloadUrl,
+  huggingfaceRepoApiUrl,
+  assertSafeFilename
+} from './hf-paths'
+import {
+  parseHfLfsSha256,
+  fileMatchesSha256,
+  downloadAndVerifySha256
+} from './artifact-integrity'
 
 // ─── Types ──────────────────────────────────────────────
 
@@ -22,6 +32,7 @@ export interface HfModel {
   filepath: string
   size: number        // bytes
   downloadedAt: string // ISO date
+  sha256?: string
 }
 
 export interface HfDownloadProgress {
@@ -66,8 +77,6 @@ const getHfCacheDir = (): string => {
 
   return dir
 }
-
-const repoSlug = (repo: string): string => repo.replace(/\//g, '--')
 
 const getManifestPath = (): string => path.join(getHfCacheDir(), 'manifest.json')
 
@@ -148,98 +157,71 @@ export const downloadModel = async (
   filename: string,
   onProgress?: (progress: HfDownloadProgress) => void,
   token?: string,
-  expectedSize?: number
+  _expectedSize?: number
 ): Promise<string> => {
-  const slug = repoSlug(repo)
-  const repoDir = path.join(getHfCacheDir(), slug)
+  const destPath = confinedModelPath(getHfCacheDir(), repo, filename)
+  const repoDir = path.dirname(destPath)
   if (!fs.existsSync(repoDir)) {
     fs.mkdirSync(repoDir, { recursive: true })
   }
 
-  const destPath = path.join(repoDir, filename)
+  const expectedSha256 = await fetchHfGgufSha256(repo, filename, token)
 
-  // Already downloaded?
   if (fs.existsSync(destPath)) {
-    log.info(`[huggingface] Already cached: ${destPath}`)
-    return destPath
+    if (fileMatchesSha256(destPath, expectedSha256)) {
+      log.info(`[huggingface] Using verified cache: ${repo}/${filename}`)
+      recordManifest(repo, filename, destPath, expectedSha256)
+      return destPath
+    }
+    log.warn(`[huggingface] Cached GGUF failed SHA-256; re-downloading ${repo}/${filename}`)
+    try {
+      fs.unlinkSync(destPath)
+    } catch {
+      /* ignore */
+    }
   }
 
-  // Build download URL
-  const downloadUrl = `https://huggingface.co/${repo}/resolve/main/${encodeURIComponent(filename)}`
-
+  const downloadUrl = huggingfaceDownloadUrl(repo, filename)
   log.info(`[huggingface] Downloading ${repo}/${filename}`)
-  log.info(`[huggingface] URL: ${downloadUrl}`)
 
-  // Download with progress
   const headers: Record<string, string> = {}
   if (token) {
     headers['Authorization'] = `Bearer ${token}`
   }
 
   const key = downloadKey(repo, filename)
-  // Cancel any existing download for the same file
   activeDownloads.get(key)?.abort()
 
   const abortController = new AbortController()
   activeDownloads.set(key, abortController)
-  const { signal } = abortController
-
-  // Use fetch for streaming download with progress
-  const response = await fetch(downloadUrl, {
-    headers,
-    redirect: 'follow',
-    signal
-  })
-
-  if (!response.ok) {
-    throw new Error(
-      `Failed to download ${repo}/${filename}: ${response.status} ${response.statusText}`
-    )
-  }
-
-  const contentLength = parseInt(response.headers.get('content-length') ?? '0', 10)
-  const totalBytes = contentLength || expectedSize || 0
-  const reader = response.body?.getReader()
-  if (!reader) {
-    throw new Error('Response body is not readable')
-  }
-
-  const tmpPath = destPath + '.tmp'
-  const writeStream = fs.createWriteStream(tmpPath)
-  let downloadedBytes = 0
 
   try {
-    while (true) {
-      const { done, value } = await reader.read()
-      if (done) break
-
-      writeStream.write(Buffer.from(value))
-      downloadedBytes += value.byteLength
-
-      if (onProgress && totalBytes > 0) {
-        onProgress({
-          percent: (downloadedBytes / totalBytes) * 100,
-          downloadedBytes,
-          totalBytes
-        })
-      }
-    }
-  } catch (err) {
-    writeStream.end()
-    // Clean up partial download
-    try { fs.unlinkSync(tmpPath) } catch {}
-    activeDownloads.delete(downloadKey(repo, filename))
-    throw err
+    await downloadAndVerifySha256(
+      downloadUrl,
+      destPath,
+      expectedSha256,
+      onProgress
+        ? (percent, downloadedBytes, totalBytes) => {
+            onProgress({ percent, downloadedBytes, totalBytes })
+          }
+        : undefined,
+      { headers, signal: abortController.signal }
+    )
   } finally {
-    writeStream.end()
-    await new Promise((resolve) => writeStream.on('finish', resolve))
+    activeDownloads.delete(key)
   }
 
-  // Rename tmp to final
-  fs.renameSync(tmpPath, destPath)
-  activeDownloads.delete(downloadKey(repo, filename))
+  const entry = recordManifest(repo, filename, destPath, expectedSha256)
+  log.info(`[huggingface] Downloaded and verified: ${repo}/${filename} (${entry.size} bytes)`)
+  return destPath
+}
 
-  // Update manifest
+const recordManifest = (
+  repo: string,
+  filename: string,
+  destPath: string,
+  sha256: string
+): HfModel => {
   const manifest = readManifest()
   const existing = manifest.findIndex((m) => m.repo === repo && m.filename === filename)
   const entry: HfModel = {
@@ -247,7 +229,8 @@ export const downloadModel = async (
     filename,
     filepath: destPath,
     size: fs.statSync(destPath).size,
-    downloadedAt: new Date().toISOString()
+    downloadedAt: new Date().toISOString(),
+    sha256
   }
   if (existing >= 0) {
     manifest[existing] = entry
@@ -255,17 +238,14 @@ export const downloadModel = async (
     manifest.push(entry)
   }
   writeManifest(manifest)
-
-  log.info(`[huggingface] Downloaded: ${destPath} (${entry.size} bytes)`)
-  return destPath
+  return entry
 }
 
 /**
  * Delete a downloaded model.
  */
 export const deleteModel = (repo: string, filename: string): boolean => {
-  const slug = repoSlug(repo)
-  const filepath = path.join(getHfCacheDir(), slug, filename)
+  const filepath = confinedModelPath(getHfCacheDir(), repo, filename)
 
   try {
     if (fs.existsSync(filepath)) {
@@ -282,7 +262,7 @@ export const deleteModel = (repo: string, filename: string): boolean => {
   writeManifest(updated)
 
   // Clean up empty repo dir
-  const repoDir = path.join(getHfCacheDir(), slug)
+  const repoDir = path.dirname(filepath)
   try {
     const remaining = fs.readdirSync(repoDir)
     if (remaining.length === 0) {
@@ -317,6 +297,7 @@ export interface HfRepoResult {
 export interface HfFileInfo {
   filename: string
   size: number          // bytes
+  sha256?: string
   lfs?: { size: number }
 }
 
@@ -365,7 +346,7 @@ export const getRepoFiles = async (
   const headers: Record<string, string> = { Accept: 'application/json' }
   if (token) headers['Authorization'] = `Bearer ${token}`
 
-  const response = await fetch(`https://huggingface.co/api/models/${repo}`, { headers })
+  const response = await fetch(huggingfaceRepoApiUrl(repo), { headers })
   if (!response.ok) {
     throw new Error(`Failed to fetch repo info: ${response.status} ${response.statusText}`)
   }
@@ -373,13 +354,40 @@ export const getRepoFiles = async (
   const data = await response.json()
   const siblings = data.siblings ?? []
 
-  // Filter to only GGUF files
   return siblings
-    .filter((f: any) => f.rfilename?.endsWith('.gguf'))
-    .map((f: any) => ({
-      filename: f.rfilename,
-      size: f.lfs?.size ?? f.size ?? 0
-    }))
+    .filter((f: { rfilename?: string }) => f.rfilename?.endsWith('.gguf'))
+    .map((f: { rfilename: string; size?: number; lfs?: { size?: number; sha256?: string } }) => {
+      let sha256: string | undefined
+      try {
+        sha256 = parseHfLfsSha256(f.lfs)
+      } catch {
+        sha256 = undefined
+      }
+      return {
+        filename: f.rfilename,
+        size: f.lfs?.size ?? f.size ?? 0,
+        sha256,
+        lfs: f.lfs?.size != null ? { size: f.lfs.size } : undefined
+      }
+    })
     .sort((a: HfFileInfo, b: HfFileInfo) => a.size - b.size)
+}
+
+/**
+ * Resolve the GGUF content SHA-256 from the Hub. Fail closed if the file is
+ * missing or has no LFS sha256 — git blob ids are not a content hash.
+ */
+export const fetchHfGgufSha256 = async (
+  repo: string,
+  filename: string,
+  token?: string
+): Promise<string> => {
+  const safeFile = assertSafeFilename(filename)
+  const files = await getRepoFiles(repo, token)
+  const match = files.find((f) => f.filename === safeFile)
+  if (!match?.sha256) {
+    throw new Error(`Hugging Face file is missing LFS SHA-256: ${repo}/${safeFile}`)
+  }
+  return match.sha256
 }
 

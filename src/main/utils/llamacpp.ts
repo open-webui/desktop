@@ -1,4 +1,3 @@
-// @ts-nocheck
 
 import * as fs from 'fs'
 import * as path from 'path'
@@ -15,6 +14,14 @@ import {
   portInUse,
   downloadFileWithProgress
 } from './index'
+import { parseGithubDigest, fileMatchesSha256, assertSha256 } from './artifact-integrity'
+import { sanitizeChildEnv, sanitizeLlamaExtraArgs } from './child-env'
+import { errorMessage } from './error-message'
+import {
+  pickLatestLlamaCppRelease,
+  type GithubRelease,
+  type GithubReleaseAsset
+} from './llama-release'
 
 import { getModelsDir } from './huggingface'
 import { ServiceLock, isProcessAlive } from './service-lock'
@@ -71,9 +78,32 @@ export const getLlamaCppLog = (): string[] => logBuffer
 
 // ─── Asset Resolution ───────────────────────────────────
 
-interface ReleaseAsset {
-  name: string
-  browser_download_url: string
+type ReleaseAsset = GithubReleaseAsset
+
+const LLAMA_RELEASES_API = 'https://api.github.com/repos/ggml-org/llama.cpp/releases'
+
+async function githubJson(url: string, timeoutMs = 10000): Promise<unknown> {
+  const response = await fetch(url, {
+    headers: { Accept: 'application/vnd.github.v3+json' },
+    signal: AbortSignal.timeout(timeoutMs)
+  })
+  if (!response.ok) {
+    throw new Error(`GitHub API returned ${response.status}: ${response.statusText}`)
+  }
+  return response.json()
+}
+
+async function fetchLlamaCppRelease(version: string): Promise<GithubRelease> {
+  if (version !== 'latest') {
+    return (await githubJson(
+      `${LLAMA_RELEASES_API}/tags/${encodeURIComponent(version)}`
+    )) as GithubRelease
+  }
+  const releases = (await githubJson(`${LLAMA_RELEASES_API}?per_page=30`)) as GithubRelease[]
+  if (!Array.isArray(releases)) {
+    throw new Error('GitHub releases response was not a list')
+  }
+  return pickLatestLlamaCppRelease(releases)
 }
 
 /**
@@ -255,21 +285,9 @@ export const setupLlamaCpp = async (
   }
 
   onStatus?.('Fetching release info…')
-  const apiUrl =
-    version === 'latest'
-      ? 'https://api.github.com/repos/ggml-org/llama.cpp/releases/latest'
-      : `https://api.github.com/repos/ggml-org/llama.cpp/releases/tags/${version}`
-
-  let releaseData: any
+  let releaseData: GithubRelease
   try {
-    const response = await fetch(apiUrl, {
-      headers: { Accept: 'application/vnd.github.v3+json' },
-      signal: AbortSignal.timeout(10000)
-    })
-    if (!response.ok) {
-      throw new Error(`GitHub API returned ${response.status}: ${response.statusText}`)
-    }
-    releaseData = await response.json()
+    releaseData = await fetchLlamaCppRelease(version)
   } catch (error) {
     // Network unavailable — fall back to cached binary if we found one
     if (binaryPath) {
@@ -280,7 +298,7 @@ export const setupLlamaCpp = async (
     throw new Error(
       `Failed to fetch release info (no internet?) and no cached llama.cpp binary found. ` +
       `Please connect to the internet for the initial llama.cpp installation. ` +
-      `Original error: ${error?.message ?? error}`
+      `Original error: ${errorMessage(error)}`
     )
   }
 
@@ -308,31 +326,51 @@ export const setupLlamaCpp = async (
     )
   }
 
-  log.info(`Downloading asset: ${asset.name}`)
+  const sha256 = parseGithubDigest(asset.digest)
+  log.info(`Downloading asset: ${asset.name} (sha256 ${sha256})`)
   onStatus?.(`Downloading ${asset.name}…`)
 
   const downloadPath = path.join(versionDir, asset.name)
-  if (!fs.existsSync(downloadPath)) {
-    await downloadFileWithProgress(asset.browser_download_url, downloadPath, (progress) => {
-      onStatus?.(`Downloading… ${progress.toFixed(0)}%`)
-    })
+  if (!fs.existsSync(downloadPath) || !fileMatchesSha256(downloadPath, sha256)) {
+    if (fs.existsSync(downloadPath)) {
+      log.warn(`Cached llama.cpp archive failed checksum; re-downloading: ${downloadPath}`)
+      try {
+        fs.unlinkSync(downloadPath)
+      } catch {}
+    }
+    await downloadFileWithProgress(
+      asset.browser_download_url,
+      downloadPath,
+      (progress) => {
+        onStatus?.(`Downloading… ${progress.toFixed(0)}%`)
+      },
+      sha256
+    )
   }
 
+  assertSha256(downloadPath, sha256)
   onStatus?.('Extracting…')
   log.info(`Extracting ${downloadPath} to ${versionDir}`)
 
   if (isZip) {
     try {
       if (process.platform === 'win32') {
-        execFileSync('powershell', [
-          '-Command',
-          `Expand-Archive -Path "${downloadPath}" -DestinationPath "${versionDir}" -Force`
-        ])
+        execFileSync(
+          'powershell',
+          ['-NoProfile', '-Command', 'Expand-Archive -LiteralPath $env:OWUI_ZIP -DestinationPath $env:OWUI_DEST -Force'],
+          {
+            env: {
+              ...process.env,
+              OWUI_ZIP: downloadPath,
+              OWUI_DEST: versionDir
+            }
+          }
+        )
       } else {
         execFileSync('unzip', ['-o', downloadPath, '-d', versionDir])
       }
     } catch (error) {
-      throw new Error(`Failed to extract zip: ${error?.message ?? error}`)
+      throw new Error(`Failed to extract zip: ${errorMessage(error)}`)
     }
   } else {
     await tar.x({ cwd: versionDir, file: downloadPath })
@@ -366,16 +404,7 @@ export const checkLlamaCppUpdate = async (): Promise<{ currentVersion: string | 
   const currentInfo = getLlamaCppInfo()
 
   try {
-    const response = await fetch('https://api.github.com/repos/ggml-org/llama.cpp/releases/latest', {
-      headers: { Accept: 'application/vnd.github.v3+json' },
-      signal: AbortSignal.timeout(5000)
-    })
-    
-    if (!response.ok) {
-      throw new Error(`GitHub API returned ${response.status}: ${response.statusText}`)
-    }
-    
-    const releaseData = await response.json()
+    const releaseData = await fetchLlamaCppRelease('latest')
     const latestVersion = releaseData.tag_name
     const currentVersion = currentInfo.version
     
@@ -400,28 +429,19 @@ export const checkLlamaCppUpdate = async (): Promise<{ currentVersion: string | 
 
 export const updateLlamaCpp = async (
   onStatus?: (status: string) => void
-): Promise<{ url?: string; status?: string; pid?: number; binaryPath?: string; version?: string | null }> => {
+): Promise<ReturnType<typeof getLlamaCppInfo>> => {
   // 1. Verify network is available BEFORE destructive operations —
   //    don't delete the old binary if we can't download a replacement.
   onStatus?.('Checking for updates…')
   let releaseTag: string
   try {
-    const response = await fetch(
-      'https://api.github.com/repos/ggml-org/llama.cpp/releases/latest',
-      {
-        headers: { Accept: 'application/vnd.github.v3+json' },
-        signal: AbortSignal.timeout(10000)
-      }
-    )
-    if (!response.ok) {
-      throw new Error(`GitHub API returned ${response.status}: ${response.statusText}`)
-    }
-    const data = await response.json()
+    const data = await fetchLlamaCppRelease('latest')
     releaseTag = data.tag_name
+    log.info(`Updating llama.cpp from GitHub latest with binaries: ${releaseTag}`)
   } catch (error) {
     throw new Error(
       `Cannot update llama.cpp: unable to reach GitHub. ` +
-      `Please check your internet connection. (${error?.message ?? error})`
+      `Please check your internet connection. (${errorMessage(error)})`
     )
   }
 
@@ -459,10 +479,14 @@ export const startLlamaCpp = async (
   onStatus?: (status: string) => void
 ): Promise<{ url: string; pid: number }> => {
   if (!lock.acquire()) {
+    if (url == null || pid == null) {
+      throw new Error('llama-server start is already in progress')
+    }
     return { url, pid }
   }
 
-  await stopLlamaCpp()
+  try {
+    await stopLlamaCpp({ retainLock: true })
 
   status = 'setting-up'
   onStatus?.('Setting up llama.cpp…')
@@ -476,7 +500,7 @@ export const startLlamaCpp = async (
   const llamaConfig = config.llamaCpp ?? {}
   const host = '127.0.0.1'
 
-  let desiredPort = llamaConfig.port || 18881
+  const desiredPort = llamaConfig.port || 18881
   let availablePort = desiredPort
   while (await portInUse(availablePort, host)) {
     availablePort++
@@ -485,9 +509,18 @@ export const startLlamaCpp = async (
     }
   }
 
-  const extraArgs = llamaConfig.extraArgs ?? []
+  const extraArgs = sanitizeLlamaExtraArgs(llamaConfig.extraArgs)
   const modelsDir = getModelsDir()
-  const commandArgs = ['--host', host, '--port', availablePort.toString(), '--models-dir', modelsDir, ...extraArgs]
+  // Bind address, port, and models dir always win over extraArgs.
+  const commandArgs = [
+    ...extraArgs,
+    '--models-dir',
+    modelsDir,
+    '--host',
+    host,
+    '--port',
+    availablePort.toString()
+  ]
 
   log.info('Starting llama-server:', binary, commandArgs.join(' '))
 
@@ -497,14 +530,11 @@ export const startLlamaCpp = async (
       name: 'xterm-256color',
       cols: 200,
       rows: 50,
-      env: {
-        ...process.env,
-        ...(config.envVars ?? {})
-      }
+      env: sanitizeChildEnv(config.envVars ?? {})
     })
   } catch (error) {
     status = 'failed'
-    throw new Error(`Failed to spawn llama-server: ${error?.message ?? error}`)
+    throw new Error(`Failed to spawn llama-server: ${errorMessage(error)}`)
   }
 
   const spawnedPid = spawned.pid
@@ -521,10 +551,13 @@ export const startLlamaCpp = async (
     log.info(`[llamacpp:${spawnedPid}] Exited code=${exitCode} signal=${signal}`)
     const exitMsg = `\r\n[Process exited with code ${exitCode}${signal ? ` signal ${signal}` : ''}]\r\n`
     logBuffer.push(exitMsg)
-    ptyProcess = null
-    pid = null
-    url = null
-    status = 'stopped'
+    if (ptyProcess === spawned) {
+      ptyProcess = null
+      pid = null
+      url = null
+      status = 'stopped'
+      lock.release()
+    }
   })
 
   const serverUrl = `http://${host}:${availablePort}`
@@ -555,32 +588,39 @@ export const startLlamaCpp = async (
   status = 'started'
   log.info(`llama-server started — PID: ${spawnedPid}, URL: ${serverUrl}`)
 
-  return { url: serverUrl, pid: spawnedPid }
+    return { url: serverUrl, pid: spawnedPid }
+  } catch (error) {
+    lock.release()
+    throw error
+  }
 }
 
-export const stopLlamaCpp = async (): Promise<void> => {
-  if (ptyProcess) {
-    try {
-      ptyProcess.kill()
-    } catch (e) {
-      log.warn('Failed to kill llama-server PTY:', e)
-    }
-    await new Promise((r) => setTimeout(r, 2000))
-    if (pid) {
-      try {
-        process.kill(pid, 0)
-        process.kill(pid, 'SIGKILL')
-      } catch {
-        // already dead
-      }
-    }
-  }
+export const stopLlamaCpp = async (opts?: { retainLock?: boolean }): Promise<void> => {
+  const proc = ptyProcess
+  const procPid = pid
+  // Detach before kill so onExit does not release a lock start() is retaining.
   ptyProcess = null
   pid = null
   url = null
   status = null
   logBuffer = []
-  lock.release()
+  if (proc) {
+    try {
+      proc.kill()
+    } catch (e) {
+      log.warn('Failed to kill llama-server PTY:', e)
+    }
+    await new Promise((r) => setTimeout(r, 2000))
+    if (procPid) {
+      try {
+        process.kill(procPid, 0)
+        process.kill(procPid, 'SIGKILL')
+      } catch {
+        // already dead
+      }
+    }
+  }
+  if (!opts?.retainLock) lock.release()
 }
 
 /**

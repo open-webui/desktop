@@ -3,6 +3,11 @@
   import { fade, fly } from 'svelte/transition'
   import { config, serverInfo, appState } from '../../../stores'
   import i18n from '../../../i18n'
+  import {
+    handleGuestSend,
+    isGuestLoadPage,
+    isGuestThemeEvent
+  } from '../../../guest-protocol'
   import LocalInstall from '../../Setup/LocalInstall.svelte'
   import GetStartedModal from './GetStartedModal.svelte'
   import AddConnectionModal from './AddConnectionModal.svelte'
@@ -188,20 +193,19 @@
           wv.reload()
         }
 
-        // Handle IPC messages from the webview guest (Open WebUI → desktop)
+        // Handle IPC messages from the webview guest (Open WebUI → desktop).
+        // Guests are untrusted — only allowlisted types are handled.
         wv.addEventListener('ipc-message', async (event: any) => {
           if (event.channel === 'webview:send') {
             const requestData = event.args?.[0]
             if (!requestData) return
 
-            // Handle auth token relay from webview
-            if (requestData.type === 'token:update' && requestData.token) {
-              window.electronAPI.setAuthToken?.(requestData.token)
-              return
-            }
-
             try {
-              const response = await window.electronAPI[requestData.type]?.(requestData)
+              const response = await handleGuestSend(requestData, {
+                setAuthToken: (token) => window.electronAPI.setAuthToken?.(token),
+                getAppInfo: () => window.electronAPI.getAppInfo(),
+                isWindowFocused: () => window.electronAPI.isWindowFocused()
+              })
               if (requestData._requestId) {
                 wv.send('desktop:response', {
                   _responseId: requestData._requestId,
@@ -213,10 +217,11 @@
             }
           } else if (event.channel === 'webview:load') {
             const page = event.args?.[0]
-            if (page) onSetView(page === 'home' ? 'welcome' : page)
+            if (!isGuestLoadPage(page)) return
+            onSetView(page === 'home' ? 'welcome' : page)
           } else if (event.channel === 'webview:event') {
             const payload = event.args?.[0]
-            if (!payload?.type) return
+            if (!isGuestThemeEvent(payload?.type)) return
 
             if (payload.type === 'theme:update') {
               const webuiTheme = payload.data?.theme ?? 'system'
