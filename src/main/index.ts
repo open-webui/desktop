@@ -92,6 +92,7 @@ import {
   shellPageUrl
 } from './app-protocol'
 import { errorMessage } from './utils/error-message'
+import { safePtyResize, safePtyWrite } from './utils/safe-pty'
 import {
   isAccessCallbackUrl,
   loggableUrl,
@@ -1053,9 +1054,13 @@ const connectPtyPort = (pid?: number): void => {
     port1.on('message', (event) => {
       const msg = event.data
       if (msg.type === 'input') {
-        ptyProcess.write(msg.data)
+        if (!safePtyWrite(ptyProcess, msg.data)) {
+          log.warn('pty write ignored — process already exited')
+        }
       } else if (msg.type === 'resize') {
-        ptyProcess.resize(msg.cols, msg.rows)
+        if (!safePtyResize(ptyProcess, msg.cols, msg.rows)) {
+          log.warn('pty resize ignored — process already exited')
+        }
       }
     })
     port1.start()

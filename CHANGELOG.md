@@ -24,6 +24,7 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ### Fixed
 
+- PTY resize/write after the child has exited is ignored instead of throwing an uncaught main-process exception (`Cannot resize a pty that has already exited` on Windows; ioctl EBADF on Linux) (#255).
 - Cloudflare Access / SSO login stays in the app (auth popups share the guest session; after the Access callback the webview loads the connection URL). Chat links still open externally (#165).
 - Tray Quit actually exits (`will-quit` ends with `app.exit`).
 - Open WebUI guest no longer dies on `appData is not defined` (`app:data` returns `null`).
