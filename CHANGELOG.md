@@ -5,6 +5,36 @@ All notable changes to this project will be documented in this file.
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/),
 and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
+## [Unreleased]
+
+### Security
+
+- Guest `<webview>` `send()` is allowlisted (`token:update`, `app:info`, `app:data`, `window:isFocused`). The previous `electronAPI[type]` dispatch let a remote Open WebUI page call privileged desktop APIs. `will-attach-webview` now forces sandbox / contextIsolation / no Node.
+- Open Terminal API keys and the llama.cpp endpoint are no longer broadcast to remote webviews.
+- TLS verification is on by default. Self-signed Open WebUI servers are still allowed, but only for origins the user added as connections (plus localhost).
+- `shell.openExternal` accepts only `http:`, `https:`, and `mailto:`. `open:path` is confined to userData / install dir.
+- Hugging Face repo ids and GGUF filenames are confined to the models cache. GGUF downloads are SHA-256 verified against the Hub LFS digest (`?blobs=true`).
+- Python standalone and llama.cpp GitHub assets are checksum-verified before extract.
+- Child-process env strips `LD_PRELOAD` / `NODE_OPTIONS` / `PYTHONHOME` / similar. llama.cpp `--host` / `--port` / `--models-dir` in extra args are ignored.
+- Linux `--no-sandbox` is only for AppImage, snap, Flatpak, unpackaged dev, or `ELECTRON_DISABLE_SANDBOX=1`. Native `.deb` / `.rpm` keep the renderer sandbox.
+- Packaged builds flip Electron fuses (`runAsNode` off, no `NODE_OPTIONS` / `--inspect`, no extra `file:` privileges, ASAR integrity on macOS/Windows).
+- Shell BrowserWindows use `sandbox: true`. The renderer no longer gets `@electron-toolkit/preload`'s `window.electron` (`ipcRenderer`).
+- Production shell loads `app://renderer/…` instead of `file://`.
+- Electron is pinned to 39.8.10 (GHSA-h7rp-cf8h-j98x / CVE-2026-70601).
+
+### Fixed
+
+- Cloudflare Access / SSO login stays in the app (auth popups share the guest session; after the Access callback the webview loads the connection URL). Chat links still open externally (#165).
+- Tray Quit actually exits (`will-quit` ends with `app.exit`).
+- Open WebUI guest no longer dies on `appData is not defined` (`app:data` returns `null`).
+- llama.cpp "latest" picks the newest GitHub release that actually has hashed `*-bin-*` assets (`/releases/latest` can be a tag with no binaries).
+- Quit waits for llama.cpp / Open Terminal / Open WebUI child processes.
+- macOS and Windows releases fail if codesign/notarization or Azure Trusted Signing fails, instead of publishing unsigned fallbacks.
+
+### Infrastructure
+
+- `npm test` covers main-process security helpers (`node:test`). CI runs typecheck, tests, and eslint on `src/main` + preload.
+
 ## [0.0.20] - 2026-05-07
 
 ### Fixed

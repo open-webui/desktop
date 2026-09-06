@@ -1,4 +1,3 @@
-// @ts-nocheck
 
 import crypto from 'crypto'
 import log from 'electron-log'
@@ -11,9 +10,11 @@ import {
   isPackageInstalled,
   isPythonInstalled,
   installPython,
-  portInUse
+  portInUse,
+  pythonEnv
 } from './index'
 import { ServiceLock, isProcessAlive } from './service-lock'
+import { errorMessage } from './error-message'
 
 // ─── State ──────────────────────────────────────────────
 
@@ -43,10 +44,14 @@ export const startOpenTerminal = async (
   onStatus?: (status: string) => void
 ): Promise<{ url: string; apiKey: string; pid: number }> => {
   if (!lock.acquire()) {
+    if (url == null || apiKey == null || pid == null) {
+      throw new Error('Open Terminal start is already in progress')
+    }
     return { url, apiKey, pid }
   }
 
-  await stopOpenTerminal()
+  try {
+    await stopOpenTerminal({ retainLock: true })
 
   if (!isPythonInstalled()) {
     log.info('Python not installed — installing automatically for Open Terminal…')
@@ -56,7 +61,7 @@ export const startOpenTerminal = async (
       if (!ok) throw new Error('Python installation returned false')
     } catch (err) {
       throw new Error(
-        `Python is required for Open Terminal but installation failed: ${err?.message ?? err}`
+        `Python is required for Open Terminal but installation failed: ${errorMessage(err)}`
       )
     }
     if (!isPythonInstalled()) {
@@ -74,7 +79,7 @@ export const startOpenTerminal = async (
     } catch (err) {
       throw new Error(
         `Open Terminal is not installed and auto-install failed. ` +
-        `Please connect to the internet and try again. (${err?.message ?? err})`
+        `Please connect to the internet and try again. (${errorMessage(err)})`
       )
     }
   }
@@ -94,7 +99,7 @@ export const startOpenTerminal = async (
   }
 
   // Find available port
-  let desiredPort = port || 39284
+  const desiredPort = port || 39284
   let availablePort = desiredPort
   while (await portInUse(availablePort, host)) {
     availablePort++
@@ -113,7 +118,9 @@ export const startOpenTerminal = async (
     '--cwd', cwd
   ]
 
-  log.info('Starting Open Terminal...', pythonPath, commandArgs.join(' '))
+  log.info(
+    `Starting Open Terminal... ${pythonPath} -m uv run open-terminal run --host ${host} --port ${availablePort}`
+  )
 
   let spawned: pty.IPty
   try {
@@ -121,16 +128,14 @@ export const startOpenTerminal = async (
       name: 'xterm-256color',
       cols: 200,
       rows: 50,
-      env: {
-        ...process.env,
+      env: pythonEnv({
         ...(configEnvVars ?? {}),
-        PYTHONUNBUFFERED: '1',
-        ...(process.platform === 'win32' ? { PYTHONIOENCODING: 'utf-8' } : {})
-      }
+        PYTHONUNBUFFERED: '1'
+      })
     })
   } catch (error) {
     throw new Error(
-      `Failed to spawn Open Terminal: ${error?.message ?? error}`
+      `Failed to spawn Open Terminal: ${errorMessage(error)}`
     )
   }
 
@@ -148,11 +153,14 @@ export const startOpenTerminal = async (
 
   spawned.onExit(({ exitCode, signal }) => {
     log.info(`[OpenTerminal:${spawnedPid}] Exited code=${exitCode} signal=${signal}`)
-    ptyProcess = null
-    pid = null
-    url = null
-    apiKey = null
-    status = 'stopped'
+    if (ptyProcess === spawned) {
+      ptyProcess = null
+      pid = null
+      url = null
+      apiKey = null
+      status = 'stopped'
+      lock.release()
+    }
   })
 
   const serverUrl = `http://${host}:${availablePort}`
@@ -160,35 +168,39 @@ export const startOpenTerminal = async (
   status = 'started'
   log.info(`Open Terminal started — PID: ${spawnedPid}, URL: ${serverUrl}`)
 
-  return { url: serverUrl, apiKey: generatedKey, pid: spawnedPid }
+    return { url: serverUrl, apiKey: generatedKey, pid: spawnedPid }
+  } catch (error) {
+    lock.release()
+    throw error
+  }
 }
 
-export const stopOpenTerminal = async (): Promise<void> => {
-  if (ptyProcess) {
-    try {
-      ptyProcess.kill()
-    } catch (e) {
-      log.warn('Failed to kill Open Terminal PTY:', e)
-    }
-    // Give it a moment to exit
-    await new Promise((r) => setTimeout(r, 1000))
-    // Force kill if still running
-    if (pid) {
-      try {
-        process.kill(pid, 0) // check alive
-        process.kill(pid, 'SIGKILL')
-      } catch {
-        // already dead
-      }
-    }
-  }
+export const stopOpenTerminal = async (opts?: { retainLock?: boolean }): Promise<void> => {
+  const proc = ptyProcess
+  const procPid = pid
   ptyProcess = null
   pid = null
   url = null
   apiKey = null
   status = null
   logBuffer = []
-  lock.release()
+  if (proc) {
+    try {
+      proc.kill()
+    } catch (e) {
+      log.warn('Failed to kill Open Terminal PTY:', e)
+    }
+    await new Promise((r) => setTimeout(r, 1000))
+    if (procPid) {
+      try {
+        process.kill(procPid, 0)
+        process.kill(procPid, 'SIGKILL')
+      } catch {
+        // already dead
+      }
+    }
+  }
+  if (!opts?.retainLock) lock.release()
 }
 
 /**

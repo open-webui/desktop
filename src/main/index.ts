@@ -1,4 +1,3 @@
-// @ts-nocheck
 
 import {
   app,
@@ -15,7 +14,8 @@ import {
   Menu,
   ipcMain,
   Tray,
-  dialog
+  dialog,
+  type MenuItemConstructorOptions
 } from 'electron'
 import path, { join } from 'path'
 import { readFile, statfs } from 'fs/promises'
@@ -44,7 +44,6 @@ import {
   setConfig,
   startServer,
   stopAllServers,
-  uninstallPython,
   validateRemoteUrl,
   type AppConfig,
   type Connection
@@ -83,6 +82,22 @@ import {
 } from './utils/huggingface'
 
 import { initUpdater, checkForUpdates, downloadUpdate, installUpdate } from './updater'
+import { registerGuestWebviewPolicy } from './guest-webview'
+import { registerCertificatePolicy } from './tls'
+import { isPathInside } from './safe-open'
+import { linuxNeedsNoSandbox } from './linux-sandbox'
+import {
+  registerAppProtocolHandler,
+  registerAppSchemePrivileges,
+  shellPageUrl
+} from './app-protocol'
+import { errorMessage } from './utils/error-message'
+import {
+  isAccessCallbackUrl,
+  loggableUrl,
+  originOf,
+  shouldOpenInSystemBrowser
+} from './webview-navigation'
 
 import log from 'electron-log'
 log.transports.file.resolvePathFn = () => getLogFilePath('main')
@@ -92,7 +107,12 @@ import icon from '../../resources/icon.png?asset'
 import { existsSync, writeFileSync, unlinkSync } from 'fs'
 
 if (process.platform === 'linux') {
-  app.commandLine.appendSwitch('no-sandbox')
+  // AppImage / snap / Flatpak cannot use Chromium's SUID sandbox. Unpackaged
+  // `electron` (npm run dev) ships chrome-sandbox without the setuid bit.
+  // Native .deb / .rpm keep the renderer sandbox.
+  if (linuxNeedsNoSandbox(process.env, app.isPackaged)) {
+    app.commandLine.appendSwitch('no-sandbox')
+  }
 
   // Work around /dev/shm access failures in AppImage and other containerised
   // environments.  AppImage's FUSE mount can restrict child-process access to
@@ -121,9 +141,8 @@ if (process.platform === 'linux') {
   app.commandLine.appendSwitch('use-gl', 'angle')
   app.commandLine.appendSwitch('use-angle', 'swiftshader')
 
-  // Disable the GPU sandbox — the sandbox setup triggers shared-memory
-  // allocation failures in /dev/shm.  The browser process is already
-  // un-sandboxed (--no-sandbox above).
+  // GPU-process sandbox only. Separate from Chromium's renderer sandbox;
+  // kept on Linux because GPU sandbox setup still trips /dev/shm failures.
   app.commandLine.appendSwitch('disable-gpu-sandbox')
 }
 
@@ -146,6 +165,9 @@ if (gpuSandboxDisabled) {
 // repeated GPU process crashes within the same session.
 app.disableDomainBlockingFor3DAPIs()
 
+// Custom protocol for the packaged Svelte shell. Must run before ready.
+registerAppSchemePrivileges()
+
 // ─── State ──────────────────────────────────────────────
 
 let mainWindow: BrowserWindow | null = null
@@ -154,6 +176,7 @@ let spotlightWindow: BrowserWindow | null = null
 let voiceInputWindow: BrowserWindow | null = null
 let tray: Tray | null = null
 let isQuiting = false
+let quittingCleanedUp = false
 
 let CONFIG: AppConfig | null = null
 let SERVER_URL: string | null = null
@@ -306,21 +329,22 @@ function createSpotlightWindow(): BrowserWindow {
     hasShadow: false,
     show: false,
     focusable: true,
-    // Ensure the window appears on whichever Space/desktop the user is
-    // currently on, rather than pulling them back to the primary Space.
-    visibleOnAllWorkspaces: true,
     icon: path.join(__dirname, 'assets/icon.png'),
     webPreferences: {
       preload: join(__dirname, '../preload/spotlight-preload.js'),
-      sandbox: false,
+      sandbox: true,
+      contextIsolation: true,
+      nodeIntegration: false,
       webviewTag: false
     }
   })
+  // Keep Spotlight on the current Space instead of stealing the primary desktop.
+  spotlightWindow.setVisibleOnAllWorkspaces(true, { visibleOnFullScreen: true })
 
   if (is.dev && process.env['ELECTRON_RENDERER_URL']) {
     spotlightWindow.loadURL(`${process.env['ELECTRON_RENDERER_URL']}/spotlight.html`)
   } else {
-    spotlightWindow.loadFile(join(__dirname, '../renderer/spotlight.html'))
+    spotlightWindow.loadURL(shellPageUrl('spotlight.html'))
   }
 
   // Hide on blur — but only when the window was truly visible and settled.
@@ -419,7 +443,9 @@ function createVoiceInputWindow(): BrowserWindow {
     icon: path.join(__dirname, 'assets/icon.png'),
     webPreferences: {
       preload: join(__dirname, '../preload/voice-input-preload.js'),
-      sandbox: false,
+      sandbox: true,
+      contextIsolation: true,
+      nodeIntegration: false,
       webviewTag: false,
       autoplayPolicy: 'no-user-gesture-required'
     }
@@ -435,7 +461,7 @@ function createVoiceInputWindow(): BrowserWindow {
   if (is.dev && process.env['ELECTRON_RENDERER_URL']) {
     voiceInputWindow.loadURL(`${process.env['ELECTRON_RENDERER_URL']}/voice-input.html`)
   } else {
-    voiceInputWindow.loadFile(join(__dirname, '../renderer/voice-input.html'))
+    voiceInputWindow.loadURL(shellPageUrl('voice-input.html'))
   }
 
   voiceInputWindow.on('closed', () => {
@@ -461,7 +487,7 @@ function playChime(ascending: boolean): Promise<void> {
     if (!exists) { resolve(); return }
 
     if (process.platform === 'darwin') {
-      execFile('afplay', [soundPath], (err, stdout, stderr) => {
+      execFile('afplay', [soundPath], (err, _stdout, stderr) => {
         if (err) log.warn('afplay error:', err.message, stderr)
         resolve()
       })
@@ -636,7 +662,9 @@ function createMainWindow(show = true): void {
     ...(process.platform !== 'darwin' ? { titleBarOverlay: true } : {}),
     webPreferences: {
       preload: join(__dirname, '../preload/index.js'),
-      sandbox: false,
+      sandbox: true,
+      contextIsolation: true,
+      nodeIntegration: false,
       webviewTag: true
     }
   }
@@ -673,7 +701,7 @@ function createMainWindow(show = true): void {
   if (is.dev && process.env['ELECTRON_RENDERER_URL']) {
     mainWindow.loadURL(process.env['ELECTRON_RENDERER_URL'])
   } else {
-    mainWindow.loadFile(join(__dirname, '../renderer/index.html'))
+    mainWindow.loadURL(shellPageUrl('index.html'))
   }
 
   // ── Persist window bounds on geometry changes ──
@@ -700,7 +728,7 @@ function createMainWindow(show = true): void {
   })
 }
 
-function createContentWindow(url: string, connectionId: string): BrowserWindow {
+export function createContentWindow(url: string, connectionId: string): BrowserWindow {
   if (contentWindow && !contentWindow.isDestroyed()) {
     contentWindow.loadURL(url)
     contentWindow.show()
@@ -769,10 +797,11 @@ function createContentWindow(url: string, connectionId: string): BrowserWindow {
 
 const updateTray = () => {
   if (!tray || !CONFIG) return
+  const cfg = CONFIG
 
   // Remote connections from config
-  const remoteItems = (CONFIG.connections || []).map((conn) => ({
-    label: `${conn.id === CONFIG.defaultConnectionId ? '★ ' : ''}${conn.name}`,
+  const remoteItems = (cfg.connections || []).map((conn) => ({
+    label: `${conn.id === cfg.defaultConnectionId ? '★ ' : ''}${conn.name}`,
     sublabel: conn.url,
     click: async () => {
       const result = await connectTo(conn)
@@ -783,8 +812,8 @@ const updateTray = () => {
   // Virtual local connection (when package is installed)
   const localItem = isPackageInstalled('open-webui')
     ? [{
-        label: `${CONFIG.defaultConnectionId === 'local' ? '★ ' : ''}Open WebUI (Local)`,
-        sublabel: SERVER_URL || `http://127.0.0.1:${CONFIG.localServer?.port ?? 8080}`,
+        label: `${cfg.defaultConnectionId === 'local' ? '★ ' : ''}Open WebUI (Local)`,
+        sublabel: SERVER_URL || `http://127.0.0.1:${cfg.localServer?.port ?? 8080}`,
         click: async () => {
           const result = await connectTo(buildLocalConnection())
           if (result) sendToRenderer('connection:open', result)
@@ -824,15 +853,14 @@ const updateTray = () => {
     {
       label: 'Quit Open WebUI',
       accelerator: 'CommandOrControl+Q',
-      click: async () => {
-        await stopServerHandler()
+      click: () => {
         isQuiting = true
         app.quit()
       }
     }
   ]
 
-  const trayMenu = Menu.buildFromTemplate(trayMenuTemplate)
+  const trayMenu = Menu.buildFromTemplate(trayMenuTemplate as MenuItemConstructorOptions[])
   tray?.setContextMenu(trayMenu)
 }
 
@@ -908,10 +936,6 @@ const connectTo = async (connection: Connection) => {
 
 // ─── Server Lifecycle ───────────────────────────────────
 
-// Active PTY data listener — when a MessagePort is connected, PTY data
-// flows to the port. This disposable gets replaced on each pty:connect.
-let activePtyDataDisposable: { dispose: () => void } | null = null
-
 const startServerHandler = async (): Promise<boolean> => {
   if (SERVER_STATUS === 'starting' || SERVER_STATUS === 'started') {
     log.info('[server] Already running or starting, skipping duplicate start')
@@ -969,7 +993,7 @@ const startServerHandler = async (): Promise<boolean> => {
     log.error('Failed to start server:', error)
     SERVER_STATUS = 'failed'
     sendToRenderer('status:server', SERVER_STATUS)
-    sendToRenderer('error', { message: `Failed to start server: ${error?.message}` })
+    sendToRenderer('error', { message: `Failed to start server: ${errorMessage(error)}` })
     updateTray()
     return false
   }
@@ -1163,14 +1187,19 @@ const resetAppHandler = async () => {
     new Notification({ title: 'Open WebUI', body: 'Application has been reset.' }).show()
   } catch (error) {
     log.error('Failed to reset:', error)
-    new Notification({ title: 'Open WebUI', body: `Reset failed: ${error.message}` }).show()
+    new Notification({ title: 'Open WebUI', body: `Reset failed: ${errorMessage(error)}` }).show()
   }
 }
 
 // ─── Helpers ────────────────────────────────────────────
 
 const sendToRenderer = (type: string, data?: any) => {
-  mainWindow?.webContents.send('main:data', { type, data })
+  if (!mainWindow || mainWindow.isDestroyed()) return
+  try {
+    mainWindow.webContents.send('main:data', { type, data })
+  } catch (error) {
+    log.warn('sendToRenderer skipped (window gone):', error)
+  }
 }
 
 // ─── App Lifecycle ──────────────────────────────────────
@@ -1197,15 +1226,20 @@ if (!gotTheLock) {
   })
 
   app.whenReady().then(async () => {
+    registerAppProtocolHandler()
     CONFIG = await getConfig()
     loadSpotlightPosition()
-    log.info('Config:', CONFIG)
+    log.info(
+      `Config loaded (connections=${CONFIG.connections?.length ?? 0}, default=${CONFIG.defaultConnectionId ?? 'none'})`
+    )
 
     app.name = 'Open WebUI'
     if (process.platform === 'darwin' && app.dock) {
       app.dock.setIcon(icon)
     }
     electronApp.setAppUserModelId('com.openwebui.desktop')
+
+    registerGuestWebviewPolicy()
 
     // ─── GPU Process Crash Recovery ──────────────────
     // If the GPU process exits fatally (e.g. sandbox init failure on
@@ -1244,34 +1278,17 @@ if (!gotTheLock) {
       log.info('Running with GPU sandbox disabled (marker file present)')
     }
 
-    // ─── Self-Signed / Untrusted Certificate Support ─
-    // Allow connections to Open WebUI instances that use self-signed or
-    // otherwise untrusted SSL certificates (issue #108). The user
-    // explicitly configures the server URL, so trusting all certs is
-    // acceptable — this matches the behaviour of VS Code, Postman, and
-    // other Electron apps used in enterprise/self-hosted environments.
-    app.on('certificate-error', (event, _webContents, url, error, certificate, callback) => {
-      log.warn(
-        `Certificate error: ${error} for ${url} ` +
-        `(subject: ${certificate.subjectName}, issuer: ${certificate.issuerName})`
-      )
-      event.preventDefault()
-      callback(true)
+    // Self-signed Open WebUI servers (#108): allow cert errors only for
+    // origins the user added as connections, plus loopback. GitHub,
+    // Hugging Face, and auto-update keep default PKI.
+    registerCertificatePolicy(() => {
+      const urls = (CONFIG?.connections ?? []).map((c) => c.url)
+      if (SERVER_URL) urls.push(SERVER_URL)
+      return urls
     })
 
-    // Trust all certs on the default session (used by net.fetch() in
-    // validateRemoteUrl / checkUrlAndOpen).
-    session.defaultSession.setCertificateVerifyProc((_request, callback) => {
-      callback(0) // 0 = verified/trusted
-    })
-
-    // Webviews use partitioned sessions (persist:connection-*). Each
-    // new partition's session also needs to trust all certs.
+    // Webviews use partitioned sessions (persist:connection-*).
     app.on('session-created', (newSession) => {
-      newSession.setCertificateVerifyProc((_request, callback) => {
-        callback(0)
-      })
-
       // Grant media / notification permissions for webview partition sessions
       // so that auth flows, media capture, and notifications work correctly.
       newSession.setPermissionRequestHandler((_webContents, permission, callback) => {
@@ -1301,6 +1318,155 @@ if (!gotTheLock) {
     // For webview guests we also intercept navigation and popup events
     // so that external links open in the user's default browser instead
     // of navigating the webview or spawning a new Electron window (#165).
+    const partitionBySession = new WeakMap<Electron.Session, string>()
+    const hookedGuests = new WeakSet<Electron.WebContents>()
+
+    const hookGuestNavigation = (guest: Electron.WebContents): void => {
+      if (hookedGuests.has(guest) || guest.isDestroyed()) return
+      hookedGuests.add(guest)
+
+      const homeUrlFor = (): string | null => {
+        const partition = partitionBySession.get(guest.session) ?? ''
+        const prefix = 'persist:connection-'
+        if (!partition.startsWith(prefix)) return null
+        const id = partition.slice(prefix.length)
+        if (id === 'local') {
+          return SERVER_URL || `http://127.0.0.1:${CONFIG?.localServer?.port ?? 8080}`
+        }
+        return CONFIG?.connections?.find((c) => c.id === id)?.url ?? null
+      }
+
+      const homeOriginFor = (): string | null => {
+        const home = homeUrlFor()
+        return home ? originOf(home) : null
+      }
+
+      const bounceToOs = (targetUrl: string): boolean =>
+        shouldOpenInSystemBrowser({
+          currentUrl: guest.getURL(),
+          targetUrl,
+          homeOrigin: homeOriginFor()
+        })
+
+      const returnGuestHome = (reason: string): void => {
+        const home = homeUrlFor()
+        if (!home || guest.isDestroyed()) return
+        if (originOf(guest.getURL()) === originOf(home)) {
+          guest.reload()
+          return
+        }
+        log.info(`webview ${reason}; loading home ${loggableUrl(home)}`)
+        guest.loadURL(home)
+      }
+
+      // Chat target=_blank → OS browser (#165). Auth popups must share the
+      // guest session and keep the Access opener alive (#39, #44).
+      guest.setWindowOpenHandler(({ url }) => {
+        if (bounceToOs(url)) {
+          log.info('webview popup → OS browser:', loggableUrl(url))
+          openUrl(url)
+          return { action: 'deny' }
+        }
+        log.info('webview popup → auth window:', loggableUrl(url))
+        return {
+          action: 'allow',
+          overrideBrowserWindowOptions: {
+            width: 560,
+            height: 780,
+            autoHideMenuBar: true,
+            webPreferences: {
+              sandbox: true,
+              nodeIntegration: false,
+              contextIsolation: true,
+              session: guest.session
+            }
+          }
+        }
+      })
+
+      guest.on('did-create-window', (win) => {
+        win.on('closed', () => {
+          returnGuestHome('auth window closed')
+        })
+      })
+
+      guest.on('will-navigate', (details) => {
+        if (details.isMainFrame === false) return
+        if (bounceToOs(details.url)) {
+          log.info('webview navigate → OS browser:', loggableUrl(details.url))
+          details.preventDefault()
+          openUrl(details.url)
+        }
+      })
+
+      guest.on('did-navigate', (_event, url) => {
+        log.info('webview navigated:', loggableUrl(url))
+        if (isAccessCallbackUrl(url)) {
+          returnGuestHome('Access callback')
+        }
+      })
+
+      guest.on('did-fail-load', (_event, code, desc, url, isMainFrame) => {
+        if (!isMainFrame || code === -3) return
+        log.warn(`webview fail-load ${code} ${desc} ${loggableUrl(url)}`)
+      })
+
+      // ── Native right-click context menu (#161) ──────────────────
+      // Electron <webview> guests don't show a context menu by default,
+      // which blocks right-click → Paste / Autofill / password-manager
+      // integration on login pages.  Build a native menu with standard
+      // editing actions, spell-check suggestions, and link handling.
+      guest.on('context-menu', (_event, params) => {
+        const menuItems: Electron.MenuItemConstructorOptions[] = []
+
+        if (params.misspelledWord && params.dictionarySuggestions?.length) {
+          for (const suggestion of params.dictionarySuggestions) {
+            menuItems.push({
+              label: suggestion,
+              click: () => guest.replaceMisspelling(suggestion)
+            })
+          }
+          menuItems.push({ type: 'separator' })
+        }
+
+        if (params.linkURL) {
+          const external = bounceToOs(params.linkURL)
+          menuItems.push({
+            label: external ? 'Open Link in Browser' : 'Open Link',
+            click: () => {
+              if (external) openUrl(params.linkURL)
+              else guest.loadURL(params.linkURL)
+            }
+          })
+          menuItems.push({
+            label: 'Copy Link',
+            click: () => clipboard.writeText(params.linkURL)
+          })
+          menuItems.push({ type: 'separator' })
+        }
+
+        if (params.isEditable) {
+          menuItems.push(
+            { label: 'Undo', role: 'undo', enabled: params.editFlags.canUndo },
+            { label: 'Redo', role: 'redo', enabled: params.editFlags.canRedo },
+            { type: 'separator' },
+            { label: 'Cut', role: 'cut', enabled: params.editFlags.canCut },
+            { label: 'Copy', role: 'copy', enabled: params.editFlags.canCopy },
+            { label: 'Paste', role: 'paste', enabled: params.editFlags.canPaste },
+            { label: 'Select All', role: 'selectAll', enabled: params.editFlags.canSelectAll }
+          )
+        } else if (params.selectionText) {
+          menuItems.push(
+            { label: 'Copy', role: 'copy', enabled: params.editFlags.canCopy }
+          )
+        }
+
+        if (menuItems.length > 0) {
+          Menu.buildFromTemplate(menuItems).popup()
+        }
+      })
+    }
+
     app.on('web-contents-created', (_event, contents) => {
       contents.on('render-process-gone', (_e, details) => {
         if (details.reason !== 'clean-exit') {
@@ -1311,83 +1477,19 @@ if (!gotTheLock) {
         }
       })
 
+      contents.on('will-attach-webview', (_e, _prefs, params) => {
+        if (params.partition) {
+          partitionBySession.set(session.fromPartition(params.partition), params.partition)
+        }
+      })
+
+      // Guest WebContents: hook both creation and attach. Attach is the
+      // reliable Electron event; type==='webview' can race.
+      contents.on('did-attach-webview', (_e, guest) => {
+        hookGuestNavigation(guest)
+      })
       if (contents.getType() === 'webview') {
-        // ── Popups (target="_blank" links) → open in default browser ──
-        contents.setWindowOpenHandler(({ url }) => {
-          openUrl(url)
-          return { action: 'deny' }
-        })
-
-        // ── In-page navigation to a different origin → open externally ──
-        // This catches regular link clicks (no target) that would navigate
-        // the webview away from the Open WebUI instance.
-        contents.on('will-navigate', (event, url) => {
-          try {
-            const currentOrigin = new URL(contents.getURL()).origin
-            const targetOrigin = new URL(url).origin
-            if (targetOrigin !== currentOrigin) {
-              event.preventDefault()
-              openUrl(url)
-            }
-          } catch {
-            // Malformed URL — let it through so Chromium can handle/reject it
-          }
-        })
-
-        // ── Native right-click context menu (#161) ──────────────────
-        // Electron <webview> guests don't show a context menu by default,
-        // which blocks right-click → Paste / Autofill / password-manager
-        // integration on login pages.  Build a native menu with standard
-        // editing actions, spell-check suggestions, and link handling.
-        contents.on('context-menu', (_event, params) => {
-          const menuItems: Electron.MenuItemConstructorOptions[] = []
-
-          // Spell-check suggestions (if any)
-          if (params.misspelledWord && params.dictionarySuggestions?.length) {
-            for (const suggestion of params.dictionarySuggestions) {
-              menuItems.push({
-                label: suggestion,
-                click: () => contents.replaceMisspelling(suggestion)
-              })
-            }
-            menuItems.push({ type: 'separator' })
-          }
-
-          // Link handling
-          if (params.linkURL) {
-            menuItems.push({
-              label: 'Open Link in Browser',
-              click: () => openUrl(params.linkURL)
-            })
-            menuItems.push({
-              label: 'Copy Link',
-              click: () => clipboard.writeText(params.linkURL)
-            })
-            menuItems.push({ type: 'separator' })
-          }
-
-          // Editable field actions (input, textarea, contenteditable)
-          if (params.isEditable) {
-            menuItems.push(
-              { label: 'Undo', role: 'undo', enabled: params.editFlags.canUndo },
-              { label: 'Redo', role: 'redo', enabled: params.editFlags.canRedo },
-              { type: 'separator' },
-              { label: 'Cut', role: 'cut', enabled: params.editFlags.canCut },
-              { label: 'Copy', role: 'copy', enabled: params.editFlags.canCopy },
-              { label: 'Paste', role: 'paste', enabled: params.editFlags.canPaste },
-              { label: 'Select All', role: 'selectAll', enabled: params.editFlags.canSelectAll }
-            )
-          } else if (params.selectionText) {
-            // Non-editable text selection
-            menuItems.push(
-              { label: 'Copy', role: 'copy', enabled: params.editFlags.canCopy }
-            )
-          }
-
-          if (menuItems.length > 0) {
-            Menu.buildFromTemplate(menuItems).popup()
-          }
-        })
+        hookGuestNavigation(contents)
       }
     })
 
@@ -1401,6 +1503,10 @@ if (!gotTheLock) {
       arch: process.arch,
       username: require('os').userInfo().username,
       gpuSandboxDisabled
+    }))
+
+    ipcMain.handle('window:isFocused', () => ({
+      isFocused: !!(mainWindow && !mainWindow.isDestroyed() && mainWindow.isFocused())
     }))
 
     ipcMain.handle('app:contentPreloadPath', () => {
@@ -1445,7 +1551,7 @@ if (!gotTheLock) {
         return res
       } catch (error) {
         sendToRenderer('status:python', false)
-        sendToRenderer('error', { message: error?.message ?? 'Python installation failed. Please check your internet connection and try again.' })
+        sendToRenderer('error', { message: errorMessage(error) || 'Python installation failed. Please check your internet connection and try again.' })
         return false
       }
     })
@@ -1487,7 +1593,7 @@ if (!gotTheLock) {
         return true
       } catch (error) {
         sendToRenderer('status:package', false)
-        sendToRenderer('error', { message: error?.message ?? 'Package installation failed. Please check your internet connection and try again.' })
+        sendToRenderer('error', { message: errorMessage(error) || 'Package installation failed. Please check your internet connection and try again.' })
         return false
       }
     })
@@ -1813,11 +1919,11 @@ if (!gotTheLock) {
 
         const result = await response.json()
         return result
-      } catch (error: any) {
+      } catch (error) {
         log.error('voiceInput:transcribe failed:', error)
         new Notification({
           title: 'Voice Input Failed',
-          body: error?.message || 'Transcription failed. Check logs for details.'
+          body: errorMessage(error) || 'Transcription failed. Check logs for details.'
         }).show()
         throw error
       }
@@ -1888,7 +1994,7 @@ if (!gotTheLock) {
       } catch (error) {
         log.error('Failed to start Open Terminal:', error)
         sendToRenderer('status:open-terminal', 'failed')
-        sendToRenderer('error', { message: `Open Terminal failed: ${error?.message}` })
+        sendToRenderer('error', { message: `Open Terminal failed: ${errorMessage(error)}` })
         return null
       }
     })
@@ -1929,7 +2035,7 @@ if (!gotTheLock) {
       } catch (error) {
         log.error('Failed to setup llamacpp:', error)
         sendToRenderer('status:llamacpp', 'failed')
-        sendToRenderer('error', { message: `llamacpp setup failed: ${error?.message}` })
+        sendToRenderer('error', { message: `llamacpp setup failed: ${errorMessage(error)}` })
         return null
       }
     })
@@ -1957,7 +2063,7 @@ if (!gotTheLock) {
       } catch (error) {
         log.error('Failed to start llamacpp:', error)
         sendToRenderer('status:llamacpp', 'failed')
-        sendToRenderer('error', { message: `llamacpp failed: ${error?.message}` })
+        sendToRenderer('error', { message: `llamacpp failed: ${errorMessage(error)}` })
         return null
       }
     })
@@ -2001,7 +2107,9 @@ if (!gotTheLock) {
           })
           setTimeout(() => sendToRenderer('models:refresh'), 500)
         }
-        await setConfig({ llamaCpp: { ...CONFIG?.llamaCpp, enabled: false } })
+        if (CONFIG?.llamaCpp) {
+          await setConfig({ llamaCpp: { ...CONFIG.llamaCpp, enabled: false } })
+        }
         CONFIG = await getConfig()
         return true
       } catch (error) {
@@ -2042,8 +2150,8 @@ if (!gotTheLock) {
         return filepath
       } catch (error) {
         log.error('Failed to download model:', error)
-        sendToRenderer('status:huggingface-download', { repo, filename, status: 'failed', error: error?.message })
-        sendToRenderer('error', { message: `Model download failed: ${error?.message}` })
+        sendToRenderer('status:huggingface-download', { repo, filename, status: 'failed', error: errorMessage(error) })
+        sendToRenderer('error', { message: `Model download failed: ${errorMessage(error)}` })
         return null
       }
     })
@@ -2084,7 +2192,11 @@ if (!gotTheLock) {
 
     ipcMain.handle('open:path', async (_event, folderPath: string) => {
       if (!folderPath) throw new Error('No path provided')
-      await shell.openPath(folderPath)
+      const allowedRoots = [getUserDataPath(), getInstallDir()]
+      if (!isPathInside(folderPath, allowedRoots)) {
+        throw new Error('Blocked opening a path outside app directories')
+      }
+      await shell.openPath(path.resolve(folderPath))
     })
 
     ipcMain.handle('notification', async (_event, { title, body }) => {
@@ -2111,7 +2223,7 @@ if (!gotTheLock) {
       } catch (error) {
         log.error('Failed to update llamacpp:', error)
         sendToRenderer('status:llamacpp', 'failed')
-        sendToRenderer('error', { message: `llamacpp update failed: ${error?.message}` })
+        sendToRenderer('error', { message: `llamacpp update failed: ${errorMessage(error)}` })
         throw error
       }
     })
@@ -2131,7 +2243,7 @@ if (!gotTheLock) {
 
     // Enable screen capture
     session.defaultSession.setDisplayMediaRequestHandler(
-      (request, callback) => {
+      (_request, callback) => {
         desktopCapturer.getSources({ types: ['screen'] }).then((sources) => {
           callback({ video: sources[0], audio: 'loopback' })
         })
@@ -2209,28 +2321,48 @@ if (!gotTheLock) {
   })
 
   app.on('window-all-closed', () => {
+    if (isQuiting) return
+    if (CONFIG?.runInBackground) return
     if (process.platform !== 'darwin') {
       app.quit()
     }
   })
 
-  app.on('before-quit', async () => {
+  app.on('will-quit', (event) => {
+    if (quittingCleanedUp) return
+    event.preventDefault()
     isQuiting = true
-    await stopLlamaCpp()
-    await stopOpenTerminal()
-    await stopServerHandler()
-    globalShortcut.unregisterAll()
-    mainWindow = null
-    contentWindow = null
-    if (spotlightWindow && !spotlightWindow.isDestroyed()) {
-      spotlightWindow.destroy()
-    }
-    spotlightWindow = null
-    if (voiceInputWindow && !voiceInputWindow.isDestroyed()) {
-      voiceInputWindow.destroy()
-    }
-    voiceInputWindow = null
-    tray?.destroy()
-    tray = null
+    const forceExit = setTimeout(() => {
+      log.warn('Quit cleanup timed out; exiting')
+      quittingCleanedUp = true
+      app.exit(0)
+    }, 8000)
+    void (async () => {
+      try {
+        await stopLlamaCpp()
+        await stopOpenTerminal()
+        await stopServerHandler()
+      } catch (error) {
+        log.warn('Error while stopping child processes on quit:', error)
+      } finally {
+        clearTimeout(forceExit)
+        globalShortcut.unregisterAll()
+        if (mainWindow && !mainWindow.isDestroyed()) mainWindow.destroy()
+        mainWindow = null
+        contentWindow = null
+        if (spotlightWindow && !spotlightWindow.isDestroyed()) {
+          spotlightWindow.destroy()
+        }
+        spotlightWindow = null
+        if (voiceInputWindow && !voiceInputWindow.isDestroyed()) {
+          voiceInputWindow.destroy()
+        }
+        voiceInputWindow = null
+        tray?.destroy()
+        tray = null
+        quittingCleanedUp = true
+        app.exit(0)
+      }
+    })()
   })
 }

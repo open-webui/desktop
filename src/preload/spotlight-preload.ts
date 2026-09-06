@@ -38,6 +38,6 @@ if (process.contextIsolated) {
     console.error(error)
   }
 } else {
-  // @ts-ignore
+  // @ts-ignore -- window.spotlightAPI is not on the DOM lib
   window.spotlightAPI = api
 }

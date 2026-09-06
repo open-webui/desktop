@@ -1,4 +1,3 @@
-// @ts-nocheck
 
 import * as fs from 'fs'
 import * as os from 'os'
@@ -8,8 +7,17 @@ import crypto from 'crypto'
 
 import * as tar from 'tar'
 
-import { app, shell, Notification, net as electronNet } from 'electron'
-import { execFileSync, exec, spawn, execSync, execFile } from 'child_process'
+import { app, net as electronNet } from 'electron'
+import { openExternalUrl } from '../safe-open'
+import {
+  PYTHON_SHA256,
+  assertSha256,
+  downloadAndVerifySha256,
+  fileMatchesSha256
+} from './artifact-integrity'
+import { sanitizeChildEnv } from './child-env'
+import { errorMessage } from './error-message'
+import { execFileSync, execSync, execFile } from 'child_process'
 
 import log from 'electron-log'
 log.transports.file.resolvePathFn = () => getLogFilePath('main')
@@ -98,14 +106,8 @@ export const getOpenWebUIDataPath = (): string => {
 }
 
 export const openUrl = (url: string) => {
-  if (!url) {
-    throw new Error('No URL provided to open in browser.')
-  }
   log.info('Opening URL in browser:', url)
-  if (url.startsWith('http://0.0.0.0')) {
-    url = url.replace('http://0.0.0.0', 'http://localhost')
-  }
-  shell.openExternal(url)
+  return openExternalUrl(url)
 }
 
 export const getSystemInfo = () => {
@@ -168,47 +170,36 @@ const getArchString = () => {
 }
 
 const generateDownloadUrl = () => {
-  const baseUrl = 'https://github.com/astral-sh/python-build-standalone/releases/download'
   const releaseDate = '20260310'
   const pythonVersion = '3.12.13'
-  const archString = getArchString()
-  const platformString = getPlatformString()
-  const filename = `cpython-${pythonVersion}+${releaseDate}-${archString}-${platformString}-install_only.tar.gz`
-  return `${baseUrl}/${releaseDate}/${filename}`
+  const filename = `cpython-${pythonVersion}+${releaseDate}-${getArchString()}-${getPlatformString()}-install_only.tar.gz`
+  const sha256 = PYTHON_SHA256[filename]
+  if (!sha256) {
+    throw new Error(
+      `No pinned SHA-256 for Python standalone archive ${filename} (${os.platform()} ${os.arch()})`
+    )
+  }
+  return {
+    url: `https://github.com/astral-sh/python-build-standalone/releases/download/${releaseDate}/${filename}`,
+    filename,
+    sha256
+  }
 }
 
-export const downloadFileWithProgress = async (url, downloadPath, onProgress) => {
+export const downloadFileWithProgress = async (
+  url: string,
+  downloadPath: string,
+  onProgress: ((percent: number, downloaded: number, total: number) => void) | undefined,
+  expectedSha256: string
+) => {
+  if (!expectedSha256) {
+    throw new Error('Refusing to download without a SHA-256 digest')
+  }
   try {
-    const response = await fetch(url)
-    if (!response || !response.ok) {
-      throw new Error(`HTTP error! status: ${response?.status}`)
-    }
-    const totalSize = parseInt(response.headers.get('content-length'), 10)
-    let downloadedSize = 0
-    const reader = response.body.getReader()
-    const chunks = []
-
-    while (true) {
-      const { done, value } = await reader.read()
-      if (done) break
-      chunks.push(value)
-      downloadedSize += value.length
-      if (onProgress && totalSize) {
-        onProgress((downloadedSize / totalSize) * 100, downloadedSize, totalSize)
-      }
-    }
-
-    const buffer = Buffer.concat(chunks.map((chunk) => Buffer.from(chunk)))
-    fs.writeFileSync(downloadPath, buffer)
-    log.info('File downloaded successfully:', downloadPath)
-    return downloadPath
+    const result = await downloadAndVerifySha256(url, downloadPath, expectedSha256, onProgress)
+    log.info('File downloaded and verified:', downloadPath)
+    return result
   } catch (error) {
-    // Clean up partial downloads
-    try {
-      if (fs.existsSync(downloadPath)) {
-        fs.unlinkSync(downloadPath)
-      }
-    } catch {}
     log.error('Download failed:', error)
     throw error
   }
@@ -230,8 +221,10 @@ export const getPythonInstallationDir = (): string => {
   return path.normalize(pythonDir)
 }
 
-const downloadPython = async (onProgress = null) => {
-  const url = generateDownloadUrl()
+const downloadPython = async (
+  onProgress?: (percent: number, downloaded: number, total: number) => void
+) => {
+  const { url, sha256 } = generateDownloadUrl()
   const downloadPath = getPythonDownloadPath()
 
   log.info(`Detected system: ${os.platform()} ${os.arch()}`)
@@ -239,16 +232,22 @@ const downloadPython = async (onProgress = null) => {
   log.info(`URL: ${url}`)
 
   if (fs.existsSync(downloadPath)) {
-    log.info(`File already exists: ${downloadPath}`)
-    return downloadPath
+    if (fileMatchesSha256(downloadPath, sha256)) {
+      log.info(`Using verified cached Python archive: ${downloadPath}`)
+      return downloadPath
+    }
+    log.warn(`Cached Python archive failed checksum; re-downloading: ${downloadPath}`)
+    try {
+      fs.unlinkSync(downloadPath)
+    } catch {}
   }
 
   try {
-    const result = await downloadFileWithProgress(url, downloadPath, onProgress)
-    log.info(`Python downloaded successfully to: ${result}`)
+    const result = await downloadFileWithProgress(url, downloadPath, onProgress, sha256)
+    log.info(`Python downloaded and verified: ${result}`)
     return result
   } catch (error) {
-    log.error(`Download failed: ${error?.message}`)
+    log.error(`Download failed: ${errorMessage(error)}`)
     throw error
   }
 }
@@ -263,8 +262,11 @@ const checkInternet = async () => {
 }
 
 export const installPython = async (installationDir?: string, onStatus?: (status: string) => void): Promise<boolean> => {
+  const { sha256 } = generateDownloadUrl()
   const pythonDownloadPath = getPythonDownloadPath()
-  if (!fs.existsSync(pythonDownloadPath)) {
+  const cacheOk =
+    fs.existsSync(pythonDownloadPath) && fileMatchesSha256(pythonDownloadPath, sha256)
+  if (!cacheOk) {
     if (!(await checkInternet())) {
       throw new Error(
         'An active internet connection is required. Please connect to the internet and try again.'
@@ -285,6 +287,7 @@ export const installPython = async (installationDir?: string, onStatus?: (status
     log.error('Python download not found')
     return false
   }
+  assertSha256(pythonDownloadPath, sha256)
 
   installationDir = installationDir || getPythonInstallationDir()
   log.info(installationDir, pythonDownloadPath)
@@ -331,7 +334,7 @@ export const installPython = async (installationDir?: string, onStatus?: (status
   } catch (error) {
     log.error('Failed to install uv:', error)
     throw new Error(
-      `Failed to install the uv package manager: ${error?.message || 'unknown error'}`
+      `Failed to install the uv package manager: ${errorMessage(error)}`
     )
   }
 }
@@ -362,21 +365,21 @@ export const getPythonPath = (installationDir?: string) => {
  * Windows finds the correct DLLs first.  On non-Windows platforms this is a
  * harmless no-op.
  *
- * Any additional env overrides (e.g. `configEnvVars`) can be spread after
- * calling this helper.
+ * `configEnvVars` are merged here; dangerous keys (LD_PRELOAD, NODE_OPTIONS,
+ * PYTHONHOME, …) are stripped by `sanitizeChildEnv`.
  */
-const pythonEnv = (extra: Record<string, string> = {}): Record<string, string> => {
-  const base: Record<string, string> = { ...process.env }
+export const pythonEnv = (extra: Record<string, string> = {}): Record<string, string> => {
+  const env = sanitizeChildEnv(extra)
 
   if (process.platform === 'win32') {
     // python.exe lives at the root of the installation directory on Windows
     const pythonDir = getPythonInstallationDir()
-    const currentPath = process.env['PATH'] || process.env['Path'] || ''
-    base['PATH'] = `${pythonDir};${currentPath}`
-    base['PYTHONIOENCODING'] = 'utf-8'
+    const currentPath = env['PATH'] || env['Path'] || ''
+    env['PATH'] = `${pythonDir};${currentPath}`
+    env['PYTHONIOENCODING'] = 'utf-8'
   }
 
-  return { ...base, ...extra }
+  return env
 }
 
 export const isPythonInstalled = (installationDir?: string) => {
@@ -551,14 +554,14 @@ import * as pty from 'node-pty'
 
 const serverPIDs: Set<number> = new Set()
 const serverLogs: Map<number, string[]> = new Map()
-let serverPtyProcesses: Map<number, pty.IPty> = new Map()
+const serverPtyProcesses: Map<number, pty.IPty> = new Map()
 
 export const getServerPIDs = (): number[] => Array.from(serverPIDs)
 export const getServerPty = (pid: number): pty.IPty | undefined => serverPtyProcesses.get(pid)
 
 export const startServer = async (
   expose = false,
-  port = null
+  port: number | null = null
 ): Promise<{ url: string; pid: number }> => {
   await stopAllServers()
   const config = await getConfig()
@@ -582,7 +585,7 @@ export const startServer = async (
   }
 
   // Find available port
-  let desiredPort = port || 8080
+  const desiredPort = port || 8080
   let availablePort = desiredPort
   while (await portInUse(availablePort, host)) {
     availablePort++
@@ -608,7 +611,7 @@ export const startServer = async (
     })
   } catch (error) {
     throw new Error(
-      `Failed to spawn PTY with ${pythonPath}: ${error?.message ?? error}`
+      `Failed to spawn PTY with ${pythonPath}: ${errorMessage(error)}`
     )
   }
 
@@ -821,12 +824,14 @@ export interface AppConfig {
     port: number
     serveOnLocalNetwork: boolean
     autoUpdate: boolean
+    version?: string
   }
   openTerminal: {
     enabled: boolean
     port: number
     cwd: string
     apiKey: string
+    version?: string
   }
   llamaCpp: {
     enabled: boolean
@@ -863,11 +868,13 @@ const DEFAULT_CONFIG: AppConfig = {
   },
   openTerminal: {
     enabled: false,
+    port: 39284,
     cwd: '',
     apiKey: ''
   },
   llamaCpp: {
     enabled: false,
+    port: 18881,
     version: 'latest',
     variant: 'cpu',
     extraArgs: []

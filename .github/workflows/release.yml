@@ -91,17 +91,18 @@ jobs:
                   flatpak install --user -y flathub org.electronjs.Electron2.BaseApp//23.08
 
             # ── Apple codesigning (macOS only) ──
+            # Missing certs or notarization failure fail the job. Unsigned
+            # macOS/Windows artifacts are not published.
             - name: Install Apple codesigning certificate
               id: apple_cert
               if: matrix.os == 'macos-latest'
-              continue-on-error: true
               env:
                   BUILD_CERTIFICATE_BASE64: ${{ secrets.BUILD_CERTIFICATE_BASE64 }}
                   P12_PASSWORD: ${{ secrets.P12_PASSWORD }}
                   KEYCHAIN_PASSWORD: ${{ secrets.KEYCHAIN_PASSWORD }}
               run: |
                   if [ -z "$BUILD_CERTIFICATE_BASE64" ]; then
-                    echo "No certificate provided, will build unsigned"
+                    echo "BUILD_CERTIFICATE_BASE64 is required; refusing to ship an unsigned macOS build"
                     exit 1
                   fi
                   CERTIFICATE_PATH=$RUNNER_TEMP/build_certificate.p12
@@ -116,24 +117,13 @@ jobs:
 
             # ── Platform packaging ──
             - name: Package for Windows
-              id: win_build
               if: runner.os == 'Windows'
-              continue-on-error: true
+              env:
+                  CSC_IDENTITY_AUTO_DISCOVERY: 'false'
               run: npx electron-builder --win --${{ matrix.arch }} --publish never
 
-            - name: Package for Windows (unsigned fallback)
-              if: runner.os == 'Windows' && steps.win_build.outcome == 'failure'
-              env:
-                  WIN_CSC_LINK: ''
-                  CSC_IDENTITY_AUTO_DISCOVERY: 'false'
-              run: |
-                  rm -rf dist/
-                  npx electron-builder --win --${{ matrix.arch }} --publish never
-
             - name: Package for macOS (signed + notarized)
-              id: mac_build
-              if: matrix.os == 'macos-latest' && steps.apple_cert.outcome == 'success'
-              continue-on-error: true
+              if: matrix.os == 'macos-latest'
               env:
                   CSC_LINK: ${{ secrets.BUILD_CERTIFICATE_BASE64 }}
                   CSC_KEY_PASSWORD: ${{ secrets.P12_PASSWORD }}
@@ -141,14 +131,6 @@ jobs:
                   APPLE_APP_SPECIFIC_PASSWORD: ${{ secrets.APPLE_PASSWORD }}
                   APPLE_TEAM_ID: ${{ secrets.APPLE_TEAM_ID }}
               run: npx electron-builder --mac --${{ matrix.arch }} -c.mac.notarize=true --publish never
-
-            - name: Package for macOS (unsigned fallback)
-              if: matrix.os == 'macos-latest' && (steps.apple_cert.outcome != 'success' || steps.mac_build.outcome == 'failure')
-              env:
-                  CSC_IDENTITY_AUTO_DISCOVERY: 'false'
-              run: |
-                  rm -rf dist/
-                  npx electron-builder --mac --${{ matrix.arch }} --publish never
 
             - name: Package for Linux
               if: runner.os == 'Linux'
@@ -166,7 +148,6 @@ jobs:
             # ── Windows code signing ──
             - name: Azure Trusted Signing (Windows Only)
               if: runner.os == 'Windows'
-              continue-on-error: true
               uses: azure/trusted-signing-action@v0.5.1
               with:
                   azure-tenant-id: ${{ secrets.AZURE_TENANT_ID }}

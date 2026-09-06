@@ -334,8 +334,16 @@
   }
 
   // ── Webview event delivery ─────────────────────────────
-  // Single path: all events from the main process flow through here.
-  // Query events target a specific webview; everything else broadcasts.
+  // Guests are untrusted. Only Open WebUI's desktop protocol events
+  // are forwarded, and secrets stay on the local connection webview.
+  const GUEST_BROADCAST_TYPES = new Set([
+    'theme:update',
+    'models:refresh',
+    'page:reload',
+    'page:navigate'
+  ])
+  const GUEST_LOCAL_ONLY_TYPES = new Set(['connections:terminal', 'connections:openai'])
+
   const sendToWebview = (event: any, connId?: string) => {
     const container = document.querySelector('.content-webview-container')
     if (!container) return
@@ -443,8 +451,17 @@
         return
       }
 
-      // ── Everything else → broadcast to all webviews ───
-      sendToWebview(data)
+      // Terminal API keys and the local llama.cpp URL must not be
+      // delivered to remote Open WebUI origins (they run as guest JS
+      // on this machine and can fetch 127.0.0.1).
+      if (GUEST_LOCAL_ONLY_TYPES.has(data.type)) {
+        sendToWebview(data, 'local')
+        return
+      }
+
+      if (GUEST_BROADCAST_TYPES.has(data.type)) {
+        sendToWebview(data)
+      }
     })
 
     // Auto-connect to the default connection on startup so the webview
