@@ -92,7 +92,8 @@ import icon from '../../resources/icon.png?asset'
 import { existsSync, writeFileSync, unlinkSync } from 'fs'
 
 if (process.platform === 'linux') {
-  app.commandLine.appendSwitch('no-sandbox')
+  // Leave renderer sandbox selection to Electron. Appending --no-sandbox here
+  // can make Linux webview renderers fail to allocate shared memory (#178).
 
   // Work around /dev/shm access failures in AppImage and other containerised
   // environments.  AppImage's FUSE mount can restrict child-process access to
@@ -122,8 +123,8 @@ if (process.platform === 'linux') {
   app.commandLine.appendSwitch('use-angle', 'swiftshader')
 
   // Disable the GPU sandbox — the sandbox setup triggers shared-memory
-  // allocation failures in /dev/shm.  The browser process is already
-  // un-sandboxed (--no-sandbox above).
+  // allocation failures in /dev/shm. Keep this workaround scoped to the GPU
+  // process rather than disabling the renderer sandbox.
   app.commandLine.appendSwitch('disable-gpu-sandbox')
 }
 
