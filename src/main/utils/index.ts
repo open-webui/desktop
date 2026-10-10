@@ -827,6 +827,7 @@ export interface AppConfig {
     port: number
     cwd: string
     apiKey: string
+    serveOnLocalNetwork: boolean
   }
   llamaCpp: {
     enabled: boolean
@@ -864,7 +865,8 @@ const DEFAULT_CONFIG: AppConfig = {
   openTerminal: {
     enabled: false,
     cwd: '',
-    apiKey: ''
+    apiKey: '',
+    serveOnLocalNetwork: false
   },
   llamaCpp: {
     enabled: false,

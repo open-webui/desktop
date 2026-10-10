@@ -256,9 +256,23 @@
     <input
       type="number"
       class="bg-black/[0.04] dark:bg-white/[0.06] text-[12px] text-[#1d1d1f] dark:text-[#fafafa] px-3 py-1.5 border-none outline-none rounded-xl opacity-60 w-20 text-right"
-      value={$config?.openTerminal?.port ?? 8000}
+      value={$config?.openTerminal?.port ?? 39284}
       onchange={(e) =>
-        updateOtConfig('port', parseInt((e.target as HTMLInputElement).value) || 8000)}
+        updateOtConfig('port', parseInt((e.target as HTMLInputElement).value) || 39284)}
+    />
+  </div>
+
+  <div class="py-4 flex items-center justify-between">
+    <div>
+      <div class="text-[13px] opacity-70">{$i18n.t('settings.terminal.serveOnLocalNetwork')}</div>
+      <div class="text-[11px] opacity-25 mt-0.5">
+        {$i18n.t('settings.terminal.serveOnLocalNetworkDesc')}
+      </div>
+    </div>
+    <Switch
+      checked={$config?.openTerminal?.serveOnLocalNetwork ?? false}
+      label={$i18n.t('settings.terminal.toggleServeOnLocalNetwork')}
+      onchange={(value) => updateOtConfig('serveOnLocalNetwork', value)}
     />
   </div>
 

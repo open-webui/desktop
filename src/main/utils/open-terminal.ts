@@ -80,8 +80,13 @@ export const startOpenTerminal = async (
   }
 
   const pythonPath = getPythonPath()
-  const host = '127.0.0.1'
   const config = await getConfig()
+  // Bind address: loopback by default; all interfaces when the user opts in
+  // (mirrors localServer.serveOnLocalNetwork). The app itself always connects
+  // through loopback, so the advertised URL stays on 127.0.0.1.
+  const serveOnLocalNetwork = config.openTerminal?.serveOnLocalNetwork ?? false
+  const bindHost = serveOnLocalNetwork ? '0.0.0.0' : '127.0.0.1'
+  const host = '127.0.0.1'
   const configEnvVars = config.envVars ?? {}
 
   // Use persisted API key or generate and save a new one
@@ -107,7 +112,7 @@ export const startOpenTerminal = async (
 
   const commandArgs = [
     '-m', 'uv', 'run', 'open-terminal', 'run',
-    '--host', host,
+    '--host', bindHost,
     '--port', availablePort.toString(),
     '--api-key', generatedKey,
     '--cwd', cwd
@@ -158,7 +163,9 @@ export const startOpenTerminal = async (
   const serverUrl = `http://${host}:${availablePort}`
   url = serverUrl
   status = 'started'
-  log.info(`Open Terminal started — PID: ${spawnedPid}, URL: ${serverUrl}`)
+  log.info(
+    `Open Terminal started — PID: ${spawnedPid}, URL: ${serverUrl}, bind: ${bindHost}:${availablePort}`
+  )
 
   return { url: serverUrl, apiKey: generatedKey, pid: spawnedPid }
 }
