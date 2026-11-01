@@ -95,27 +95,37 @@ const detectBestVariant = (): string => {
     // nvidia-smi not available or no NVIDIA GPU
   }
 
-  // Check for Vulkan support
-  try {
-    if (platform === 'win32') {
-      execFileSync('vulkaninfo', ['--summary'], { timeout: 5000, stdio: 'pipe' })
-    } else {
-      execFileSync('vulkaninfo', ['--summary'], { timeout: 5000, stdio: 'pipe' })
+  // Prefer a working HIP device over Vulkan when the HIP SDK is available.
+  if (platform === 'win32' && process.arch === 'x64') {
+    try {
+      const hipInfo = process.env.HIP_PATH
+        ? path.join(process.env.HIP_PATH, 'bin', 'hipInfo.exe')
+        : 'hipInfo.exe'
+      const devices = execFileSync(hipInfo, [], {
+        encoding: 'utf8',
+        timeout: 5000,
+        windowsHide: true,
+        stdio: 'pipe'
+      })
+      if (/\bgfx(?:103[012]|110[012]|1151|120[01])\b/.test(devices)) return 'rocm'
+    } catch {
+      // HIP tooling or a compatible device is unavailable; try Vulkan next.
     }
-    return 'vulkan'
-  } catch {
-    // Vulkan not available
   }
 
-  // Linux: check for ROCm (AMD GPU)
   if (platform === 'linux') {
     try {
-      if (fs.existsSync('/opt/rocm') || fs.existsSync('/usr/lib/rocm')) {
-        return 'rocm'
-      }
+      if (fs.existsSync('/opt/rocm') || fs.existsSync('/usr/lib/rocm')) return 'rocm'
     } catch {
       // ROCm not available
     }
+  }
+
+  try {
+    execFileSync('vulkaninfo', ['--summary'], { timeout: 5000, stdio: 'pipe' })
+    return 'vulkan'
+  } catch {
+    // Vulkan not available
   }
 
   return 'cpu'
@@ -170,7 +180,10 @@ const getAssetPattern = (
       cpu: `llama-${tag}-bin-win-cpu-${archStr}.zip`,
       'cuda-12.4': `llama-${tag}-bin-win-cuda-12.4-x64.zip`,
       'cuda-13.1': `llama-${tag}-bin-win-cuda-13.1-x64.zip`,
-      vulkan: `llama-${tag}-bin-win-vulkan-x64.zip`
+      'cuda-13.3': `llama-${tag}-bin-win-cuda-13.3-x64.zip`,
+      'cuda-13.4': `llama-${tag}-bin-win-cuda-13.4-x64.zip`,
+      vulkan: `llama-${tag}-bin-win-vulkan-x64.zip`,
+      rocm: `llama-${tag}-bin-win-hip-radeon-x64.zip`
     }
     const name = variantMap[variant] ?? variantMap.cpu
     return { pattern: name, isZip: true }
@@ -213,7 +226,7 @@ const findBinary = (dir: string): string | null => {
   return null
 }
 
-// Keep custom archives separate from each other and from existing preset installations.
+// Keep GPU builds and custom archives separate from existing CPU installations.
 const getAssetDir = (versionDir: string, pattern: string): string =>
   path.join(versionDir, '.assets', createHash('sha256').update(pattern).digest('hex'))
 
@@ -247,6 +260,7 @@ const prepareLlamaCpp = async (
   const version = llamaConfig.version || 'latest'
   const assetName = llamaConfig.assetName?.trim() || ''
   const variant = assetName ? '' : resolveVariant(llamaConfig.variant)
+  const useAssetCache = !!assetName || variant !== 'cpu'
   // Validate before consulting the cache, including offline starts.
   getAssetPattern(version, variant, assetName)
 
@@ -258,7 +272,7 @@ const prepareLlamaCpp = async (
   const getCachedBinary = (tag: string): string | null => {
     const versionDir = path.join(cacheBase, tag)
     const { pattern } = getAssetPattern(tag, variant, assetName)
-    return findBinary(assetName ? getAssetDir(versionDir, pattern) : versionDir)
+    return findBinary(useAssetCache ? getAssetDir(versionDir, pattern) : versionDir)
   }
   let cachedBinary: string | null = null
 
@@ -332,7 +346,7 @@ const prepareLlamaCpp = async (
 
   const { pattern, isZip } = getAssetPattern(tag, variant, assetName)
   const releaseDir = path.join(cacheBase, tag)
-  const versionDir = assetName ? getAssetDir(releaseDir, pattern) : releaseDir
+  const versionDir = useAssetCache ? getAssetDir(releaseDir, pattern) : releaseDir
   const existingBinary = findBinary(versionDir)
   if (existingBinary) {
     log.info(`llama-server binary already exists: ${existingBinary}`)
