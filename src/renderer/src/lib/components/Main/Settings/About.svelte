@@ -59,10 +59,10 @@
     // Full Matrix intro sequence
     const username = $appInfo?.username ?? 'Neo'
     const lines = [
-      `Wake up, ${username}...`,
-      'The Matrix has you...',
-      'Follow the white rabbit.',
-      `Knock, knock, ${username}.`
+      $i18n.t('settings.about.wakeUp', { username }),
+      $i18n.t('settings.about.matrixHasYou'),
+      $i18n.t('settings.about.followWhiteRabbit'),
+      $i18n.t('settings.about.knockKnock', { username })
     ]
 
     let lineIdx = 0
@@ -159,7 +159,7 @@
           break
         case 'update:error':
           updateStatus = 'error'
-          updateError = data.data?.message ?? 'Unknown error'
+          updateError = data.data?.message ?? $i18n.t('error.unknown')
           break
       }
     })
@@ -187,7 +187,7 @@
       await window.electronAPI.checkForUpdates()
     } catch (e: any) {
       updateStatus = 'error'
-      updateError = e?.message ?? 'Check failed'
+      updateError = e?.message ?? $i18n.t('error.checkFailed')
     }
   }
 
@@ -198,7 +198,7 @@
       await window.electronAPI.downloadUpdate()
     } catch (e: any) {
       updateStatus = 'error'
-      updateError = e?.message ?? 'Download failed'
+      updateError = e?.message ?? $i18n.t('error.downloadFailed')
     }
   }
 

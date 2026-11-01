@@ -46,6 +46,9 @@
   "common.unknown": "Unknown",
   "common.experimental": "Experimental",
   "common.copied": "✓",
+  "common.latest": "latest",
+  "common.url": "URL",
+  "common.processId": "PID",
 
   "setup.couldNotLoadPage": "Could not load this page",
   "setup.pageCrashed": "This page crashed unexpectedly",
@@ -68,7 +71,14 @@
   "error.diskSpaceDetail": "At least 5 GB is required. Only {{available}} GB available.",
   "error.installFailedGeneric": "Installation failed. Please check your connection and try again.",
   "error.somethingWentWrong": "Something went wrong. Please try again.",
-
+  "error.unknown": "Unknown error",
+  "error.checkFailed": "Check failed",
+  "error.downloadFailed": "Download failed",
+  "error.updateFailed": "Update failed",
+  "error.searchFailed": "Search failed",
+  "error.pythonInstallFailed": "Python installation failed. Please try again.",
+  "error.serverStartFailed": "Open WebUI could not start. Check the logs and try again.",
+  "error.serverRestartFailed": "Failed to restart Open WebUI",
 
   "main.openWebUI": "Open WebUI",
   "main.localReady": "Open WebUI is installed on this machine.",
@@ -86,7 +96,6 @@
   "main.install.launchingOpenWebUI": "Launching Open WebUI…",
 
   "sidebar.llamaCpp": "llama.cpp",
-
 
   "logs.llamaCppLogs": "llama.cpp Logs",
   "logs.copyLogs": "Copy logs",
@@ -143,6 +152,7 @@
   "settings.general.installLocation": "Install location",
   "settings.general.installLocationDesc": "Root directory for Python, models, and runtimes",
   "settings.general.installLocationNote": "Changing this requires reinstalling components",
+  "settings.general.valuePlaceholder": "value",
 
   "settings.openwebui.notInstalled": "Not installed",
   "settings.openwebui.notInstalledDesc": "Set up a local Open WebUI server",
@@ -233,5 +243,9 @@
   "settings.about.noChangelog": "No changelog entries yet.",
   "settings.about.viewOnGithub": "View on GitHub →",
   "settings.about.copyright": "Copyright (c) 2026 Open WebUI Inc. All rights reserved.",
-  "settings.about.createdBy": "Created by Timothy J. Baek"
+  "settings.about.createdBy": "Created by Timothy J. Baek",
+  "settings.about.wakeUp": "Wake up, {{username}}...",
+  "settings.about.matrixHasYou": "The Matrix has you...",
+  "settings.about.followWhiteRabbit": "Follow the white rabbit.",
+  "settings.about.knockKnock": "Knock, knock, {{username}}."
 }

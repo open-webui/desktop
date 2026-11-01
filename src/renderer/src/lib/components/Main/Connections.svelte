@@ -45,7 +45,7 @@
       if (!result?.url) {
         const info = await window.electronAPI.getServerInfo()
         if (info.status === 'stopped' && !restart) return false
-        throw new Error(info.error || 'Open WebUI could not start. Check the logs and try again.')
+        throw new Error(info.error || $i18n.t('error.serverStartFailed'))
       }
       serverUrl = result.url
       return true
@@ -77,12 +77,12 @@
       if (disk?.free >= 0 && disk.free < 5 * 1024 * 1024 * 1024) {
         const availableGB = (disk.free / (1024 * 1024 * 1024)).toFixed(1)
         throw new Error(
-          `Not enough disk space. At least 5 GB is required (${availableGB} GB available).`
+          $i18n.t('error.diskSpaceDetail', { available: availableGB })
         )
       }
       if (!(await window.electronAPI.getPythonStatus())) {
         if (!(await window.electronAPI.installPython()))
-          throw new Error('Failed to install Python. Please try again.')
+          throw new Error($i18n.t('error.pythonInstallFailed'))
       }
       if (!(await window.electronAPI.installPackage()))
         throw new Error($i18n.t('error.installFailedGeneric'))
@@ -183,7 +183,7 @@
               runningAction: 'restart' as const,
               onRunningAction: async () => {
                 if (!(await openWebUI(true)))
-                  throw new Error(launchError || 'Failed to restart Open WebUI')
+                  throw new Error(launchError || $i18n.t('error.serverRestartFailed'))
               }
             }
           ]

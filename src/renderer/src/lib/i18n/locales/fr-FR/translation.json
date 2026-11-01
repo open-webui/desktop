@@ -1,6 +1,7 @@
 {
   "app.name": "Open WebUI",
   "app.desktop": "Open WebUI Bureau",
+
   "common.loading": "Chargement…",
   "common.cancel": "Annuler",
   "common.close": "Fermer",
@@ -45,8 +46,16 @@
   "common.unknown": "Inconnu",
   "common.experimental": "Expérimental",
   "common.copied": "✓",
+  "common.latest": "dernière version",
+  "common.url": "URL",
+  "common.processId": "ID du processus",
+
+  "setup.couldNotLoadPage": "Impossible de charger cette page",
+  "setup.pageCrashed": "Cette page a planté de manière inattendue",
+  "setup.openInBrowser": "Ouvrir dans le navigateur",
   "setup.preparingEnvironment": "Préparation de l'environnement…",
   "setup.settingUp": "Configuration…",
+
   "setup.install.title": "Installation locale",
   "setup.install.description": "Téléchargez et exécutez Open WebUI sur cette machine.",
   "setup.install.continue": "Continuer",
@@ -54,11 +63,26 @@
   "setup.install.mightTakeMinutes": "Cela peut prendre quelques minutes",
   "setup.install.failed": "L'installation a échoué",
   "setup.install.somethingWentWrong": "Une erreur est survenue",
+  "setup.install.installLocation": "Emplacement d’installation",
+  "setup.install.installLocationDesc": "Emplacement de stockage des données, modèles et environnements d’exécution",
+  "setup.install.changeLocation": "Modifier",
+
   "error.notEnoughDiskSpace": "Espace disque insuffisant",
   "error.diskSpaceDetail": "Au moins 5 Go sont nécessaires. Seulement {{available}} Go disponibles.",
-  "error.installFailedGeneric": "L'installation a échoué",
-  "error.somethingWentWrong": "Une erreur est survenue",
+  "error.installFailedGeneric": "L’installation a échoué. Vérifiez votre connexion et réessayez.",
+  "error.somethingWentWrong": "Une erreur s’est produite. Veuillez réessayer.",
+  "error.unknown": "Erreur inconnue",
+  "error.checkFailed": "Échec de la recherche de mises à jour",
+  "error.downloadFailed": "Échec du téléchargement",
+  "error.updateFailed": "Échec de la mise à jour",
+  "error.searchFailed": "Échec de la recherche",
+  "error.pythonInstallFailed": "L’installation de Python a échoué. Veuillez réessayer.",
+  "error.serverStartFailed": "Impossible de démarrer Open WebUI. Consultez les journaux et réessayez.",
+  "error.serverRestartFailed": "Impossible de redémarrer Open WebUI",
+
   "main.openWebUI": "Open WebUI",
+  "main.localReady": "Open WebUI est installé sur cet ordinateur.",
+  "main.localDescription": "Installez Open WebUI et utilisez l’IA à votre façon. Connectez le modèle de votre choix et adaptez ses fonctionnalités à vos besoins. Elle vous appartient, où que vous l’emportiez.",
   "main.getStarted": "Commencer",
   "main.getStarted.title": "Configurer votre environnement",
   "main.getStarted.description": "Choisissez des services optionnels à installer avec Open WebUI.",
@@ -67,15 +91,26 @@
   "main.getStarted.continue": "Continuer",
   "main.notEnoughDiskSpace": "Espace disque insuffisant",
   "main.diskSpaceRequired": "Au moins 5 Go sont nécessaires. Seulement {{available}} Go disponibles.",
+
   "main.install.startingServer": "Démarrage du serveur…",
   "main.install.launchingOpenWebUI": "Lancement d'Open WebUI…",
+
   "sidebar.llamaCpp": "llama.cpp",
+
   "logs.llamaCppLogs": "Journaux llama.cpp",
   "logs.copyLogs": "Copier les journaux",
+  "logs.terminal": "Terminal",
+  "logs.expand": "Développer le terminal",
+  "logs.collapse": "Réduire le terminal",
+  "logs.resize": "Redimensionner le terminal",
+  "logs.copied": "Copié",
+  "logs.copyFailed": "Impossible de copier la sortie.",
+
   "statusBar.local": "Local",
   "statusBar.server": "Open WebUI",
   "statusBar.serverRunning": "Open WebUI est en cours d'exécution",
   "statusBar.serverStopped": "Open WebUI n'est pas en cours d'exécution",
+
   "settings.back": "Retour en arrière",
   "settings.search": "Recherche",
   "settings.noMatches": "Aucune correspondance",
@@ -84,11 +119,13 @@
   "settings.groups.data": "Données",
   "settings.title": "Paramètres",
   "settings.closeSettings": "Fermer les paramètres",
+
   "settings.tabs.general": "Général",
   "settings.tabs.openwebui": "Open WebUI",
   "settings.tabs.inference": "Moteur d'inférence",
   "settings.tabs.models": "Modèles",
   "settings.tabs.about": "À propos",
+
   "settings.general.launchAtLogin": "Lancer à l'ouverture de session",
   "settings.general.launchAtLoginDesc": "Ouvrir l'application à la connexion",
   "settings.general.runInBackground": "Exécuter en arrière-plan",
@@ -112,6 +149,11 @@
   "settings.general.light": "Clair",
   "settings.general.dark": "Sombre",
   "settings.general.keyPlaceholder": "CLÉ",
+  "settings.general.installLocation": "Emplacement d’installation",
+  "settings.general.installLocationDesc": "Répertoire racine pour Python, les modèles et les environnements d’exécution",
+  "settings.general.installLocationNote": "La modification de cet emplacement nécessite de réinstaller les composants",
+  "settings.general.valuePlaceholder": "valeur",
+
   "settings.openwebui.notInstalled": "Non installé",
   "settings.openwebui.notInstalledDesc": "Configurer un serveur Open WebUI local",
   "settings.openwebui.server": "Serveur",
@@ -135,11 +177,12 @@
   "settings.openwebui.toggleStartOnLaunch": "Activer/désactiver le démarrage au lancement",
   "settings.openwebui.toggleServeOnLocalNetwork": "Activer/désactiver le partage réseau",
   "settings.openwebui.toggleAutoUpdate": "Activer/désactiver la mise à jour automatique",
+
   "settings.inference.llamaServer": "llama-server",
   "settings.inference.llamaServerDesc": "Moteur d'inférence local basé sur llama.cpp",
   "settings.inference.settingUp": "Configuration",
   "settings.inference.runningInstance": "Instance en cours",
-  "settings.inference.build": "Build",
+  "settings.inference.build": "Compilation",
   "settings.inference.startOnLaunch": "Démarrer au lancement",
   "settings.inference.startOnLaunchDesc": "Démarrer automatiquement llama.cpp à l'ouverture de l'application",
   "settings.inference.version": "Version",
@@ -165,6 +208,7 @@
   "settings.inference.uninstallConfirm": "llama-server sera arrêté et tous les binaires téléchargés seront supprimés. Continuer ?",
   "settings.inference.notInstalled": "llama.cpp n'est pas installé",
   "settings.inference.notInstalledDesc": "Télécharger et configurer llama.cpp pour l'inférence locale de modèles",
+
   "settings.models.downloadedModels": "Modèles téléchargés",
   "settings.models.noModels": "Aucun modèle téléchargé",
   "settings.models.downloadFromHF": "Télécharger depuis Hugging Face",
@@ -179,7 +223,9 @@
   "settings.models.openModelsFolder": "Ouvrir le dossier des modèles",
   "settings.models.modelsDirectory": "Répertoire des modèles",
   "settings.models.modelsHint": "Vous pouvez également ajouter des fichiers GGUF directement dans ce dossier. Ils seront détectés automatiquement par llama-server.",
+
   "settings.connections.remove": "Retirer",
+
   "settings.about.desktopVersion": "Version bureau",
   "settings.about.openWebuiVersion": "Version Open WebUI",
   "settings.about.llamaCppVersion": "Version llama.cpp",
@@ -196,6 +242,10 @@
   "settings.about.whatsNew": "Nouveautés",
   "settings.about.noChangelog": "Aucune entrée de journal des modifications.",
   "settings.about.viewOnGithub": "Voir sur GitHub →",
-  "settings.about.copyright": "Copyright (c) 2026 Open WebUI Inc. All rights reserved.",
-  "settings.about.createdBy": "Created by Timothy J. Baek"
+  "settings.about.copyright": "Copyright (c) 2026 Open WebUI Inc. Tous droits réservés.",
+  "settings.about.createdBy": "Créé par Timothy J. Baek",
+  "settings.about.wakeUp": "Réveille-toi, {{username}}...",
+  "settings.about.matrixHasYou": "La Matrice te possède...",
+  "settings.about.followWhiteRabbit": "Suis le lapin blanc.",
+  "settings.about.knockKnock": "Toc, toc, {{username}}."
 }

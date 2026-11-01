@@ -151,7 +151,7 @@
             <span class="text-[12px]">{$i18n.t('common.stopped')}</span>
           {:else}
             <div class="w-1.5 h-1.5 rounded-full bg-amber-400/60"></div>
-            <span class="text-[12px] capitalize">{serverStatus ?? $i18n.t('common.unknown')}</span>
+            <span class="text-[12px]">{$i18n.t(`common.${serverStatus ?? 'unknown'}`)}</span>
           {/if}
         </div>
       </div>
@@ -256,7 +256,7 @@
         </div>
         <div class="text-[11px] [&>div]:py-[4px] [&>div]:gap-[12px] max-sm:[&>div>:last-child]:max-w-[75%]">
           <div class="flex min-w-0 items-center justify-between gap-[16px] py-[7px] max-sm:gap-[12px] [&>:first-child]:min-w-0 [&>:last-child]:shrink-0 max-sm:[&>:last-child:not([role=switch])]:max-w-[65%]">
-            <span class="text-[11px] leading-[16px] text-[oklch(0.51_0_0)] dark:text-[oklch(0.77_0_0)]">URL</span>
+            <span class="text-[11px] leading-[16px] text-[oklch(0.51_0_0)] dark:text-[oklch(0.77_0_0)]">{$i18n.t('common.url')}</span>
             <button
               class="min-w-0 [overflow-wrap:anywhere] text-right text-[11px] text-[#676767] transition-colors duration-150 hover:text-[#171717] dark:text-[#b4b4b4] dark:hover:text-white font-mono"
               onclick={() => window.open($serverInfo?.url ?? 'http://127.0.0.1:8080')}
@@ -265,7 +265,7 @@
           </div>
           {#if serverPid}
             <div class="flex min-w-0 items-center justify-between gap-[16px] py-[7px] max-sm:gap-[12px] [&>:first-child]:min-w-0 [&>:last-child]:shrink-0 max-sm:[&>:last-child:not([role=switch])]:max-w-[65%]">
-              <span class="text-[11px] leading-[16px] text-[oklch(0.51_0_0)] dark:text-[oklch(0.77_0_0)]">PID</span>
+              <span class="text-[11px] leading-[16px] text-[oklch(0.51_0_0)] dark:text-[oklch(0.77_0_0)]">{$i18n.t('common.processId')}</span>
               <span class="text-[12px] font-mono">{serverPid}</span>
             </div>
           {/if}
@@ -354,7 +354,7 @@
         type="text"
         class="h-[28px] min-h-[28px] max-w-full rounded-[8px] border border-[oklch(0.94_0_0/0.5)] outline-hidden! bg-[oklch(0.98_0_0/0.4)] px-[8px] py-0 text-[12px] leading-[16px] font-normal text-[oklch(0.42_0_0)] transition-colors duration-150 placeholder:text-[oklch(0.85_0_0)] focus:border-blue-400 disabled:cursor-not-allowed disabled:opacity-50 dark:border-white/[0.04] dark:bg-white/[0.03] dark:text-[oklch(0.85_0_0)] dark:placeholder:text-[oklch(0.42_0_0)] dark:focus:border-blue-500 [&::-webkit-outer-spin-button]:appearance-none [&::-webkit-outer-spin-button]:m-0 [&::-webkit-inner-spin-button]:appearance-none [&::-webkit-inner-spin-button]:m-0 [&[type=number]]:[-moz-appearance:textfield] w-[96px]"
         aria-label={$i18n.t('settings.openwebui.version')}
-        placeholder="latest"
+        placeholder={$i18n.t('common.latest')}
         value={$config?.localServer?.version ?? ''}
         onchange={(e) => updateConfig('version', (e.target as HTMLInputElement).value.trim())}
       />
@@ -374,7 +374,7 @@
           type="text"
           class="h-[28px] min-h-[28px] max-w-full rounded-[8px] border border-[oklch(0.94_0_0/0.5)] outline-hidden! bg-[oklch(0.98_0_0/0.4)] px-[8px] py-0 text-[12px] leading-[16px] font-normal text-[oklch(0.42_0_0)] transition-colors duration-150 placeholder:text-[oklch(0.85_0_0)] focus:border-blue-400 disabled:cursor-not-allowed disabled:opacity-50 dark:border-white/[0.04] dark:bg-white/[0.03] dark:text-[oklch(0.85_0_0)] dark:placeholder:text-[oklch(0.42_0_0)] dark:focus:border-blue-500 [&::-webkit-outer-spin-button]:appearance-none [&::-webkit-outer-spin-button]:m-0 [&::-webkit-inner-spin-button]:appearance-none [&::-webkit-inner-spin-button]:m-0 [&[type=number]]:[-moz-appearance:textfield] min-w-0 flex-1"
         aria-label={$i18n.t('settings.openwebui.dataLocation')}
-          placeholder={defaultDataPath || 'Default'}
+          placeholder={defaultDataPath || $i18n.t('common.default')}
           value={$config?.dataDir ?? ''}
           onchange={async (e) => {
             const val = (e.target as HTMLInputElement).value.trim()

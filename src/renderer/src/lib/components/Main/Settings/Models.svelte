@@ -102,7 +102,7 @@
         searchResults = await window.electronAPI.searchHfModels(q.trim())
       } catch (e: any) {
         console.error('Search failed:', e)
-        searchError = e?.message ?? 'Search failed'
+        searchError = e?.message ?? $i18n.t('error.searchFailed')
         searchResults = []
       }
       searching = false

@@ -130,7 +130,7 @@
       canRefresh = true
       webviewError = {
         code: event.errorCode,
-        description: event.errorDescription || 'Unknown error',
+        description: event.errorDescription || $i18n.t('error.unknown'),
         url: event.validatedURL || ''
       }
     })
@@ -334,7 +334,7 @@
               .then(() => appState.set('ready'))
               .catch((e) => {
                 appState.set(
-                  `install-failed:${e?.message || 'Python installation failed. Please try again.'}`
+                  `install-failed:${e?.message || $i18n.t('error.pythonInstallFailed')}`
                 )
               })
           }}
@@ -368,7 +368,7 @@
               .then(() => appState.set('ready'))
               .catch((e) => {
                 appState.set(
-                  `install-failed:${e?.message || 'Python installation failed. Please try again.'}`
+                  `install-failed:${e?.message || $i18n.t('error.pythonInstallFailed')}`
                 )
               })
           }}
@@ -378,7 +378,9 @@
       </div>
     {:else if isInitializing}
       <div class="px-5 py-1.5 text-[11px] opacity-25">
-        {$i18n.t('setup.settingUp')}{$serverInfo?.status ? ` ${$serverInfo.status}` : ''}
+        {$i18n.t('setup.settingUp')}{#if $serverInfo?.status}
+          {$i18n.t(`common.${$serverInfo.status === 'started' ? 'running' : $serverInfo.status}`)}
+        {/if}
       </div>
     {/if}
 

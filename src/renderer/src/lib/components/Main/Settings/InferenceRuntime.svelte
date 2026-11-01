@@ -138,7 +138,7 @@
       updateStatus = res.updateAvailable ? 'available' : 'up-to-date'
     } catch (e: any) {
       updateStatus = 'error'
-      updateError = e?.message ?? 'Check failed'
+      updateError = e?.message ?? $i18n.t('error.checkFailed')
     }
   }
 
@@ -150,7 +150,7 @@
       updateInfo = null
     } catch (e: any) {
       updateStatus = 'error'
-      updateError = e?.message ?? 'Update failed'
+      updateError = e?.message ?? $i18n.t('error.updateFailed')
     }
   }
 
@@ -425,14 +425,14 @@
         </div>
         <div class="text-[11px] [&>div]:py-[4px] [&>div]:gap-[12px] max-sm:[&>div>:last-child]:max-w-[75%]">
           <div class="flex min-w-0 items-center justify-between gap-[16px] py-[7px] max-sm:gap-[12px] [&>:first-child]:min-w-0 [&>:last-child]:shrink-0 max-sm:[&>:last-child:not([role=switch])]:max-w-[65%]">
-            <span class="text-[11px] leading-[16px] text-[oklch(0.51_0_0)] dark:text-[oklch(0.77_0_0)]">URL</span>
+            <span class="text-[11px] leading-[16px] text-[oklch(0.51_0_0)] dark:text-[oklch(0.77_0_0)]">{$i18n.t('common.url')}</span>
             <button
               class="min-w-0 [overflow-wrap:anywhere] text-right text-[11px] text-[#676767] transition-colors duration-150 hover:text-[#171717] dark:text-[#b4b4b4] dark:hover:text-white font-mono"
               onclick={() => window.open(lsInfo.url)}>{lsInfo.url}</button
             >
           </div>
           <div class="flex min-w-0 items-center justify-between gap-[16px] py-[7px] max-sm:gap-[12px] [&>:first-child]:min-w-0 [&>:last-child]:shrink-0 max-sm:[&>:last-child:not([role=switch])]:max-w-[65%]">
-            <span class="text-[11px] leading-[16px] text-[oklch(0.51_0_0)] dark:text-[oklch(0.77_0_0)]">PID</span>
+            <span class="text-[11px] leading-[16px] text-[oklch(0.51_0_0)] dark:text-[oklch(0.77_0_0)]">{$i18n.t('common.processId')}</span>
             <span class="text-[12px] font-mono">{lsInfo.pid}</span>
           </div>
           {#if lsInfo.version}

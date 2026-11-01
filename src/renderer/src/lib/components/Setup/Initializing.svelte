@@ -74,7 +74,7 @@
 
     <div class="relative z-10 h-full flex items-center justify-center">
       <div class="flex flex-col items-center gap-5">
-        <img src={logoImage} class="size-14 rounded-full dark:invert" alt="logo" />
+        <img src={logoImage} class="size-14 rounded-full dark:invert" alt={$i18n.t('app.name')} />
 
         {#if availableGB}
           <div class="flex flex-col items-center gap-3 text-center" in:fade={{ duration: 250 }}>

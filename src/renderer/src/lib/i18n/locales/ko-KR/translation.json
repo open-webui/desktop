@@ -1,6 +1,7 @@
 {
   "app.name": "Open WebUI",
   "app.desktop": "Open WebUI 데스크톱",
+
   "common.loading": "로딩 중…",
   "common.cancel": "취소",
   "common.close": "닫기",
@@ -45,8 +46,16 @@
   "common.unknown": "알 수 없음",
   "common.experimental": "실험적",
   "common.copied": "✓",
+  "common.latest": "최신",
+  "common.url": "URL",
+  "common.processId": "프로세스 ID",
+
+  "setup.couldNotLoadPage": "이 페이지를 불러올 수 없습니다",
+  "setup.pageCrashed": "이 페이지가 예기치 않게 중단되었습니다",
+  "setup.openInBrowser": "브라우저에서 열기",
   "setup.preparingEnvironment": "환경을 준비하는 중…",
   "setup.settingUp": "설정 중…",
+
   "setup.install.title": "로컬 설치",
   "setup.install.description": "이 컴퓨터에 Open WebUI를 다운로드하고 실행합니다.",
   "setup.install.continue": "계속",
@@ -54,11 +63,26 @@
   "setup.install.mightTakeMinutes": "몇 분 정도 걸릴 수 있습니다",
   "setup.install.failed": "설치 실패",
   "setup.install.somethingWentWrong": "문제가 발생했습니다",
+  "setup.install.installLocation": "설치 위치",
+  "setup.install.installLocationDesc": "데이터, 모델 및 런타임을 저장할 위치",
+  "setup.install.changeLocation": "변경",
+
   "error.notEnoughDiskSpace": "디스크 공간이 부족합니다",
   "error.diskSpaceDetail": "최소 5 GB가 필요합니다. 현재 {{available}} GB만 사용 가능합니다.",
-  "error.installFailedGeneric": "설치 실패",
-  "error.somethingWentWrong": "문제가 발생했습니다",
+  "error.installFailedGeneric": "설치에 실패했습니다. 연결을 확인하고 다시 시도해 주세요.",
+  "error.somethingWentWrong": "문제가 발생했습니다. 다시 시도해 주세요.",
+  "error.unknown": "알 수 없는 오류",
+  "error.checkFailed": "업데이트 확인 실패",
+  "error.downloadFailed": "다운로드 실패",
+  "error.updateFailed": "업데이트 실패",
+  "error.searchFailed": "검색 실패",
+  "error.pythonInstallFailed": "Python 설치에 실패했습니다. 다시 시도해 주세요.",
+  "error.serverStartFailed": "Open WebUI를 시작할 수 없습니다. 로그를 확인하고 다시 시도해 주세요.",
+  "error.serverRestartFailed": "Open WebUI 재시작 실패",
+
   "main.openWebUI": "Open WebUI",
+  "main.localReady": "이 컴퓨터에 Open WebUI가 설치되어 있습니다.",
+  "main.localDescription": "Open WebUI를 설치하고 원하는 방식으로 AI를 사용하세요. 어떤 모델이든 연결하고 자유롭게 확장할 수 있습니다. 어디서든 나만의 AI를 소유하세요.",
   "main.getStarted": "시작하기",
   "main.getStarted.title": "환경 설정",
   "main.getStarted.description": "Open WebUI와 함께 설치할 선택적 서비스를 선택하세요.",
@@ -67,15 +91,26 @@
   "main.getStarted.continue": "계속",
   "main.notEnoughDiskSpace": "디스크 공간이 부족합니다",
   "main.diskSpaceRequired": "최소 5 GB가 필요합니다. 현재 {{available}} GB만 사용 가능합니다.",
+
   "main.install.startingServer": "서버 시작 중…",
   "main.install.launchingOpenWebUI": "Open WebUI 실행 중…",
+
   "sidebar.llamaCpp": "llama.cpp",
+
   "logs.llamaCppLogs": "llama.cpp 로그",
   "logs.copyLogs": "로그 복사",
+  "logs.terminal": "터미널",
+  "logs.expand": "터미널 펼치기",
+  "logs.collapse": "터미널 접기",
+  "logs.resize": "터미널 크기 조절",
+  "logs.copied": "복사됨",
+  "logs.copyFailed": "출력을 복사할 수 없습니다.",
+
   "statusBar.local": "로컬",
   "statusBar.server": "Open WebUI",
   "statusBar.serverRunning": "Open WebUI가 실행 중입니다",
   "statusBar.serverStopped": "Open WebUI가 실행 중이 아닙니다",
+
   "settings.back": "뒤로",
   "settings.search": "검색",
   "settings.noMatches": "일치 항목이 없습니다",
@@ -84,11 +119,13 @@
   "settings.groups.data": "데이터",
   "settings.title": "설정",
   "settings.closeSettings": "설정 닫기",
+
   "settings.tabs.general": "일반",
   "settings.tabs.openwebui": "Open WebUI",
   "settings.tabs.inference": "추론 런타임",
   "settings.tabs.models": "모델",
   "settings.tabs.about": "정보",
+
   "settings.general.launchAtLogin": "로그인 시 실행",
   "settings.general.launchAtLoginDesc": "로그인할 때 앱을 자동 실행",
   "settings.general.runInBackground": "백그라운드에서 실행",
@@ -112,6 +149,11 @@
   "settings.general.light": "라이트",
   "settings.general.dark": "다크",
   "settings.general.keyPlaceholder": "키",
+  "settings.general.installLocation": "설치 위치",
+  "settings.general.installLocationDesc": "Python, 모델 및 런타임의 루트 디렉터리",
+  "settings.general.installLocationNote": "변경하면 구성 요소를 다시 설치해야 합니다",
+  "settings.general.valuePlaceholder": "값",
+
   "settings.openwebui.notInstalled": "설치되지 않음",
   "settings.openwebui.notInstalledDesc": "로컬 Open WebUI 서버 설치",
   "settings.openwebui.server": "서버",
@@ -135,6 +177,7 @@
   "settings.openwebui.toggleStartOnLaunch": "실행 시 시작 전환",
   "settings.openwebui.toggleServeOnLocalNetwork": "로컬 네트워크 공유 전환",
   "settings.openwebui.toggleAutoUpdate": "자동 업데이트 전환",
+
   "settings.inference.llamaServer": "llama-server",
   "settings.inference.llamaServerDesc": "llama.cpp 기반 로컬 추론 런타임",
   "settings.inference.settingUp": "설정 중",
@@ -165,6 +208,7 @@
   "settings.inference.uninstallConfirm": "llama-server를 중지하고 다운로드된 모든 바이너리를 제거합니다. 계속하시겠습니까?",
   "settings.inference.notInstalled": "llama.cpp가 설치되지 않았습니다",
   "settings.inference.notInstalledDesc": "로컬 모델 추론을 위해 llama.cpp를 다운로드하고 설정",
+
   "settings.models.downloadedModels": "다운로드된 모델",
   "settings.models.noModels": "아직 다운로드된 모델이 없습니다",
   "settings.models.downloadFromHF": "Hugging Face에서 다운로드",
@@ -179,7 +223,9 @@
   "settings.models.openModelsFolder": "모델 폴더 열기",
   "settings.models.modelsDirectory": "모델 디렉터리",
   "settings.models.modelsHint": "GGUF 파일을 이 폴더에 직접 추가할 수도 있습니다. llama-server가 자동으로 감지합니다.",
+
   "settings.connections.remove": "제거",
+
   "settings.about.desktopVersion": "데스크톱 버전",
   "settings.about.openWebuiVersion": "Open WebUI 버전",
   "settings.about.llamaCppVersion": "llama.cpp 버전",
@@ -196,6 +242,10 @@
   "settings.about.whatsNew": "새로운 기능",
   "settings.about.noChangelog": "아직 변경 기록이 없습니다.",
   "settings.about.viewOnGithub": "GitHub에서 보기 →",
-  "settings.about.copyright": "Copyright (c) 2026 Open WebUI Inc. All rights reserved.",
-  "settings.about.createdBy": "Created by Timothy J. Baek"
+  "settings.about.copyright": "Copyright (c) 2026 Open WebUI Inc. 모든 권리 보유.",
+  "settings.about.createdBy": "Timothy J. Baek 제작",
+  "settings.about.wakeUp": "일어나, {{username}}...",
+  "settings.about.matrixHasYou": "매트릭스가 널 지배하고 있어...",
+  "settings.about.followWhiteRabbit": "흰 토끼를 따라가.",
+  "settings.about.knockKnock": "똑똑, {{username}}."
 }

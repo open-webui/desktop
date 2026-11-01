@@ -1,6 +1,7 @@
 {
   "app.name": "Open WebUI",
   "app.desktop": "Open WebUI 桌面版",
+
   "common.loading": "載入中…",
   "common.cancel": "取消",
   "common.close": "關閉",
@@ -45,8 +46,16 @@
   "common.unknown": "未知",
   "common.experimental": "實驗性",
   "common.copied": "✓",
+  "common.latest": "最新",
+  "common.url": "網址",
+  "common.processId": "處理程序 ID",
+
+  "setup.couldNotLoadPage": "無法載入此頁面",
+  "setup.pageCrashed": "此頁面意外當機",
+  "setup.openInBrowser": "在瀏覽器中開啟",
   "setup.preparingEnvironment": "正在準備環境…",
   "setup.settingUp": "正在設定…",
+
   "setup.install.title": "本機安裝",
   "setup.install.description": "在本機上下載並執行 Open WebUI。",
   "setup.install.continue": "繼續",
@@ -54,11 +63,26 @@
   "setup.install.mightTakeMinutes": "這可能需要幾分鐘",
   "setup.install.failed": "安裝失敗",
   "setup.install.somethingWentWrong": "發生了一些問題",
+  "setup.install.installLocation": "安裝位置",
+  "setup.install.installLocationDesc": "資料、模型與執行環境的儲存位置",
+  "setup.install.changeLocation": "變更",
+
   "error.notEnoughDiskSpace": "磁碟空間不足",
   "error.diskSpaceDetail": "至少需要 5 GB 空間，目前僅有 {{available}} GB 可用。",
-  "error.installFailedGeneric": "安裝失敗",
-  "error.somethingWentWrong": "發生了一些問題",
+  "error.installFailedGeneric": "安裝失敗。請檢查網路連線後再試一次。",
+  "error.somethingWentWrong": "發生問題。請再試一次。",
+  "error.unknown": "未知錯誤",
+  "error.checkFailed": "檢查更新失敗",
+  "error.downloadFailed": "下載失敗",
+  "error.updateFailed": "更新失敗",
+  "error.searchFailed": "搜尋失敗",
+  "error.pythonInstallFailed": "Python 安裝失敗。請再試一次。",
+  "error.serverStartFailed": "無法啟動 Open WebUI。請檢查日誌後再試一次。",
+  "error.serverRestartFailed": "重新啟動 Open WebUI 失敗",
+
   "main.openWebUI": "Open WebUI",
+  "main.localReady": "此電腦已安裝 Open WebUI。",
+  "main.localDescription": "安裝 Open WebUI，以自己的方式使用 AI。連接任何模型，自由擴充。無論走到哪裡，始終由你掌控。",
   "main.getStarted": "開始使用",
   "main.getStarted.title": "設定您的環境",
   "main.getStarted.description": "選擇要與 Open WebUI 一起安裝的選用服務。",
@@ -67,15 +91,26 @@
   "main.getStarted.continue": "繼續",
   "main.notEnoughDiskSpace": "磁碟空間不足",
   "main.diskSpaceRequired": "至少需要 5 GB 空間，目前僅有 {{available}} GB 可用。",
+
   "main.install.startingServer": "正在啟動伺服器…",
   "main.install.launchingOpenWebUI": "正在啟動 Open WebUI…",
+
   "sidebar.llamaCpp": "llama.cpp",
+
   "logs.llamaCppLogs": "llama.cpp 紀錄",
   "logs.copyLogs": "複製紀錄",
+  "logs.terminal": "終端機",
+  "logs.expand": "展開終端機",
+  "logs.collapse": "收合終端機",
+  "logs.resize": "調整終端機大小",
+  "logs.copied": "已複製",
+  "logs.copyFailed": "無法複製輸出。",
+
   "statusBar.local": "本機",
   "statusBar.server": "Open WebUI",
   "statusBar.serverRunning": "Open WebUI 正在執行",
   "statusBar.serverStopped": "Open WebUI 未執行",
+
   "settings.back": "回上一頁",
   "settings.search": "搜尋",
   "settings.noMatches": "找不到相符項目",
@@ -84,11 +119,13 @@
   "settings.groups.data": "資料",
   "settings.title": "設定",
   "settings.closeSettings": "關閉設定",
+
   "settings.tabs.general": "一般",
   "settings.tabs.openwebui": "Open WebUI",
   "settings.tabs.inference": "推理引擎",
   "settings.tabs.models": "模型",
   "settings.tabs.about": "關於",
+
   "settings.general.launchAtLogin": "登入時啟動",
   "settings.general.launchAtLoginDesc": "登入時自動開啟應用程式",
   "settings.general.runInBackground": "在背景執行",
@@ -112,6 +149,11 @@
   "settings.general.light": "淺色",
   "settings.general.dark": "深色",
   "settings.general.keyPlaceholder": "鍵名",
+  "settings.general.installLocation": "安裝位置",
+  "settings.general.installLocationDesc": "Python、模型與執行環境的根目錄",
+  "settings.general.installLocationNote": "變更此設定後需要重新安裝元件",
+  "settings.general.valuePlaceholder": "值",
+
   "settings.openwebui.notInstalled": "尚未安裝",
   "settings.openwebui.notInstalledDesc": "設定本機 Open WebUI 伺服器",
   "settings.openwebui.server": "伺服器",
@@ -135,6 +177,7 @@
   "settings.openwebui.toggleStartOnLaunch": "切換啟動時執行",
   "settings.openwebui.toggleServeOnLocalNetwork": "切換區域網路共享",
   "settings.openwebui.toggleAutoUpdate": "切換自動更新",
+
   "settings.inference.llamaServer": "llama-server",
   "settings.inference.llamaServerDesc": "由 llama.cpp 驅動的本機推理引擎",
   "settings.inference.settingUp": "設定中",
@@ -165,6 +208,7 @@
   "settings.inference.uninstallConfirm": "這將停止 llama-server 並移除所有已下載的二進位檔案。是否繼續？",
   "settings.inference.notInstalled": "llama.cpp 尚未安裝",
   "settings.inference.notInstalledDesc": "下載並設定 llama.cpp 用於本機模型推理",
+
   "settings.models.downloadedModels": "已下載的模型",
   "settings.models.noModels": "尚未下載任何模型",
   "settings.models.downloadFromHF": "從 Hugging Face 下載",
@@ -179,7 +223,9 @@
   "settings.models.openModelsFolder": "開啟模型資料夾",
   "settings.models.modelsDirectory": "模型目錄",
   "settings.models.modelsHint": "您也可以將 GGUF 檔案直接加入此資料夾。它們將被 llama-server 自動偵測。",
+
   "settings.connections.remove": "移除",
+
   "settings.about.desktopVersion": "桌面版版本",
   "settings.about.openWebuiVersion": "Open WebUI 版本",
   "settings.about.llamaCppVersion": "llama.cpp 版本",
@@ -196,6 +242,10 @@
   "settings.about.whatsNew": "新功能",
   "settings.about.noChangelog": "暫無更新紀錄。",
   "settings.about.viewOnGithub": "在 GitHub 上檢視 →",
-  "settings.about.copyright": "版權所有 (c) 2026 Open WebUI Inc. 保留所有權利。",
-  "settings.about.createdBy": "由 Timothy J. Baek 建立"
+  "settings.about.copyright": "著作權所有 (c) 2026 Open WebUI Inc. 保留所有權利。",
+  "settings.about.createdBy": "由 Timothy J. Baek 建立",
+  "settings.about.wakeUp": "醒醒，{{username}}……",
+  "settings.about.matrixHasYou": "你已被母體控制……",
+  "settings.about.followWhiteRabbit": "跟著白兔走。",
+  "settings.about.knockKnock": "叩叩，{{username}}。"
 }
