@@ -127,8 +127,8 @@ jobs:
               id: mac_build
               if: matrix.os == 'macos-latest' && steps.apple_cert.outcome == 'success'
               env:
-                  CSC_LINK: ${{ secrets.BUILD_CERTIFICATE_BASE64 }}
-                  CSC_KEY_PASSWORD: ${{ secrets.P12_PASSWORD }}
+                  # Reuse the imported keychain; electron-builder 26.8.1 uses the wrong password when creating its own.
+                  CSC_KEYCHAIN: ${{ runner.temp }}/app-signing.keychain-db
                   APPLE_ID: ${{ secrets.APPLE_ID }}
                   APPLE_APP_SPECIFIC_PASSWORD: ${{ secrets.APPLE_PASSWORD }}
                   APPLE_TEAM_ID: ${{ secrets.APPLE_TEAM_ID }}
@@ -164,6 +164,8 @@ jobs:
             # ── Windows code signing ──
             - name: Azure Trusted Signing (Windows Only)
               if: runner.os == 'Windows'
+              # Allow unsigned releases when Azure signing fails.
+              continue-on-error: true
               uses: azure/trusted-signing-action@v0.5.1
               with:
                   azure-tenant-id: ${{ secrets.AZURE_TENANT_ID }}
