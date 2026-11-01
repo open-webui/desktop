@@ -102,6 +102,12 @@
   "statusBar.serverRunning": "Open WebUI is running",
   "statusBar.serverStopped": "Open WebUI is not running",
 
+  "settings.back": "Back",
+  "settings.search": "Search",
+  "settings.noMatches": "No matches",
+  "settings.groups.basics": "Basics",
+  "settings.groups.services": "Services",
+  "settings.groups.data": "Data",
   "settings.title": "Settings",
   "settings.closeSettings": "Close settings",
 

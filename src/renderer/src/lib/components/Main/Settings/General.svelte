@@ -1,4 +1,8 @@
 <script lang="ts">
+  import NavArrowDownIcon from 'iconoir/icons/nav-arrow-down.svg?raw'
+  import NavArrowRightIcon from 'iconoir/icons/nav-arrow-right.svg?raw'
+  import RefreshIcon from 'iconoir/icons/refresh.svg?raw'
+  import XmarkIcon from 'iconoir/icons/xmark.svg?raw'
   import { onMount } from 'svelte'
   import { config } from '../../../stores'
   import i18n, { getLanguages, changeLanguage } from '../../../i18n'
@@ -182,66 +186,83 @@
 
 </script>
 
-<div class="flex flex-col divide-y divide-white/[0.04]">
-  <div class="py-4 flex items-center justify-between">
+<div class="flex flex-col gap-4">
+  <div
+    class="flex min-w-0 items-center justify-between gap-4 max-sm:flex-wrap [&>:first-child]:min-w-0 [&>:last-child]:shrink-0 sm:[&>:last-child]:max-w-[55%]"
+  >
     <div>
-      <div class="text-[13px]">{$i18n.t('settings.general.language')}</div>
-      <div class="text-[11px] mt-0.5">{$i18n.t('settings.general.languageDesc')}</div>
+      <div class="text-[12px] text-gray-800 dark:text-gray-200">
+        {$i18n.t('settings.general.language')}
+      </div>
+      <div class="text-[11px] leading-normal text-gray-600 dark:text-gray-400 mt-0.5">
+        {$i18n.t('settings.general.languageDesc')}
+      </div>
     </div>
-    <select
-      class="bg-black/[0.04] dark:bg-white/[0.06] text-[12px] text-black dark:text-white px-3 py-1.5 border-none outline-none rounded-xl"
-      onchange={async (e) => {
-        const lang = (e.target as HTMLSelectElement).value
-        selectedLanguage = lang
-        localStorage.setItem('locale', lang)
-        changeLanguage(lang)
-        await window.electronAPI.setConfig({ language: lang })
-        config.set(await window.electronAPI.getConfig())
-      }}
-    >
-      {#each languages as lang}
-        <option value={lang.code} selected={selectedLanguage === lang.code}>{lang.title}</option>
-      {/each}
-    </select>
-  </div>
-
-  <div class="py-4 flex items-center justify-between">
-    <div>
-      <div class="text-[13px]">{$i18n.t('settings.general.appearance')}</div>
-      <div class="text-[11px] mt-0.5">{$i18n.t('settings.general.appearanceDesc')}</div>
-    </div>
-    <div class="grid grid-cols-3 items-center gap-0.5 rounded-2xl bg-black/[0.04] dark:bg-white/[0.06] p-1 text-[11px]">
-      <button
-        class="flex h-6 w-16 items-center justify-center rounded-xl border-none transition {theme === 'system' ? 'bg-black/[0.08] dark:bg-white/[0.12] text-black dark:text-white' : 'bg-transparent text-black dark:text-white '}"
-        onclick={() => applyTheme('system')}
+    <div class="relative inline-flex max-w-full">
+      <select
+        class="w-full min-w-[100px] appearance-none text-ellipsis pr-[30px] min-h-[28px] max-w-full rounded-lg border border-gray-100/50 bg-gray-50/40 px-2.5 py-1 text-[12px] leading-[18px] text-gray-900 outline-none transition-colors dark:border-white/[0.04] dark:bg-white/[0.03] dark:text-gray-100 disabled:cursor-not-allowed disabled:opacity-50"
+        aria-label={$i18n.t('settings.general.language')}
+        onchange={async (e) => {
+          const lang = (e.target as HTMLSelectElement).value
+          selectedLanguage = lang
+          localStorage.setItem('locale', lang)
+          changeLanguage(lang)
+          await window.electronAPI.setConfig({ language: lang })
+          config.set(await window.electronAPI.getConfig())
+        }}
       >
-        {$i18n.t('common.auto')}
-      </button>
-      <button
-        class="flex h-6 w-16 items-center justify-center rounded-xl border-none transition {theme === 'light' ? 'bg-black/[0.08] dark:bg-white/[0.12] text-black dark:text-white' : 'bg-transparent text-black dark:text-white '}"
-        onclick={() => applyTheme('light')}
-        aria-label={$i18n.t('settings.general.light')}
+        {#each languages as lang}
+          <option value={lang.code} selected={selectedLanguage === lang.code}>{lang.title}</option>
+        {/each}
+      </select>
+      <span
+        aria-hidden="true"
+        class="inline-flex shrink-0 [&>svg]:size-full pointer-events-none absolute right-2 top-1/2 size-[14px] -translate-y-1/2 text-gray-600 dark:text-gray-400"
+        >{@html NavArrowDownIcon}</span
       >
-        <svg class="w-3.5 h-3.5" fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="1.5">
-          <path stroke-linecap="round" stroke-linejoin="round" d="M12 3v2.25m6.364.386-1.591 1.591M21 12h-2.25m-.386 6.364-1.591-1.591M12 18.75V21m-4.773-4.227-1.591 1.591M5.25 12H3m4.227-4.773L5.636 5.636M15.75 12a3.75 3.75 0 1 1-7.5 0 3.75 3.75 0 0 1 7.5 0Z" />
-        </svg>
-      </button>
-      <button
-        class="flex h-6 w-16 items-center justify-center rounded-xl border-none transition {theme === 'dark' ? 'bg-black/[0.08] dark:bg-white/[0.12] text-black dark:text-white' : 'bg-transparent text-black dark:text-white '}"
-        onclick={() => applyTheme('dark')}
-        aria-label={$i18n.t('settings.general.dark')}
-      >
-        <svg class="w-3.5 h-3.5" fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="1.5">
-          <path stroke-linecap="round" stroke-linejoin="round" d="M21.752 15.002A9.72 9.72 0 0 1 18 15.75c-5.385 0-9.75-4.365-9.75-9.75 0-1.33.266-2.597.748-3.752A9.753 9.753 0 0 0 3 11.25C3 16.635 7.365 21 12.75 21a9.753 9.753 0 0 0 9.002-5.998Z" />
-        </svg>
-      </button>
     </div>
   </div>
 
-  <div class="py-4 flex items-center justify-between">
+  <div
+    class="flex min-w-0 items-center justify-between gap-4 max-sm:flex-wrap [&>:first-child]:min-w-0 [&>:last-child]:shrink-0 sm:[&>:last-child]:max-w-[55%]"
+  >
     <div>
-      <div class="text-[13px]">{$i18n.t('settings.general.launchAtLogin')}</div>
-      <div class="text-[11px] mt-0.5">{$i18n.t('settings.general.launchAtLoginDesc')}</div>
+      <div class="text-[12px] text-gray-800 dark:text-gray-200">
+        {$i18n.t('settings.general.appearance')}
+      </div>
+      <div class="text-[11px] leading-normal text-gray-600 dark:text-gray-400 mt-0.5">
+        {$i18n.t('settings.general.appearanceDesc')}
+      </div>
+    </div>
+    <div class="relative inline-flex max-w-full">
+      <select
+        class="w-full min-w-[100px] appearance-none text-ellipsis pr-[30px] min-h-[28px] max-w-full rounded-lg border border-gray-100/50 bg-gray-50/40 px-2.5 py-1 text-[12px] leading-[18px] text-gray-900 outline-none transition-colors dark:border-white/[0.04] dark:bg-white/[0.03] dark:text-gray-100 disabled:cursor-not-allowed disabled:opacity-50"
+        aria-label={$i18n.t('settings.general.appearance')}
+        value={theme}
+        onchange={(e) => applyTheme(e.currentTarget.value)}
+      >
+        <option value="system">{$i18n.t('common.auto')}</option>
+        <option value="light">{$i18n.t('settings.general.light')}</option>
+        <option value="dark">{$i18n.t('settings.general.dark')}</option>
+      </select>
+      <span
+        aria-hidden="true"
+        class="inline-flex shrink-0 [&>svg]:size-full pointer-events-none absolute right-2 top-1/2 size-[14px] -translate-y-1/2 text-gray-600 dark:text-gray-400"
+        >{@html NavArrowDownIcon}</span
+      >
+    </div>
+  </div>
+
+  <div
+    class="flex min-w-0 items-center justify-between gap-4 max-sm:flex-wrap [&>:first-child]:min-w-0 [&>:last-child]:shrink-0 sm:[&>:last-child]:max-w-[55%]"
+  >
+    <div>
+      <div class="text-[12px] text-gray-800 dark:text-gray-200">
+        {$i18n.t('settings.general.launchAtLogin')}
+      </div>
+      <div class="text-[11px] leading-normal text-gray-600 dark:text-gray-400 mt-0.5">
+        {$i18n.t('settings.general.launchAtLoginDesc')}
+      </div>
     </div>
     <Switch
       checked={launchAtLogin}
@@ -253,10 +274,16 @@
     />
   </div>
 
-  <div class="py-4 flex items-center justify-between">
+  <div
+    class="flex min-w-0 items-center justify-between gap-4 max-sm:flex-wrap [&>:first-child]:min-w-0 [&>:last-child]:shrink-0 sm:[&>:last-child]:max-w-[55%]"
+  >
     <div>
-      <div class="text-[13px]">{$i18n.t('settings.general.runInBackground')}</div>
-      <div class="text-[11px] mt-0.5">{$i18n.t('settings.general.runInBackgroundDesc')}</div>
+      <div class="text-[12px] text-gray-800 dark:text-gray-200">
+        {$i18n.t('settings.general.runInBackground')}
+      </div>
+      <div class="text-[11px] leading-normal text-gray-600 dark:text-gray-400 mt-0.5">
+        {$i18n.t('settings.general.runInBackgroundDesc')}
+      </div>
     </div>
     <Switch
       checked={runInBackground}
@@ -269,10 +296,14 @@
     />
   </div>
 
-  <div class="py-4 flex items-center justify-between">
+  <div
+    class="flex min-w-0 items-center justify-between gap-4 max-sm:flex-wrap [&>:first-child]:min-w-0 [&>:last-child]:shrink-0 sm:[&>:last-child]:max-w-[55%]"
+  >
     <div>
-      <div class="text-[13px]">{$i18n.t('settings.general.globalShortcut')}</div>
-      <div class="text-[11px] mt-0.5">
+      <div class="text-[12px] text-gray-800 dark:text-gray-200">
+        {$i18n.t('settings.general.globalShortcut')}
+      </div>
+      <div class="text-[11px] leading-normal text-gray-600 dark:text-gray-400 mt-0.5">
         {#if recording}
           {$i18n.t('settings.general.globalShortcutRecording')}
         {:else}
@@ -283,10 +314,10 @@
     <div class="flex items-center gap-1.5">
       <button
         bind:this={shortcutInputEl}
-        class="text-[12px] px-3 py-1.5 border-none outline-none rounded-xl transition min-w-[80px] text-center
-          {recording
-            ? 'bg-black/[0.08] dark:bg-white/[0.10] text-black dark:text-white animate-pulse'
-            : 'bg-black/[0.04] dark:bg-white/[0.06] text-black dark:text-white '}"
+        class="min-h-[28px] max-w-full rounded-lg border border-gray-100/50 bg-gray-50/40 px-2.5 py-1 text-[12px] leading-[18px] text-gray-900 outline-none transition-colors dark:border-white/[0.04] dark:bg-white/[0.03] dark:text-gray-100 disabled:cursor-not-allowed disabled:opacity-50 shrink-0 hover:bg-gray-50 dark:hover:bg-white/[0.06] min-w-[80px] text-center {recording
+          ? 'animate-pulse'
+          : ''}"
+        aria-label={$i18n.t('settings.general.globalShortcut')}
         onclick={() => {
           recording = true
           shortcutInputEl?.focus()
@@ -299,7 +330,9 @@
         }}
       >
         {#if recording}
-          <span class="text-[11px]">{$i18n.t('settings.general.pressShortcut')}</span>
+          <span class="text-[11px] leading-normal text-gray-600 dark:text-gray-400"
+            >{$i18n.t('settings.general.pressShortcut')}</span
+          >
         {:else if shortcutValue}
           {displayShortcut(shortcutValue)}
         {:else}
@@ -308,49 +341,62 @@
       </button>
       {#if shortcutValue && !recording}
         <button
-          class="transition bg-transparent border-none text-black dark:text-white p-0.5 shrink-0"
+          class="inline-flex size-[28px] shrink-0 items-center justify-center rounded-lg text-gray-800 hover:bg-gray-50 dark:text-gray-200 dark:hover:bg-white/[0.04]"
+          aria-label={$i18n.t('common.remove')}
           onclick={async () => {
             shortcutValue = ''
             await window.electronAPI.setConfig({ globalShortcut: '' })
             config.set(await window.electronAPI.getConfig())
           }}
         >
-          <svg class="w-3 h-3" fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="1.5">
-            <path stroke-linecap="round" stroke-linejoin="round" d="M6 18L18 6M6 6l12 12" />
-          </svg>
+          <span aria-hidden="true" class="inline-flex shrink-0 [&>svg]:size-full w-3 h-3"
+            >{@html XmarkIcon}</span
+          >
         </button>
       {/if}
     </div>
   </div>
 
   <!-- Advanced (collapsed by default) -->
-  <div class="py-4">
+  <div class="pt-1">
     <button
-      class="flex items-center gap-1.5 bg-transparent border-none text-black dark:text-white p-0 cursor-pointer"
-      onclick={() => { advancedOpen = !advancedOpen }}
+      class="flex items-center gap-1.5 bg-transparent border-none text-gray-900 dark:text-gray-100 p-0 cursor-pointer"
+      aria-expanded={advancedOpen}
+      onclick={() => {
+        advancedOpen = !advancedOpen
+      }}
     >
-      <svg
-        class="w-3 h-3 transition-transform duration-200 {advancedOpen ? 'rotate-90' : ''}"
-        fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="2"
+      <span
+        aria-hidden="true"
+        class="inline-flex shrink-0 [&>svg]:size-full w-3 h-3 transition-transform duration-200 {advancedOpen
+          ? 'rotate-90'
+          : ''}">{@html NavArrowRightIcon}</span
       >
-        <path stroke-linecap="round" stroke-linejoin="round" d="M9 5l7 7-7 7" />
-      </svg>
-      <span class="text-[13px]">{$i18n.t('common.advanced')}</span>
+      <span class="text-[12px] text-gray-800 dark:text-gray-200">{$i18n.t('common.advanced')}</span>
     </button>
 
     {#if advancedOpen}
-        <div class="flex flex-col divide-y divide-white/[0.04] mt-1">
+      <div class="flex flex-col gap-4 mt-4">
         <!-- Install location -->
-        <div class="py-4 flex items-center justify-between gap-4">
-          <div class="shrink-0">
-            <div class="text-[13px]">{$i18n.t('settings.general.installLocation')}</div>
-            <div class="text-[11px] mt-0.5">{$i18n.t('settings.general.installLocationDesc')}</div>
-            <div class="text-[10px] mt-0.5">{$i18n.t('settings.general.installLocationNote')}</div>
+        <div
+          class="flex min-w-0 items-center justify-between gap-4 max-sm:flex-wrap [&>:first-child]:min-w-0 [&>:last-child]:shrink-0 sm:[&>:last-child]:max-w-[55%]"
+        >
+          <div class="min-w-0">
+            <div class="text-[12px] text-gray-800 dark:text-gray-200">
+              {$i18n.t('settings.general.installLocation')}
+            </div>
+            <div class="text-[11px] leading-normal text-gray-600 dark:text-gray-400 mt-0.5">
+              {$i18n.t('settings.general.installLocationDesc')}
+            </div>
+            <div class="text-[11px] text-gray-600 dark:text-gray-400 mt-0.5">
+              {$i18n.t('settings.general.installLocationNote')}
+            </div>
           </div>
           <div class="flex items-center gap-1.5 min-w-0 flex-1 max-w-[280px] justify-end">
             <input
               type="text"
-              class="bg-black/[0.04] dark:bg-white/[0.06] text-[12px] text-black dark:text-white px-3 py-1.5 border-none outline-none rounded-xl min-w-0 flex-1 text-right font-mono"
+              aria-label={$i18n.t('settings.general.installLocation')}
+              class="placeholder:text-gray-600 dark:placeholder:text-gray-400 min-h-[28px] max-w-full rounded-lg border border-gray-100/50 bg-gray-50/40 px-2.5 py-1 text-[12px] leading-[18px] text-gray-900 outline-none transition-colors dark:border-white/[0.04] dark:bg-white/[0.03] dark:text-gray-100 disabled:cursor-not-allowed disabled:opacity-50 min-w-0 flex-1 text-right font-mono"
               placeholder={defaultInstallDir || 'Default'}
               value={installDirPath === defaultInstallDir ? '' : installDirPath}
               onchange={async (e) => {
@@ -361,7 +407,7 @@
               }}
             />
             <button
-              class="shrink-0 text-[12px] px-2.5 py-1.5 bg-black/[0.04] dark:bg-white/[0.06] transition border-none text-black dark:text-white rounded-xl"
+              class="min-h-[28px] max-w-full rounded-lg border border-gray-100/50 bg-gray-50/40 px-2.5 py-1 text-[12px] leading-[18px] text-gray-900 outline-none transition-colors dark:border-white/[0.04] dark:bg-white/[0.03] dark:text-gray-100 disabled:cursor-not-allowed disabled:opacity-50 shrink-0 hover:bg-gray-50 dark:hover:bg-white/[0.06]"
               onclick={async () => {
                 const folder = await window.electronAPI.selectFolder()
                 if (folder) {
@@ -377,14 +423,18 @@
         </div>
 
         <!-- Environment variables -->
-        <div class="py-4">
+        <div class="pt-1">
           <div class="flex items-center justify-between mb-3">
             <div>
-              <div class="text-[13px]">{$i18n.t('settings.general.environmentVariables')}</div>
-              <div class="text-[11px] mt-0.5">{$i18n.t('settings.general.environmentVariablesDesc')}</div>
+              <div class="text-[12px] text-gray-800 dark:text-gray-200">
+                {$i18n.t('settings.general.environmentVariables')}
+              </div>
+              <div class="text-[11px] leading-normal text-gray-600 dark:text-gray-400 mt-0.5">
+                {$i18n.t('settings.general.environmentVariablesDesc')}
+              </div>
             </div>
             <button
-              class="text-[11px] transition bg-transparent border-none text-black dark:text-white"
+              class="min-h-[28px] max-w-full rounded-lg border border-gray-100/50 bg-gray-50/40 px-2.5 py-1 text-[12px] leading-[18px] text-gray-900 outline-none transition-colors dark:border-white/[0.04] dark:bg-white/[0.03] dark:text-gray-100 disabled:cursor-not-allowed disabled:opacity-50 shrink-0 hover:bg-gray-50 dark:hover:bg-white/[0.06]"
               onclick={addEnvVar}
             >
               {$i18n.t('common.add')}
@@ -398,52 +448,61 @@
                   <input
                     type="text"
                     placeholder={$i18n.t('settings.general.keyPlaceholder')}
-                    class="bg-black/[0.04] dark:bg-white/[0.06] text-[12px] text-black dark:text-white px-2.5 py-1.5 border-none outline-none rounded-lg flex-1 min-w-0 font-mono"
+                    class="placeholder:text-gray-600 dark:placeholder:text-gray-400 min-h-[28px] max-w-full rounded-lg border border-gray-100/50 bg-gray-50/40 px-2.5 py-1 text-[12px] leading-[18px] text-gray-900 outline-none transition-colors dark:border-white/[0.04] dark:bg-white/[0.03] dark:text-gray-100 disabled:cursor-not-allowed disabled:opacity-50 flex-1 min-w-0 font-mono"
                     value={entry.key}
-                    oninput={(e) => { envEntries[i].key = (e.target as HTMLInputElement).value }}
+                    oninput={(e) => {
+                      envEntries[i].key = (e.target as HTMLInputElement).value
+                    }}
                     onblur={saveEnvVars}
                   />
-                  <span class="text-[11px]">=</span>
+                  <span class="text-[11px] leading-normal text-gray-600 dark:text-gray-400">=</span>
                   <input
                     type="text"
                     placeholder="value"
-                    class="bg-black/[0.04] dark:bg-white/[0.06] text-[12px] text-black dark:text-white px-2.5 py-1.5 border-none outline-none rounded-lg flex-[2] min-w-0 font-mono"
+                    class="placeholder:text-gray-600 dark:placeholder:text-gray-400 min-h-[28px] max-w-full rounded-lg border border-gray-100/50 bg-gray-50/40 px-2.5 py-1 text-[12px] leading-[18px] text-gray-900 outline-none transition-colors dark:border-white/[0.04] dark:bg-white/[0.03] dark:text-gray-100 disabled:cursor-not-allowed disabled:opacity-50 flex-[2] min-w-0 font-mono"
                     value={entry.value}
-                    oninput={(e) => { envEntries[i].value = (e.target as HTMLInputElement).value }}
+                    oninput={(e) => {
+                      envEntries[i].value = (e.target as HTMLInputElement).value
+                    }}
                     onblur={saveEnvVars}
                   />
                   <button
-                    class="transition bg-transparent border-none text-black dark:text-white p-0.5 shrink-0"
+                    class="transition bg-transparent border-none text-gray-900 dark:text-gray-100 p-0.5 shrink-0"
+                    aria-label={$i18n.t('common.remove')}
                     onclick={() => removeEnvVar(i)}
                   >
-                    <svg class="w-3 h-3" fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="1.5">
-                      <path stroke-linecap="round" stroke-linejoin="round" d="M6 18L18 6M6 6l12 12" />
-                    </svg>
+                    <span aria-hidden="true" class="inline-flex shrink-0 [&>svg]:size-full w-3 h-3"
+                      >{@html XmarkIcon}</span
+                    >
                   </button>
                 </div>
               {/each}
             </div>
           {:else}
-            <div class="text-[11px]">{$i18n.t('settings.general.noEnvVars')}</div>
+            <div class="text-[11px] leading-normal text-gray-600 dark:text-gray-400">
+              {$i18n.t('settings.general.noEnvVars')}
+            </div>
           {/if}
         </div>
 
-        <div class="py-4 flex items-center justify-between">
+        <div
+          class="flex min-w-0 items-center justify-between gap-4 max-sm:flex-wrap [&>:first-child]:min-w-0 [&>:last-child]:shrink-0 sm:[&>:last-child]:max-w-[55%]"
+        >
           <div>
-            <div class="text-[13px]">{$i18n.t('settings.general.factoryReset')}</div>
-            <div class="text-[11px] mt-0.5">
+            <div class="text-[12px] text-gray-800 dark:text-gray-200">
+              {$i18n.t('settings.general.factoryReset')}
+            </div>
+            <div class="text-[11px] leading-normal text-gray-600 dark:text-gray-400 mt-0.5">
               {$i18n.t('settings.general.factoryResetDesc')}
             </div>
           </div>
           <button
-            class="text-[12px] px-3 py-1.5 bg-black/[0.04] dark:bg-white/[0.06] transition border-none text-black dark:text-white rounded-xl flex items-center gap-1.5 {resetting ? 'pointer-events-none opacity-50' : ''}"
+            class="min-h-[28px] max-w-full rounded-lg border border-gray-100/50 bg-gray-50/40 px-2.5 py-1 text-[12px] leading-[18px] text-gray-900 outline-none transition-colors dark:border-white/[0.04] dark:bg-white/[0.03] dark:text-gray-100 disabled:cursor-not-allowed disabled:opacity-50 shrink-0 hover:bg-gray-50 dark:hover:bg-white/[0.06] flex items-center gap-1.5 {resetting
+              ? 'pointer-events-none opacity-50'
+              : ''}"
             disabled={resetting}
             onclick={async () => {
-              if (
-                confirm(
-                  $i18n.t('settings.general.factoryResetConfirm')
-                )
-              ) {
+              if (confirm($i18n.t('settings.general.factoryResetConfirm'))) {
                 resetting = true
                 await window.electronAPI.resetApp()
                 window.location.reload()
@@ -451,9 +510,11 @@
             }}
           >
             {#if resetting}
-              <svg class="w-3 h-3 animate-spin" viewBox="0 0 24 24" fill="none">
-                <circle cx="12" cy="12" r="10" stroke="currentColor" stroke-width="3" stroke-dasharray="31.4 31.4" stroke-linecap="round" />
-              </svg>
+              <span
+                aria-hidden="true"
+                class="inline-flex shrink-0 [&>svg]:size-full w-3 h-3 animate-spin"
+                >{@html RefreshIcon}</span
+              >
               {$i18n.t('common.resetting')}
             {:else}
               {$i18n.t('common.reset')}

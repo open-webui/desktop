@@ -41,7 +41,7 @@
     term = new Terminal({
       cursorBlink: false,
       disableStdin: readonly,
-      fontSize: 13,
+      fontSize: 11,
       fontFamily: "'SF Mono', 'Fira Code', 'Cascadia Code', Menlo, Monaco, monospace",
       lineHeight: 1,
       scrollback: 10000,
@@ -118,13 +118,13 @@
   .terminal-viewer {
     position: absolute;
     inset: 0;
-    padding: 4px 36px 4px 8px;
     background: var(--terminal-background);
     color: var(--terminal-foreground);
   }
-  @media (pointer: coarse) {
-    .terminal-viewer {
-      padding-right: 52px;
-    }
+  .terminal-viewer :global(.xterm) {
+    padding: 4px 0 4px 8px;
+  }
+  .terminal-viewer :global(.xterm-viewport) {
+    background: var(--terminal-background);
   }
 </style>

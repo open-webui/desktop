@@ -1,4 +1,9 @@
 <script lang="ts">
+  import DownloadIcon from 'iconoir/icons/download.svg?raw'
+  import PlayIcon from 'iconoir/icons/play.svg?raw'
+  import RefreshIcon from 'iconoir/icons/refresh.svg?raw'
+  import RestartIcon from 'iconoir/icons/restart.svg?raw'
+  import SquareIcon from 'iconoir/icons/square.svg?raw'
   import { onMount } from 'svelte'
   import { config, serverInfo } from '../../../stores'
   import i18n from '../../../i18n'
@@ -87,13 +92,21 @@
 {#if !loaded}
   <div class="py-6 text-[12px] text-center">{$i18n.t('common.loading')}</div>
 {:else if !installed}
-  <div class="py-4 flex items-center justify-between">
+  <div
+    class="flex min-w-0 items-center justify-between gap-4 max-sm:flex-wrap [&>:first-child]:min-w-0 [&>:last-child]:shrink-0 sm:[&>:last-child]:max-w-[55%]"
+  >
     <div>
-      <div class="text-[13px]">{$i18n.t('settings.openwebui.notInstalled')}</div>
-      <div class="text-[11px] mt-0.5">{$i18n.t('settings.openwebui.notInstalledDesc')}</div>
+      <div class="text-[12px] text-gray-800 dark:text-gray-200">
+        {$i18n.t('settings.openwebui.notInstalled')}
+      </div>
+      <div class="text-[11px] leading-normal text-gray-600 dark:text-gray-400 mt-0.5">
+        {$i18n.t('settings.openwebui.notInstalledDesc')}
+      </div>
     </div>
     <button
-      class="text-[12px] px-3 py-1.5 bg-black/[0.04] dark:bg-white/[0.06] transition border-none text-black dark:text-white rounded-xl flex items-center gap-1.5 {installing ? 'pointer-events-none opacity-50' : ''}"
+      class="min-h-[28px] max-w-full rounded-lg border border-gray-100/50 bg-gray-50/40 px-2.5 py-1 text-[12px] leading-[18px] text-gray-900 outline-none transition-colors dark:border-white/[0.04] dark:bg-white/[0.03] dark:text-gray-100 disabled:cursor-not-allowed disabled:opacity-50 shrink-0 hover:bg-gray-50 dark:hover:bg-white/[0.06] flex items-center gap-1.5 {installing
+        ? 'pointer-events-none opacity-50'
+        : ''}"
       disabled={installing}
       onclick={async () => {
         installing = true
@@ -107,7 +120,9 @@
       }}
     >
       {#if installing}
-        <div class="w-2.5 h-2.5 rounded-full border-[1.5px] border-black/20 dark:border-white/30 border-t-transparent animate-spin"></div>
+        <span aria-hidden="true" class="inline-flex shrink-0 [&>svg]:size-full size-3 animate-spin"
+          >{@html RefreshIcon}</span
+        >
         {$i18n.t('common.installing')}
       {:else}
         {$i18n.t('common.install')}
@@ -115,250 +130,325 @@
     </button>
   </div>
 {:else}
-<div class="flex flex-col divide-y divide-white/[0.04]">
-  <!-- Server status & controls -->
-  <div class="py-4">
-    <div class="flex items-center justify-between mb-3">
-      <div>
-        <div class="text-[13px]">{$i18n.t('settings.openwebui.server')}</div>
-        <div class="text-[11px] mt-0.5">
-          {#if version}v{version} · {/if}{$i18n.t('settings.openwebui.localInstance')}
+  <div class="flex flex-col gap-4">
+    <!-- Server status & controls -->
+    <div class="pt-1">
+      <div class="flex items-center justify-between mb-3">
+        <div>
+          <div class="text-[12px] text-gray-800 dark:text-gray-200">
+            {$i18n.t('settings.openwebui.server')}
+          </div>
+          <div class="text-[11px] leading-normal text-gray-600 dark:text-gray-400 mt-0.5">
+            {#if version}v{version} ·
+            {/if}{$i18n.t('settings.openwebui.localInstance')}
+          </div>
+        </div>
+        <div class="flex items-center gap-1.5">
+          {#if isRunning}
+            <div class="w-1.5 h-1.5 rounded-full bg-emerald-400"></div>
+            <span class="text-[12px]">{$i18n.t('common.running')}</span>
+          {:else if serverStatus === 'stopped'}
+            <div class="w-1.5 h-1.5 rounded-full bg-black/15 dark:bg-white/20"></div>
+            <span class="text-[12px]">{$i18n.t('common.stopped')}</span>
+          {:else}
+            <div class="w-1.5 h-1.5 rounded-full bg-amber-400/60"></div>
+            <span class="text-[12px] capitalize">{serverStatus ?? $i18n.t('common.unknown')}</span>
+          {/if}
         </div>
       </div>
-      <div class="flex items-center gap-1.5">
+
+      <div class="flex items-center gap-2">
         {#if isRunning}
-          <div class="w-1.5 h-1.5 rounded-full bg-emerald-400"></div>
-          <span class="text-[12px]">{$i18n.t('common.running')}</span>
-        {:else if serverStatus === 'stopped'}
-          <div class="w-1.5 h-1.5 rounded-full bg-black/15 dark:bg-white/20"></div>
-          <span class="text-[12px]">{$i18n.t('common.stopped')}</span>
+          <button
+            class="min-h-[28px] max-w-full rounded-lg border border-gray-100/50 bg-gray-50/40 px-2.5 py-1 text-[12px] leading-[18px] text-gray-900 outline-none transition-colors dark:border-white/[0.04] dark:bg-white/[0.03] dark:text-gray-100 disabled:cursor-not-allowed disabled:opacity-50 shrink-0 hover:bg-gray-50 dark:hover:bg-white/[0.06] flex items-center gap-1.5 {stopping
+              ? 'pointer-events-none opacity-50'
+              : ''}"
+            disabled={stopping}
+            onclick={stopServer}
+          >
+            {#if stopping}
+              <span
+                aria-hidden="true"
+                class="inline-flex shrink-0 [&>svg]:size-full size-3 animate-spin"
+                >{@html RefreshIcon}</span
+              >
+              {$i18n.t('common.stopping')}
+            {:else}
+              <span aria-hidden="true" class="inline-flex shrink-0 [&>svg]:size-full w-3 h-3"
+                >{@html SquareIcon}</span
+              >
+              {$i18n.t('common.stop')}
+            {/if}
+          </button>
+          <button
+            class="min-h-[28px] max-w-full rounded-lg border border-gray-100/50 bg-gray-50/40 px-2.5 py-1 text-[12px] leading-[18px] text-gray-900 outline-none transition-colors dark:border-white/[0.04] dark:bg-white/[0.03] dark:text-gray-100 disabled:cursor-not-allowed disabled:opacity-50 shrink-0 hover:bg-gray-50 dark:hover:bg-white/[0.06] flex items-center gap-1.5 {restarting
+              ? 'pointer-events-none opacity-50'
+              : ''}"
+            disabled={restarting}
+            onclick={restartServer}
+          >
+            {#if restarting}
+              <span
+                aria-hidden="true"
+                class="inline-flex shrink-0 [&>svg]:size-full size-3 animate-spin"
+                >{@html RefreshIcon}</span
+              >
+              {$i18n.t('common.restarting')}
+            {:else}
+              <span aria-hidden="true" class="inline-flex shrink-0 [&>svg]:size-full w-3 h-3"
+                >{@html RestartIcon}</span
+              >
+              {$i18n.t('common.restart')}
+            {/if}
+          </button>
         {:else}
-          <div class="w-1.5 h-1.5 rounded-full bg-amber-400/60"></div>
-          <span class="text-[12px] capitalize">{serverStatus ?? $i18n.t('common.unknown')}</span>
+          <button
+            class="min-h-[28px] max-w-full rounded-lg border border-gray-100/50 bg-gray-50/40 px-2.5 py-1 text-[12px] leading-[18px] text-gray-900 outline-none transition-colors dark:border-white/[0.04] dark:bg-white/[0.03] dark:text-gray-100 disabled:cursor-not-allowed disabled:opacity-50 shrink-0 hover:bg-gray-50 dark:hover:bg-white/[0.06] flex items-center gap-1.5 {starting
+              ? 'pointer-events-none opacity-50'
+              : ''}"
+            disabled={starting}
+            onclick={startServer}
+          >
+            {#if starting}
+              <span
+                aria-hidden="true"
+                class="inline-flex shrink-0 [&>svg]:size-full size-3 animate-spin"
+                >{@html RefreshIcon}</span
+              >
+              {$i18n.t('common.starting')}
+            {:else}
+              <span aria-hidden="true" class="inline-flex shrink-0 [&>svg]:size-full w-3 h-3"
+                >{@html PlayIcon}</span
+              >
+              {$i18n.t('common.start')}
+            {/if}
+          </button>
         {/if}
+
+        <button
+          class="min-h-[28px] max-w-full rounded-lg border border-gray-100/50 bg-gray-50/40 px-2.5 py-1 text-[12px] leading-[18px] text-gray-900 outline-none transition-colors dark:border-white/[0.04] dark:bg-white/[0.03] dark:text-gray-100 disabled:cursor-not-allowed disabled:opacity-50 shrink-0 hover:bg-gray-50 dark:hover:bg-white/[0.06] flex items-center gap-1.5 {updating
+            ? 'pointer-events-none opacity-50'
+            : ''}"
+          disabled={updating}
+          onclick={updatePackage}
+        >
+          {#if updating}
+            <span
+              aria-hidden="true"
+              class="inline-flex shrink-0 [&>svg]:size-full size-3 animate-spin"
+              >{@html RefreshIcon}</span
+            >
+            {$i18n.t('common.updating')}
+          {:else}
+            <span aria-hidden="true" class="inline-flex shrink-0 [&>svg]:size-full w-3 h-3"
+              >{@html DownloadIcon}</span
+            >
+            {$i18n.t('common.update')}
+          {/if}
+        </button>
       </div>
     </div>
 
-    <div class="flex items-center gap-2">
-      {#if isRunning}
-        <button
-          class="text-[12px] px-3 py-1.5 bg-black/[0.04] dark:bg-white/[0.06] transition border-none text-black dark:text-white rounded-xl flex items-center gap-1.5 {stopping ? 'pointer-events-none opacity-50' : ''}"
-          disabled={stopping}
-          onclick={stopServer}
-        >
-          {#if stopping}
-            <div class="w-2.5 h-2.5 rounded-full border-[1.5px] border-black/20 dark:border-white/30 border-t-transparent animate-spin"></div>
-            {$i18n.t('common.stopping')}
-          {:else}
-            <svg class="w-3 h-3" fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="1.5">
-              <path stroke-linecap="round" stroke-linejoin="round" d="M5.636 5.636a9 9 0 1012.728 0M12 3v9" />
-            </svg>
-            {$i18n.t('common.stop')}
-          {/if}
-        </button>
-        <button
-          class="text-[12px] px-3 py-1.5 bg-black/[0.04] dark:bg-white/[0.06] transition border-none text-black dark:text-white rounded-xl flex items-center gap-1.5 {restarting ? 'pointer-events-none opacity-50' : ''}"
-          disabled={restarting}
-          onclick={restartServer}
-        >
-          {#if restarting}
-            <div class="w-2.5 h-2.5 rounded-full border-[1.5px] border-black/20 dark:border-white/30 border-t-transparent animate-spin"></div>
-            {$i18n.t('common.restarting')}
-          {:else}
-            <svg class="w-3 h-3" fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="1.5">
-              <path stroke-linecap="round" stroke-linejoin="round" d="M16.023 9.348h4.992v-.001M2.985 19.644v-4.992m0 0h4.992m-4.993 0l3.181 3.183a8.25 8.25 0 0013.803-3.7M20.015 4.356v4.992m0 0h-4.992m4.993 0l-3.181-3.183a8.25 8.25 0 00-13.803 3.7" />
-            </svg>
-            {$i18n.t('common.restart')}
-          {/if}
-        </button>
-      {:else}
-        <button
-          class="text-[12px] px-3 py-1.5 bg-black/[0.04] dark:bg-white/[0.06] transition border-none text-black dark:text-white rounded-xl flex items-center gap-1.5 {starting ? 'pointer-events-none opacity-50' : ''}"
-          disabled={starting}
-          onclick={startServer}
-        >
-          {#if starting}
-            <div class="w-2.5 h-2.5 rounded-full border-[1.5px] border-black/20 dark:border-white/30 border-t-transparent animate-spin"></div>
-            {$i18n.t('common.starting')}
-          {:else}
-            <svg class="w-3 h-3" fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="1.5">
-              <path stroke-linecap="round" stroke-linejoin="round" d="M5.25 5.653c0-.856.917-1.398 1.667-.986l11.54 6.347a1.125 1.125 0 010 1.972l-11.54 6.347a1.125 1.125 0 01-1.667-.986V5.653z" />
-            </svg>
-            {$i18n.t('common.start')}
-          {/if}
-        </button>
-      {/if}
-
-      <button
-        class="text-[12px] px-3 py-1.5 bg-black/[0.04] dark:bg-white/[0.06] transition border-none text-black dark:text-white rounded-xl flex items-center gap-1.5 {updating ? 'pointer-events-none opacity-50' : ''}"
-        disabled={updating}
-        onclick={updatePackage}
-      >
-        {#if updating}
-          <div class="w-2.5 h-2.5 rounded-full border-[1.5px] border-black/20 dark:border-white/30 border-t-transparent animate-spin"></div>
-          {$i18n.t('common.updating')}
-        {:else}
-          <svg class="w-3 h-3" fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="1.5">
-            <path stroke-linecap="round" stroke-linejoin="round" d="M3 16.5v2.25A2.25 2.25 0 005.25 21h13.5A2.25 2.25 0 0021 18.75V16.5M16.5 12L12 16.5m0 0L7.5 12m4.5 4.5V3" />
-          </svg>
-          {$i18n.t('common.update')}
-        {/if}
-      </button>
-    </div>
-  </div>
-
-  <!-- Running Instance Info -->
-  {#if isRunning}
-    <div class="py-4">
-      <div class="text-[13px] mb-3">{$i18n.t('settings.openwebui.runningInstance')}</div>
-      <div class="flex flex-col gap-2">
-        <div class="flex items-center justify-between">
-          <span class="text-[11px]">URL</span>
-          <button class="text-[12px] font-mono transition bg-transparent border-none text-black dark:text-white p-0 underline decoration-dotted underline-offset-2 cursor-pointer" onclick={() => window.open($serverInfo?.url ?? 'http://127.0.0.1:8080')}>{$serverInfo?.url ?? 'http://127.0.0.1:8080'}</button>
+    <!-- Running Instance Info -->
+    {#if isRunning}
+      <div class="pt-1">
+        <div class="text-[12px] text-gray-800 dark:text-gray-200 mb-3">
+          {$i18n.t('settings.openwebui.runningInstance')}
         </div>
-        {#if serverPid}
-        <div class="flex items-center justify-between">
-          <span class="text-[11px]">PID</span>
-          <span class="text-[12px] font-mono">{serverPid}</span>
+        <div class="flex flex-col gap-2">
+          <div class="flex items-center justify-between">
+            <span class="text-[11px] leading-normal text-gray-600 dark:text-gray-400">URL</span>
+            <button
+              class="text-[12px] font-mono transition bg-transparent border-none text-gray-900 dark:text-gray-100 p-0 underline decoration-dotted underline-offset-2 cursor-pointer"
+              onclick={() => window.open($serverInfo?.url ?? 'http://127.0.0.1:8080')}
+              >{$serverInfo?.url ?? 'http://127.0.0.1:8080'}</button
+            >
+          </div>
+          {#if serverPid}
+            <div class="flex items-center justify-between">
+              <span class="text-[11px] leading-normal text-gray-600 dark:text-gray-400">PID</span>
+              <span class="text-[12px] font-mono">{serverPid}</span>
+            </div>
+          {/if}
         </div>
-        {/if}
       </div>
-    </div>
-  {/if}
+    {/if}
 
-  <div class="py-4 flex items-center justify-between">
-    <div>
-      <div class="text-[13px]">{$i18n.t('settings.openwebui.startOnLaunch')}</div>
-      <div class="text-[11px] mt-0.5">
-        {$i18n.t('settings.openwebui.startOnLaunchDesc')}
+    <div
+      class="flex min-w-0 items-center justify-between gap-4 max-sm:flex-wrap [&>:first-child]:min-w-0 [&>:last-child]:shrink-0 sm:[&>:last-child]:max-w-[55%]"
+    >
+      <div>
+        <div class="text-[12px] text-gray-800 dark:text-gray-200">
+          {$i18n.t('settings.openwebui.startOnLaunch')}
+        </div>
+        <div class="text-[11px] leading-normal text-gray-600 dark:text-gray-400 mt-0.5">
+          {$i18n.t('settings.openwebui.startOnLaunchDesc')}
+        </div>
       </div>
+      <Switch
+        checked={$config?.localServer?.enabled !== false}
+        label={$i18n.t('settings.openwebui.toggleStartOnLaunch')}
+        onchange={(value) => updateConfig('enabled', value)}
+      />
     </div>
-    <Switch
-      checked={$config?.localServer?.enabled !== false}
-      label={$i18n.t('settings.openwebui.toggleStartOnLaunch')}
-      onchange={(value) => updateConfig('enabled', value)}
-    />
-  </div>
 
-  <div class="py-4 flex items-center justify-between">
-    <div>
-      <div class="text-[13px]">{$i18n.t('settings.openwebui.serverPort')}</div>
-      <div class="text-[11px] mt-0.5">{$i18n.t('settings.openwebui.serverPortDesc')}</div>
-    </div>
-    <input
-      type="number"
-      class="bg-black/[0.04] dark:bg-white/[0.06] text-[12px] text-black dark:text-white px-3 py-1.5 border-none outline-none rounded-xl w-20 text-right"
-      value={$config?.localServer?.port ?? 8080}
-      onchange={(e) =>
-        updateConfig('port', parseInt((e.target as HTMLInputElement).value) || 8080)}
-    />
-  </div>
-
-  <div class="py-4 flex items-center justify-between">
-    <div>
-      <div class="text-[13px]">{$i18n.t('settings.openwebui.serveOnLocalNetwork')}</div>
-      <div class="text-[11px] mt-0.5">
-        {$i18n.t('settings.openwebui.serveOnLocalNetworkDesc')}
+    <div
+      class="flex min-w-0 items-center justify-between gap-4 max-sm:flex-wrap [&>:first-child]:min-w-0 [&>:last-child]:shrink-0 sm:[&>:last-child]:max-w-[55%]"
+    >
+      <div>
+        <div class="text-[12px] text-gray-800 dark:text-gray-200">
+          {$i18n.t('settings.openwebui.serverPort')}
+        </div>
+        <div class="text-[11px] leading-normal text-gray-600 dark:text-gray-400 mt-0.5">
+          {$i18n.t('settings.openwebui.serverPortDesc')}
+        </div>
       </div>
+      <input
+        type="number"
+        class="placeholder:text-gray-600 dark:placeholder:text-gray-400 min-h-[28px] max-w-full rounded-lg border border-gray-100/50 bg-gray-50/40 px-2.5 py-1 text-[12px] leading-[18px] text-gray-900 outline-none transition-colors dark:border-white/[0.04] dark:bg-white/[0.03] dark:text-gray-100 disabled:cursor-not-allowed disabled:opacity-50 w-20 text-right"
+        value={$config?.localServer?.port ?? 8080}
+        onchange={(e) =>
+          updateConfig('port', parseInt((e.target as HTMLInputElement).value) || 8080)}
+      />
     </div>
-    <Switch
-      checked={$config?.localServer?.serveOnLocalNetwork ?? false}
-      label={$i18n.t('settings.openwebui.toggleServeOnLocalNetwork')}
-      onchange={(value) => updateConfig('serveOnLocalNetwork', value)}
-    />
-  </div>
 
-  <div class="py-4 flex items-center justify-between">
-    <div>
-      <div class="text-[13px]">{$i18n.t('settings.openwebui.autoUpdate')}</div>
-      <div class="text-[11px] mt-0.5">
-        {$i18n.t('settings.openwebui.autoUpdateDesc')}
+    <div
+      class="flex min-w-0 items-center justify-between gap-4 max-sm:flex-wrap [&>:first-child]:min-w-0 [&>:last-child]:shrink-0 sm:[&>:last-child]:max-w-[55%]"
+    >
+      <div>
+        <div class="text-[12px] text-gray-800 dark:text-gray-200">
+          {$i18n.t('settings.openwebui.serveOnLocalNetwork')}
+        </div>
+        <div class="text-[11px] leading-normal text-gray-600 dark:text-gray-400 mt-0.5">
+          {$i18n.t('settings.openwebui.serveOnLocalNetworkDesc')}
+        </div>
       </div>
+      <Switch
+        checked={$config?.localServer?.serveOnLocalNetwork ?? false}
+        label={$i18n.t('settings.openwebui.toggleServeOnLocalNetwork')}
+        onchange={(value) => updateConfig('serveOnLocalNetwork', value)}
+      />
     </div>
-    <Switch
-      checked={$config?.localServer?.autoUpdate !== false}
-      label={$i18n.t('settings.openwebui.toggleAutoUpdate')}
-      onchange={(value) => updateConfig('autoUpdate', value)}
-    />
-  </div>
 
-  <!-- Version Pin -->
-  <div class="py-4 flex items-center justify-between">
-    <div>
-      <div class="text-[13px]">{$i18n.t('settings.openwebui.version')}</div>
-      <div class="text-[11px] mt-0.5">{$i18n.t('settings.openwebui.versionDesc')}</div>
+    <div
+      class="flex min-w-0 items-center justify-between gap-4 max-sm:flex-wrap [&>:first-child]:min-w-0 [&>:last-child]:shrink-0 sm:[&>:last-child]:max-w-[55%]"
+    >
+      <div>
+        <div class="text-[12px] text-gray-800 dark:text-gray-200">
+          {$i18n.t('settings.openwebui.autoUpdate')}
+        </div>
+        <div class="text-[11px] leading-normal text-gray-600 dark:text-gray-400 mt-0.5">
+          {$i18n.t('settings.openwebui.autoUpdateDesc')}
+        </div>
+      </div>
+      <Switch
+        checked={$config?.localServer?.autoUpdate !== false}
+        label={$i18n.t('settings.openwebui.toggleAutoUpdate')}
+        onchange={(value) => updateConfig('autoUpdate', value)}
+      />
     </div>
-    <input
-      type="text"
-      class="bg-black/[0.04] dark:bg-white/[0.06] text-[12px] text-black dark:text-white px-3 py-1.5 border-none outline-none rounded-xl w-28 text-right font-mono"
-      placeholder="latest"
-      value={$config?.localServer?.version ?? ''}
-      onchange={(e) => updateConfig('version', (e.target as HTMLInputElement).value.trim())}
-    />
-  </div>
 
-  <div class="py-4 flex items-center justify-between gap-4">
-    <div class="shrink-0">
-      <div class="text-[13px]">{$i18n.t('settings.openwebui.dataLocation')}</div>
-      <div class="text-[11px] mt-0.5">{$i18n.t('settings.openwebui.dataLocationDesc')}</div>
-    </div>
-    <div class="flex items-center gap-1.5 min-w-0 flex-1 max-w-[280px] justify-end">
+    <!-- Version Pin -->
+    <div
+      class="flex min-w-0 items-center justify-between gap-4 max-sm:flex-wrap [&>:first-child]:min-w-0 [&>:last-child]:shrink-0 sm:[&>:last-child]:max-w-[55%]"
+    >
+      <div>
+        <div class="text-[12px] text-gray-800 dark:text-gray-200">
+          {$i18n.t('settings.openwebui.version')}
+        </div>
+        <div class="text-[11px] leading-normal text-gray-600 dark:text-gray-400 mt-0.5">
+          {$i18n.t('settings.openwebui.versionDesc')}
+        </div>
+      </div>
       <input
         type="text"
-        class="bg-black/[0.04] dark:bg-white/[0.06] text-[12px] text-black dark:text-white px-3 py-1.5 border-none outline-none rounded-xl min-w-0 flex-1 text-right font-mono"
-        placeholder={defaultDataPath || 'Default'}
-        value={$config?.dataDir ?? ''}
-        onchange={async (e) => {
-          const val = (e.target as HTMLInputElement).value.trim()
-          await window.electronAPI.setConfig({ dataDir: val })
-          config.set(await window.electronAPI.getConfig())
-        }}
+        class="placeholder:text-gray-600 dark:placeholder:text-gray-400 min-h-[28px] max-w-full rounded-lg border border-gray-100/50 bg-gray-50/40 px-2.5 py-1 text-[12px] leading-[18px] text-gray-900 outline-none transition-colors dark:border-white/[0.04] dark:bg-white/[0.03] dark:text-gray-100 disabled:cursor-not-allowed disabled:opacity-50 w-28 text-right font-mono"
+        placeholder="latest"
+        value={$config?.localServer?.version ?? ''}
+        onchange={(e) => updateConfig('version', (e.target as HTMLInputElement).value.trim())}
       />
-      <button
-        class="shrink-0 text-[12px] px-2.5 py-1.5 bg-black/[0.04] dark:bg-white/[0.06] transition border-none text-black dark:text-white rounded-xl"
-        onclick={async () => {
-          const folder = await window.electronAPI.selectFolder()
-          if (folder) {
-            await window.electronAPI.setConfig({ dataDir: folder })
+    </div>
+
+    <div
+      class="flex min-w-0 items-center justify-between gap-4 max-sm:flex-wrap [&>:first-child]:min-w-0 [&>:last-child]:shrink-0 sm:[&>:last-child]:max-w-[55%]"
+    >
+      <div class="min-w-0">
+        <div class="text-[12px] text-gray-800 dark:text-gray-200">
+          {$i18n.t('settings.openwebui.dataLocation')}
+        </div>
+        <div class="text-[11px] leading-normal text-gray-600 dark:text-gray-400 mt-0.5">
+          {$i18n.t('settings.openwebui.dataLocationDesc')}
+        </div>
+      </div>
+      <div class="flex items-center gap-1.5 min-w-0 flex-1 max-w-[280px] justify-end">
+        <input
+          type="text"
+          class="placeholder:text-gray-600 dark:placeholder:text-gray-400 min-h-[28px] max-w-full rounded-lg border border-gray-100/50 bg-gray-50/40 px-2.5 py-1 text-[12px] leading-[18px] text-gray-900 outline-none transition-colors dark:border-white/[0.04] dark:bg-white/[0.03] dark:text-gray-100 disabled:cursor-not-allowed disabled:opacity-50 min-w-0 flex-1 text-right font-mono"
+          placeholder={defaultDataPath || 'Default'}
+          value={$config?.dataDir ?? ''}
+          onchange={async (e) => {
+            const val = (e.target as HTMLInputElement).value.trim()
+            await window.electronAPI.setConfig({ dataDir: val })
             config.set(await window.electronAPI.getConfig())
+          }}
+        />
+        <button
+          class="min-h-[28px] max-w-full rounded-lg border border-gray-100/50 bg-gray-50/40 px-2.5 py-1 text-[12px] leading-[18px] text-gray-900 outline-none transition-colors dark:border-white/[0.04] dark:bg-white/[0.03] dark:text-gray-100 disabled:cursor-not-allowed disabled:opacity-50 shrink-0 hover:bg-gray-50 dark:hover:bg-white/[0.06]"
+          onclick={async () => {
+            const folder = await window.electronAPI.selectFolder()
+            if (folder) {
+              await window.electronAPI.setConfig({ dataDir: folder })
+              config.set(await window.electronAPI.getConfig())
+            }
+          }}
+        >
+          {$i18n.t('common.browse')}
+        </button>
+      </div>
+    </div>
+
+    <!-- Uninstall -->
+    <div
+      class="flex min-w-0 items-center justify-between gap-4 max-sm:flex-wrap [&>:first-child]:min-w-0 [&>:last-child]:shrink-0 sm:[&>:last-child]:max-w-[55%]"
+    >
+      <div>
+        <div class="text-[12px] text-gray-800 dark:text-gray-200">
+          {$i18n.t('settings.openwebui.uninstall')}
+        </div>
+        <div class="text-[11px] leading-normal text-gray-600 dark:text-gray-400 mt-0.5">
+          {$i18n.t('settings.openwebui.uninstallDesc')}
+        </div>
+      </div>
+      <button
+        class="min-h-[28px] max-w-full rounded-lg border border-gray-100/50 bg-gray-50/40 px-2.5 py-1 text-[12px] leading-[18px] text-gray-900 outline-none transition-colors dark:border-white/[0.04] dark:bg-white/[0.03] dark:text-gray-100 disabled:cursor-not-allowed disabled:opacity-50 shrink-0 hover:bg-gray-50 dark:hover:bg-white/[0.06] flex items-center gap-1.5 {uninstalling
+          ? 'pointer-events-none opacity-50'
+          : ''}"
+        disabled={uninstalling}
+        onclick={async () => {
+          if (confirm($i18n.t('settings.openwebui.uninstallConfirm'))) {
+            uninstalling = true
+            try {
+              if (isRunning) await window.electronAPI.stopServer()
+              await window.electronAPI.uninstallPackage('open-webui')
+              version = null
+            } catch (e) {
+              console.error('Failed to uninstall:', e)
+            }
+            uninstalling = false
           }
         }}
       >
-        {$i18n.t('common.browse')}
+        {#if uninstalling}
+          <span
+            aria-hidden="true"
+            class="inline-flex shrink-0 [&>svg]:size-full size-3 animate-spin"
+            >{@html RefreshIcon}</span
+          >
+          {$i18n.t('common.uninstalling')}
+        {:else}
+          {$i18n.t('common.uninstall')}
+        {/if}
       </button>
     </div>
   </div>
-
-  <!-- Uninstall -->
-  <div class="py-4 flex items-center justify-between">
-    <div>
-      <div class="text-[13px]">{$i18n.t('settings.openwebui.uninstall')}</div>
-      <div class="text-[11px] mt-0.5">{$i18n.t('settings.openwebui.uninstallDesc')}</div>
-    </div>
-    <button
-      class="text-[12px] px-3 py-1.5 bg-black/[0.04] dark:bg-white/[0.06] transition border-none text-black dark:text-white rounded-xl flex items-center gap-1.5 {uninstalling ? 'pointer-events-none opacity-50' : ''}"
-      disabled={uninstalling}
-      onclick={async () => {
-        if (confirm($i18n.t('settings.openwebui.uninstallConfirm'))) {
-          uninstalling = true
-          try {
-            if (isRunning) await window.electronAPI.stopServer()
-            await window.electronAPI.uninstallPackage('open-webui')
-            version = null
-          } catch (e) {
-            console.error('Failed to uninstall:', e)
-          }
-          uninstalling = false
-        }
-      }}
-    >
-      {#if uninstalling}
-        <div class="w-2.5 h-2.5 rounded-full border-[1.5px] border-black/20 dark:border-white/30 border-t-transparent animate-spin"></div>
-        {$i18n.t('common.uninstalling')}
-      {:else}
-        {$i18n.t('common.uninstall')}
-      {/if}
-    </button>
-  </div>
-</div>
 {/if}

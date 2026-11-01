@@ -5,7 +5,12 @@
   import { appInfo } from '../../../stores'
   import { tooltip } from '../../../actions/tooltip'
   import LogViewer from '../../common/LogViewer.svelte'
-  import TerminalIcon from './TerminalIcon.svelte'
+  import SettingsIcon from 'iconoir/icons/settings.svg?raw'
+  import XmarkIcon from 'iconoir/icons/xmark.svg?raw'
+  import PlayIcon from 'iconoir/icons/play.svg?raw'
+  import NavArrowDownIcon from 'iconoir/icons/nav-arrow-down.svg?raw'
+  import CheckIcon from 'iconoir/icons/check.svg?raw'
+  import CopyIcon from 'iconoir/icons/copy.svg?raw'
 
   interface Service {
     id: ServiceId
@@ -179,14 +184,16 @@
   {/if}
   <div class="terminal-bar">
     <button type="button" class="settings-button" onclick={onOpenSettings}
-      ><TerminalIcon name="settings" size={12} />{$i18n.t('settings.title')}</button
+      ><span aria-hidden="true" class="inline-flex shrink-0 [&>svg]:size-full size-[12px]"
+        >{@html SettingsIcon}</span
+      >{$i18n.t('settings.title')}</button
     >
     <div class="terminal-tabs" role="tablist" aria-label={$i18n.t('logs.terminal')}>
       {#each services as service, index (service.id)}
         {@const actionLabel = `${$i18n.t(canStop(service) ? 'common.stop' : 'common.start')} ${service.label}`}
         <div
           class="terminal-tab-group"
-          class:selected={active?.id === service.id}
+          class:selected={expanded && active?.id === service.id}
           role="presentation"
         >
           <button
@@ -195,7 +202,7 @@
             role="tab"
             id={`terminal-tab-${service.id}`}
             aria-controls={`terminal-output-${service.id}`}
-            aria-selected={active?.id === service.id}
+            aria-selected={expanded && active?.id === service.id}
             tabindex={active?.id === service.id ? 0 : -1}
             onclick={() => {
               if (expanded && active?.id === service.id) toggle()
@@ -203,15 +210,23 @@
             }}
             onkeydown={(event) => navigate(event, index)}>{service.label}</button
           >
-          <button
-            type="button"
-            class="tab-control"
-            aria-label={actionLabel}
-            use:tooltip={actionLabel}
-            disabled={isBusy(service)}
-            onclick={() => operate(service)}
-            ><TerminalIcon name={canStop(service) ? 'xmark' : 'play'} size={10} /></button
-          >
+          {#if !canStop(service) || (expanded && active?.id === service.id)}
+            <button
+              type="button"
+              class="tab-control"
+              aria-label={actionLabel}
+              use:tooltip={actionLabel}
+              disabled={isBusy(service)}
+              onclick={() => operate(service)}
+              >{#if canStop(service)}<span
+                  aria-hidden="true"
+                  class="inline-flex shrink-0 [&>svg]:size-full size-[10px]">{@html XmarkIcon}</span
+                >{:else}<span
+                  aria-hidden="true"
+                  class="inline-flex shrink-0 [&>svg]:size-full size-[10px]">{@html PlayIcon}</span
+                >{/if}</button
+            >
+          {/if}
         </div>
       {/each}
     </div>
@@ -221,18 +236,36 @@
         class="terminal-toggle"
         aria-label={toggleLabel}
         aria-expanded={expanded}
-        use:tooltip={toggleLabel}
         onclick={toggle}
       >
-        <span class="terminal-status" role="status" title={active.detail || statusText}
-          >{statusText}</span
+        <span
+          class="terminal-status"
+          data-status={active.status}
+          role="status"
+          use:tooltip={active.detail || statusText}
+          ><span class="sr-only">{statusText}</span></span
         >
-        <TerminalIcon name="chevron" size={12} flipped={!expanded} />
       </button>
     {:else}
       <div class="terminal-spacer"></div>
     {/if}
     {#if $appInfo?.version}<span class="app-version drag-region">v{$appInfo.version}</span>{/if}
+    {#if active}
+      <button
+        type="button"
+        class="terminal-chevron-toggle"
+        aria-label={toggleLabel}
+        aria-expanded={expanded}
+        use:tooltip={toggleLabel}
+        onclick={toggle}
+      >
+        <span
+          aria-hidden="true"
+          class="inline-flex h-full w-[12px] items-center justify-center shrink-0 leading-none [&>svg]:size-[12px]"
+          class:rotate-180={!expanded}>{@html NavArrowDownIcon}</span
+        >
+      </button>
+    {/if}
   </div>
   <div
     class="terminal-body"
@@ -265,7 +298,13 @@
         use:tooltip={$i18n.t(copied ? 'logs.copied' : 'logs.copyLogs')}
         onclick={copyLogs}
       >
-        <TerminalIcon name={copied ? 'check' : 'copy'} size={12} />
+        {#if copied}<span
+            aria-hidden="true"
+            class="inline-flex shrink-0 [&>svg]:size-full size-[12px]">{@html CheckIcon}</span
+          >{:else}<span
+            aria-hidden="true"
+            class="inline-flex shrink-0 [&>svg]:size-full size-[12px]">{@html CopyIcon}</span
+          >{/if}
       </button>
     </div>
   </div>
@@ -274,7 +313,7 @@
 <style>
   .terminal-dock {
     --terminal-bar-height: 24px;
-    --terminal-background: #f5f5f7;
+    --terminal-background: #fff;
     --terminal-foreground: #37373a;
     --terminal-muted: #747478;
     --terminal-selection: #00000020;
@@ -285,14 +324,14 @@
     font-size: 11px;
   }
   :global(.dark) .terminal-dock {
-    --terminal-background: #181819;
+    --terminal-background: #000;
     --terminal-foreground: #ceced0;
     --terminal-muted: #929296;
     --terminal-selection: #ffffff30;
   }
   .terminal-bar {
     --terminal-foreground: #000;
-    --terminal-muted: #000;
+    --terminal-muted: #666;
     display: flex;
     align-items: center;
     height: var(--terminal-bar-height);
@@ -302,7 +341,7 @@
   }
   :global(.dark) .terminal-bar {
     --terminal-foreground: #fff;
-    --terminal-muted: #fff;
+    --terminal-muted: #999;
     background: #000;
   }
   .terminal-tabs {
@@ -370,6 +409,12 @@
     white-space: nowrap;
     flex-shrink: 0;
   }
+  .terminal-chevron-toggle {
+    width: 28px;
+    height: 100%;
+    flex-shrink: 0;
+    padding: 0;
+  }
   .terminal-spacer {
     flex: 1;
   }
@@ -386,11 +431,22 @@
     padding: 0;
   }
   .terminal-status {
-    min-width: 0;
-    margin: 0 0 0 8px;
-    overflow: hidden;
-    white-space: nowrap;
-    text-overflow: ellipsis;
+    width: 5px;
+    height: 5px;
+    flex-shrink: 0;
+    border-radius: 50%;
+    background: var(--terminal-muted);
+  }
+  .terminal-status[data-status='started'] {
+    background: #22c55e;
+  }
+  .terminal-status[data-status='starting'],
+  .terminal-status[data-status='setting-up'],
+  .terminal-status[data-status='stopping'] {
+    background: #d99a19;
+  }
+  .terminal-status[data-status='failed'] {
+    background: #ef4444;
   }
   .terminal-body {
     display: flex;
@@ -413,7 +469,7 @@
   .copy-output {
     position: absolute;
     top: 2px;
-    right: 0;
+    right: 14px;
   }
   .terminal-error {
     flex-shrink: 0;

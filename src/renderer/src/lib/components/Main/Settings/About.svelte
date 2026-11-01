@@ -1,4 +1,6 @@
 <script lang="ts">
+  import NavArrowRightIcon from 'iconoir/icons/nav-arrow-right.svg?raw'
+  import RefreshIcon from 'iconoir/icons/refresh.svg?raw'
   import { onMount, onDestroy } from 'svelte'
   import { appInfo } from '../../../stores'
   import i18n from '../../../i18n'
@@ -240,53 +242,73 @@
   }
 </script>
 
-<div class="flex flex-col divide-y divide-white/[0.04]">
+<div class="flex flex-col gap-4">
   <button
-    class="w-full py-4 flex items-center justify-between bg-transparent border-none cursor-default text-black dark:text-white"
+    class="w-full flex min-w-0 items-center justify-between gap-4 max-sm:flex-wrap [&>:first-child]:min-w-0 [&>:last-child]:shrink-0 sm:[&>:last-child]:max-w-[55%] bg-transparent border-none cursor-default text-gray-900 dark:text-gray-100"
     onclick={handleVersionClick}
   >
-    <div class="text-[13px]">{$i18n.t('settings.about.desktopVersion')}</div>
+    <div class="text-[12px] text-gray-800 dark:text-gray-200">
+      {$i18n.t('settings.about.desktopVersion')}
+    </div>
     <div class="text-[12px]">{$appInfo?.version ?? $i18n.t('common.unknown')}</div>
   </button>
 
   {#if openWebuiVersion}
     <button
-      class="w-full py-4 flex items-center justify-between bg-transparent border-none cursor-pointer group"
+      class="w-full flex min-w-0 items-center justify-between gap-4 max-sm:flex-wrap [&>:first-child]:min-w-0 [&>:last-child]:shrink-0 sm:[&>:last-child]:max-w-[55%] bg-transparent border-none cursor-pointer group"
       onclick={() => openRelease('open-webui/open-webui', openWebuiVersion!)}
     >
-      <div class="text-[13px]">{$i18n.t('settings.about.openWebuiVersion')}</div>
+      <div class="text-[12px] text-gray-800 dark:text-gray-200">
+        {$i18n.t('settings.about.openWebuiVersion')}
+      </div>
       <div class="text-[12px] transition">{openWebuiVersion}</div>
     </button>
   {/if}
 
   {#if llamaCppVersion}
     <button
-      class="w-full py-4 flex items-center justify-between bg-transparent border-none cursor-pointer group"
+      class="w-full flex min-w-0 items-center justify-between gap-4 max-sm:flex-wrap [&>:first-child]:min-w-0 [&>:last-child]:shrink-0 sm:[&>:last-child]:max-w-[55%] bg-transparent border-none cursor-pointer group"
       onclick={() => openRelease('ggml-org/llama.cpp', llamaCppVersion!, '')}
     >
-      <div class="text-[13px]">{$i18n.t('settings.about.llamaCppVersion')}</div>
+      <div class="text-[12px] text-gray-800 dark:text-gray-200">
+        {$i18n.t('settings.about.llamaCppVersion')}
+      </div>
       <div class="text-[12px] transition">{llamaCppVersion}</div>
     </button>
   {/if}
 
-  <div class="py-4 flex items-center justify-between">
-    <div class="text-[13px]">{$i18n.t('settings.about.platform')}</div>
+  <div
+    class="flex min-w-0 items-center justify-between gap-4 max-sm:flex-wrap [&>:first-child]:min-w-0 [&>:last-child]:shrink-0 sm:[&>:last-child]:max-w-[55%]"
+  >
+    <div class="text-[12px] text-gray-800 dark:text-gray-200">
+      {$i18n.t('settings.about.platform')}
+    </div>
     <div class="text-[12px]">{$appInfo?.platform ?? $i18n.t('common.unknown')}</div>
   </div>
 
   <!-- Update section -->
-  <div class="py-4">
+  <div class="pt-1">
     <div class="flex items-center justify-between">
       <div>
-        <div class="text-[13px]">{$i18n.t('settings.about.softwareUpdate')}</div>
+        <div class="text-[12px] text-gray-800 dark:text-gray-200">
+          {$i18n.t('settings.about.softwareUpdate')}
+        </div>
         {#if updateStatus === 'up-to-date'}
-          <div class="text-[11px] mt-0.5">{$i18n.t('settings.about.upToDate')}</div>
+          <div class="text-[11px] leading-normal text-gray-600 dark:text-gray-400 mt-0.5">
+            {$i18n.t('settings.about.upToDate')}
+          </div>
         {:else if updateStatus === 'available' && updateVersion}
-          <div class="text-[11px] mt-0.5">{$i18n.t('settings.about.versionAvailable', { version: updateVersion })}</div>
+          <div class="text-[11px] leading-normal text-gray-600 dark:text-gray-400 mt-0.5">
+            {$i18n.t('settings.about.versionAvailable', { version: updateVersion })}
+          </div>
         {:else if updateStatus === 'downloading'}
-          <div class="text-[11px] mt-0.5">{$i18n.t('settings.about.downloadingPercent', { percent: downloadPercent })}</div>
+          <div class="text-[11px] leading-normal text-gray-600 dark:text-gray-400 mt-0.5">
+            {$i18n.t('settings.about.downloadingPercent', { percent: downloadPercent })}
+          </div>
         {:else if updateStatus === 'downloaded'}
-          <div class="text-[11px] mt-0.5">{$i18n.t('settings.about.updateReady')}</div>
+          <div class="text-[11px] leading-normal text-gray-600 dark:text-gray-400 mt-0.5">
+            {$i18n.t('settings.about.updateReady')}
+          </div>
         {:else if updateStatus === 'error'}
           <div class="text-[11px] text-red-600 dark:text-red-400 mt-0.5">{updateError}</div>
         {/if}
@@ -295,41 +317,45 @@
       <div>
         {#if updateStatus === 'idle' || updateStatus === 'up-to-date' || updateStatus === 'error'}
           <button
-            class="text-[12px] px-3 py-1.5 bg-black/[0.04] dark:bg-white/[0.06] transition border-none text-black dark:text-white rounded-xl"
+            class="min-h-[28px] max-w-full rounded-lg border border-gray-100/50 bg-gray-50/40 px-2.5 py-1 text-[12px] leading-[18px] text-gray-900 outline-none transition-colors dark:border-white/[0.04] dark:bg-white/[0.03] dark:text-gray-100 disabled:cursor-not-allowed disabled:opacity-50 shrink-0 hover:bg-gray-50 dark:hover:bg-white/[0.06]"
             onclick={handleCheck}
           >
             {$i18n.t('settings.about.checkForUpdates')}
           </button>
         {:else if updateStatus === 'checking'}
           <button
-            class="text-[12px] px-3 py-1.5 bg-black/[0.04] dark:bg-white/[0.06] border-none text-black dark:text-white rounded-xl pointer-events-none flex items-center gap-1.5"
+            class="min-h-[28px] max-w-full rounded-lg border border-gray-100/50 bg-gray-50/40 px-2.5 py-1 text-[12px] leading-[18px] text-gray-900 outline-none transition-colors dark:border-white/[0.04] dark:bg-white/[0.03] dark:text-gray-100 disabled:cursor-not-allowed disabled:opacity-50 shrink-0 hover:bg-gray-50 dark:hover:bg-white/[0.06] pointer-events-none flex items-center gap-1.5"
             disabled
           >
-            <svg class="w-3 h-3 animate-spin" viewBox="0 0 24 24" fill="none">
-              <circle cx="12" cy="12" r="10" stroke="currentColor" stroke-width="3" stroke-dasharray="31.4 31.4" stroke-linecap="round" />
-            </svg>
+            <span
+              aria-hidden="true"
+              class="inline-flex shrink-0 [&>svg]:size-full w-3 h-3 animate-spin"
+              >{@html RefreshIcon}</span
+            >
             {$i18n.t('settings.about.checking')}
           </button>
         {:else if updateStatus === 'available'}
           <button
-            class="text-[12px] px-3 py-1.5 bg-black/[0.06] dark:bg-white/[0.08] transition border-none text-black dark:text-white rounded-xl"
+            class="min-h-[28px] max-w-full rounded-lg border border-gray-100/50 bg-gray-50/40 px-2.5 py-1 text-[12px] leading-[18px] text-gray-900 outline-none transition-colors dark:border-white/[0.04] dark:bg-white/[0.03] dark:text-gray-100 disabled:cursor-not-allowed disabled:opacity-50 shrink-0 hover:bg-gray-50 dark:hover:bg-white/[0.06]"
             onclick={handleDownload}
           >
             {$i18n.t('settings.about.downloadUpdate')}
           </button>
         {:else if updateStatus === 'downloading'}
           <div class="flex items-center gap-2">
-            <div class="w-24 h-1.5 bg-black/[0.06] dark:bg-white/[0.06] rounded-full overflow-hidden">
+            <div
+              class="w-24 h-1.5 bg-black/[0.06] dark:bg-white/[0.06] rounded-full overflow-hidden"
+            >
               <div
                 class="h-full bg-black/[0.15] dark:bg-white/30 rounded-full transition-all duration-300"
                 style="width: {downloadPercent}%"
               ></div>
             </div>
-            <span class="text-[11px]">{downloadPercent}%</span>
+            <span class="text-[11px] leading-normal text-gray-600 dark:text-gray-400">{downloadPercent}%</span>
           </div>
         {:else if updateStatus === 'downloaded'}
           <button
-            class="text-[12px] px-3 py-1.5 bg-black/[0.06] dark:bg-white/[0.08] transition border-none text-black dark:text-white rounded-xl"
+            class="min-h-[28px] max-w-full rounded-lg border border-gray-100/50 bg-gray-50/40 px-2.5 py-1 text-[12px] leading-[18px] text-gray-900 outline-none transition-colors dark:border-white/[0.04] dark:bg-white/[0.03] dark:text-gray-100 disabled:cursor-not-allowed disabled:opacity-50 shrink-0 hover:bg-gray-50 dark:hover:bg-white/[0.06]"
             onclick={handleInstall}
           >
             {$i18n.t('settings.about.restartToUpdate')}
@@ -340,36 +366,39 @@
   </div>
 
   <!-- Changelog section -->
-  <div class="py-4">
+  <div class="pt-1">
     <button
-      class="text-[12px] transition bg-transparent border-none text-black dark:text-white flex items-center gap-1.5"
+      class="text-[12px] transition bg-transparent border-none text-gray-900 dark:text-gray-100 flex items-center gap-1.5"
+      aria-expanded={changelogOpen}
       onclick={toggleChangelog}
     >
-      <svg
-        class="w-3 h-3 transition-transform {changelogOpen ? 'rotate-90' : ''}"
-        fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="2"
+      <span
+        aria-hidden="true"
+        class="inline-flex shrink-0 [&>svg]:size-full w-3 h-3 transition-transform {changelogOpen
+          ? 'rotate-90'
+          : ''}">{@html NavArrowRightIcon}</span
       >
-        <path stroke-linecap="round" stroke-linejoin="round" d="M9 5l7 7-7 7" />
-      </svg>
-       {$i18n.t('settings.about.whatsNew')}
+      {$i18n.t('settings.about.whatsNew')}
     </button>
 
     {#if changelogOpen}
       <div class="mt-3 max-h-64 overflow-y-auto pr-1">
         {#if changelogLoading}
-          <div class="text-[11px]">{$i18n.t('common.loading')}</div>
+          <div class="text-[11px] leading-normal text-gray-600 dark:text-gray-400">{$i18n.t('common.loading')}</div>
         {:else if changelogEntries.length === 0}
-          <div class="text-[11px]">{$i18n.t('settings.about.noChangelog')}</div>
+          <div class="text-[11px] leading-normal text-gray-600 dark:text-gray-400">
+            {$i18n.t('settings.about.noChangelog')}
+          </div>
         {:else}
           {#each changelogEntries as entry, i}
             {#if i > 0}
-              <div class="border-t border-white/[0.04] my-3"></div>
+              <div class="border-t border-gray-100 dark:border-white/[0.04] my-3"></div>
             {/if}
             <div>
               <div class="flex items-baseline gap-2">
                 <span class="text-[12px] font-medium">{entry.version}</span>
                 {#if entry.date}
-                  <span class="text-[10px]">{entry.date}</span>
+                  <span class="text-[11px] text-gray-600 dark:text-gray-400">{entry.date}</span>
                 {/if}
               </div>
               {#if entry.body}
@@ -384,9 +413,9 @@
     {/if}
   </div>
 
-  <div class="py-4">
+  <div class="pt-1">
     <button
-      class="text-[12px] transition bg-transparent border-none text-black dark:text-white"
+      class="text-[12px] transition bg-transparent border-none text-gray-900 dark:text-gray-100"
       onclick={openGithub}
     >
       {$i18n.t('settings.about.viewOnGithub')}
@@ -394,14 +423,15 @@
   </div>
 </div>
 
-<div class="text-[10px] mt-4 leading-relaxed">{$i18n.t('settings.about.copyright')}<br />{$i18n.t('settings.about.createdBy')}</div>
+<div class="text-[11px] text-gray-600 dark:text-gray-400 mt-4 leading-relaxed">
+  {$i18n.t('settings.about.copyright')}<br />{$i18n.t('settings.about.createdBy')}
+</div>
 
 <!-- Easter Egg: Matrix Rain Overlay -->
 {#if easterEggActive}
   <!-- svelte-ignore a11y_no_static_element_interactions -->
   <!-- svelte-ignore a11y_click_events_have_key_events -->
   <div class="matrix-overlay" onclick={dismissEasterEgg}>
-
     {#if showTypewriter}
       <div class="matrix-typewriter">
         <span>{typewriterText}</span><span class="cursor">▌</span>

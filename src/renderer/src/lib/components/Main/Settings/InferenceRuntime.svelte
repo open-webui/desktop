@@ -1,4 +1,10 @@
 <script lang="ts">
+  import NavArrowDownIcon from 'iconoir/icons/nav-arrow-down.svg?raw'
+  import DownloadIcon from 'iconoir/icons/download.svg?raw'
+  import PlayIcon from 'iconoir/icons/play.svg?raw'
+  import RefreshIcon from 'iconoir/icons/refresh.svg?raw'
+  import RestartIcon from 'iconoir/icons/restart.svg?raw'
+  import SquareIcon from 'iconoir/icons/square.svg?raw'
   import { onMount, onDestroy } from 'svelte'
   import { config } from '../../../stores'
   import i18n from '../../../i18n'
@@ -184,352 +190,496 @@
 {#if !loaded}
   <div class="py-6 text-[12px] text-center">{$i18n.t('common.loading')}</div>
 {:else if !installed}
-  <div class="py-4 flex items-center justify-between">
-    <div>
-      <div class="text-[13px] flex items-center gap-1.5">
-        {$i18n.t('settings.inference.notInstalled')}
-        <span class="text-[9px] uppercase tracking-wide">{$i18n.t('common.experimental')}</span>
-      </div>
-      <div class="text-[11px] mt-0.5">{$i18n.t('settings.inference.notInstalledDesc')}</div>
-    </div>
-    <button
-      class="text-[12px] px-3 py-1.5 bg-black/[0.04] dark:bg-white/[0.06] transition border-none text-black dark:text-white rounded-xl flex items-center gap-1.5 {installing ? 'pointer-events-none opacity-50' : ''}"
-      disabled={installing}
-      onclick={async () => {
-        installing = true
-        try {
-          await window.electronAPI.startLlamaCpp()
-          lsInfo = await window.electronAPI.getLlamaCppInfo()
-        } catch (e) {
-          console.error('Failed to install:', e)
-        }
-        installing = false
-      }}
+  <div class="flex flex-col gap-4">
+    <div
+      class="flex min-w-0 items-center justify-between gap-4 max-sm:flex-wrap [&>:first-child]:min-w-0 [&>:last-child]:shrink-0 sm:[&>:last-child]:max-w-[55%]"
     >
-      {#if installing}
-        <div class="w-2.5 h-2.5 rounded-full border-[1.5px] border-black/20 dark:border-white/30 border-t-transparent animate-spin"></div>
-        {$i18n.t('common.installing')}
-      {:else}
-        {$i18n.t('common.install')}
-      {/if}
-    </button>
-  </div>
-
-  <!-- Version -->
-  <div class="py-4 flex items-center justify-between border-t border-white/[0.04]">
-    <div>
-      <div class="text-[13px]">{$i18n.t('settings.inference.version')}</div>
-      <div class="text-[11px] mt-0.5">{$i18n.t('settings.inference.versionDesc')}</div>
-    </div>
-    <input
-      type="text"
-      class="bg-black/[0.04] dark:bg-white/[0.06] text-[12px] text-black dark:text-white px-3 py-1.5 border-none outline-none rounded-xl w-24 text-right font-mono"
-      value={$config?.llamaCpp?.version ?? 'latest'}
-      onchange={(e) => updateConfig('version', (e.target as HTMLInputElement).value.trim() || 'latest')}
-    />
-  </div>
-
-  <!-- Variant -->
-  <div class="py-4 flex items-center justify-between border-t border-white/[0.04]">
-    <div>
-      <div class="text-[13px]">{$i18n.t('settings.inference.variant')}</div>
-      <div class="text-[11px] mt-0.5">{$i18n.t('settings.inference.variantDesc')}</div>
-    </div>
-    <select
-      class="bg-black/[0.04] dark:bg-white/[0.06] text-[12px] text-black dark:text-white px-3 py-1.5 border-none outline-none rounded-xl"
-      onchange={(e) => updateConfig('variant', (e.target as HTMLSelectElement).value)}
-    >
-      {#each variantOptions as opt}
-        <option value={opt.value} selected={($config?.llamaCpp?.variant ?? 'auto') === opt.value}>{opt.label}</option>
-      {/each}
-    </select>
-  </div>
-{:else}
-<div class="flex flex-col divide-y divide-white/[0.04]">
-  <!-- Server status & controls -->
-  <div class="py-4">
-    <div class="flex items-center justify-between mb-3">
       <div>
-        <div class="text-[13px] flex items-center gap-1.5">
-          {$i18n.t('settings.inference.llamaServer')}
-          <span class="text-[9px] uppercase tracking-wide">{$i18n.t('common.experimental')}</span>
+        <div class="text-[12px] text-gray-800 dark:text-gray-200 flex items-center gap-1.5">
+          {$i18n.t('settings.inference.notInstalled')}
+          <span class="text-[10px] text-gray-600 dark:text-gray-400">{$i18n.t('common.experimental')}</span>
         </div>
-        <div class="text-[11px] mt-0.5">
-          {$i18n.t('settings.inference.llamaServerDesc')}
+        <div class="text-[11px] leading-normal text-gray-600 dark:text-gray-400 mt-0.5">
+          {$i18n.t('settings.inference.notInstalledDesc')}
         </div>
       </div>
-      <div class="flex items-center gap-1.5">
-        {#if isRunning}
-          <div class="w-1.5 h-1.5 rounded-full bg-emerald-400"></div>
-          <span class="text-[12px]">{$i18n.t('common.running')}</span>
-        {:else if lsInfo?.status === 'starting' || lsInfo?.status === 'setting-up'}
-          <div class="w-1.5 h-1.5 rounded-full bg-amber-400/60 animate-pulse"></div>
-          <span class="text-[12px] capitalize">{lsInfo?.status === 'setting-up' ? $i18n.t('settings.inference.settingUp') : $i18n.t('common.starting')}</span>
-        {:else if lsInfo?.status === 'failed'}
-          <div class="w-1.5 h-1.5 rounded-full bg-red-400/70"></div>
-          <span class="text-[12px]">{$i18n.t('common.failed')}</span>
-        {:else}
-          <div class="w-1.5 h-1.5 rounded-full bg-black/15 dark:bg-white/20"></div>
-          <span class="text-[12px]">{$i18n.t('common.stopped')}</span>
-        {/if}
-      </div>
-    </div>
-
-    {#if setupStatus}
-      <div class="text-[11px] mb-3 font-mono truncate">{setupStatus}</div>
-    {/if}
-
-    <div class="flex items-center gap-2">
-      {#if isRunning}
-        <button
-          class="text-[12px] px-3 py-1.5 bg-black/[0.04] dark:bg-white/[0.06] transition border-none text-black dark:text-white rounded-xl flex items-center gap-1.5 {stopping ? 'pointer-events-none opacity-50' : ''}"
-          disabled={stopping}
-          onclick={stopServer}
-        >
-          {#if stopping}
-            <div class="w-2.5 h-2.5 rounded-full border-[1.5px] border-black/20 dark:border-white/30 border-t-transparent animate-spin"></div>
-            {$i18n.t('common.stopping')}
-          {:else}
-            <svg class="w-3 h-3" fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="1.5">
-              <path stroke-linecap="round" stroke-linejoin="round" d="M5.636 5.636a9 9 0 1012.728 0M12 3v9" />
-            </svg>
-            {$i18n.t('common.stop')}
-          {/if}
-        </button>
-        <button
-          class="text-[12px] px-3 py-1.5 bg-black/[0.04] dark:bg-white/[0.06] transition border-none text-black dark:text-white rounded-xl flex items-center gap-1.5 {restarting ? 'pointer-events-none opacity-50' : ''}"
-          disabled={restarting}
-          onclick={restartServer}
-        >
-          {#if restarting}
-            <div class="w-2.5 h-2.5 rounded-full border-[1.5px] border-black/20 dark:border-white/30 border-t-transparent animate-spin"></div>
-            {$i18n.t('common.restarting')}
-          {:else}
-            <svg class="w-3 h-3" fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="1.5">
-              <path stroke-linecap="round" stroke-linejoin="round" d="M16.023 9.348h4.992v-.001M2.985 19.644v-4.992m0 0h4.992m-4.993 0l3.181 3.183a8.25 8.25 0 0013.803-3.7M20.015 4.356v4.992m0 0h-4.992m4.993 0l-3.181-3.183a8.25 8.25 0 00-13.803 3.7" />
-            </svg>
-            {$i18n.t('common.restart')}
-          {/if}
-        </button>
-      {:else}
-        <button
-          class="text-[12px] px-3 py-1.5 bg-black/[0.04] dark:bg-white/[0.06] transition border-none text-black dark:text-white rounded-xl flex items-center gap-1.5 {starting ? 'pointer-events-none opacity-50' : ''}"
-          disabled={starting}
-          onclick={startServer}
-        >
-          {#if starting}
-            <div class="w-2.5 h-2.5 rounded-full border-[1.5px] border-black/20 dark:border-white/30 border-t-transparent animate-spin"></div>
-            {$i18n.t('common.starting')}
-          {:else}
-            <svg class="w-3 h-3" fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="1.5">
-              <path stroke-linecap="round" stroke-linejoin="round" d="M5.25 5.653c0-.856.917-1.398 1.667-.986l11.54 6.347a1.125 1.125 0 010 1.972l-11.54 6.347a1.125 1.125 0 01-1.667-.986V5.653z" />
-            </svg>
-            {$i18n.t('common.start')}
-          {/if}
-        </button>
-      {/if}
-
       <button
-        class="text-[12px] px-3 py-1.5 bg-black/[0.04] dark:bg-white/[0.06] transition border-none text-black dark:text-white rounded-xl flex items-center gap-1.5 {settingUp ? 'pointer-events-none opacity-50' : ''}"
-        disabled={settingUp}
-        onclick={setupServer}
+        class="min-h-[28px] max-w-full rounded-lg border border-gray-100/50 bg-gray-50/40 px-2.5 py-1 text-[12px] leading-[18px] text-gray-900 outline-none transition-colors dark:border-white/[0.04] dark:bg-white/[0.03] dark:text-gray-100 disabled:cursor-not-allowed disabled:opacity-50 shrink-0 hover:bg-gray-50 dark:hover:bg-white/[0.06] flex items-center gap-1.5 {installing
+          ? 'pointer-events-none opacity-50'
+          : ''}"
+        disabled={installing}
+        onclick={async () => {
+          installing = true
+          try {
+            await window.electronAPI.startLlamaCpp()
+            lsInfo = await window.electronAPI.getLlamaCppInfo()
+          } catch (e) {
+            console.error('Failed to install:', e)
+          }
+          installing = false
+        }}
       >
-        {#if settingUp}
-          <div class="w-2.5 h-2.5 rounded-full border-[1.5px] border-black/20 dark:border-white/30 border-t-transparent animate-spin"></div>
-          {$i18n.t('common.downloading')}
+        {#if installing}
+          <span
+            aria-hidden="true"
+            class="inline-flex shrink-0 [&>svg]:size-full size-3 animate-spin"
+            >{@html RefreshIcon}</span
+          >
+          {$i18n.t('common.installing')}
         {:else}
-          <svg class="w-3 h-3" fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="1.5">
-            <path stroke-linecap="round" stroke-linejoin="round" d="M3 16.5v2.25A2.25 2.25 0 005.25 21h13.5A2.25 2.25 0 0021 18.75V16.5M16.5 12L12 16.5m0 0L7.5 12m4.5 4.5V3" />
-          </svg>
-          {lsInfo?.binaryPath ? $i18n.t('settings.inference.redownload') : $i18n.t('common.download')}
+          {$i18n.t('common.install')}
         {/if}
       </button>
     </div>
-  </div>
 
-  <!-- Running Instance Info -->
-  {#if isRunning && lsInfo}
-    <div class="py-4">
-      <div class="text-[13px] mb-3">{$i18n.t('settings.inference.runningInstance')}</div>
-      <div class="flex flex-col gap-2">
-        <div class="flex items-center justify-between">
-          <span class="text-[11px]">URL</span>
-          <button class="text-[12px] font-mono transition bg-transparent border-none text-black dark:text-white p-0 underline decoration-dotted underline-offset-2 cursor-pointer" onclick={() => window.open(lsInfo.url)}>{lsInfo.url}</button>
-        </div>
-        <div class="flex items-center justify-between">
-          <span class="text-[11px]">PID</span>
-          <span class="text-[12px] font-mono">{lsInfo.pid}</span>
-        </div>
-        {#if lsInfo.version}
-        <div class="flex items-center justify-between">
-          <span class="text-[11px]">{$i18n.t('settings.inference.build')}</span>
-          <span class="text-[12px] font-mono">{lsInfo.version}</span>
-        </div>
-        {/if}
-      </div>
-    </div>
-  {/if}
-
-  <!-- Update Section -->
-  <div class="py-4">
-    <div class="flex items-center justify-between">
-      <div>
-        <div class="text-[13px]">{$i18n.t('settings.about.softwareUpdate')}</div>
-        {#if updateStatus === 'up-to-date'}
-          <div class="text-[11px] mt-0.5">{$i18n.t('settings.inference.upToDate')}</div>
-        {:else if updateStatus === 'available' && updateInfo?.latestVersion}
-          <div class="text-[11px] mt-0.5">{$i18n.t('settings.inference.updateAvailable', { version: updateInfo.latestVersion })}</div>
-        {:else if updateStatus === 'updating'}
-          <div class="text-[11px] mt-0.5">{$i18n.t('settings.inference.updating')}</div>
-        {:else if updateStatus === 'error'}
-          <div class="text-[11px] text-red-600 dark:text-red-400 mt-0.5">{updateError}</div>
-        {/if}
-      </div>
-
-      <div>
-        {#if updateStatus === 'idle' || updateStatus === 'up-to-date' || updateStatus === 'error'}
-          <button
-            class="text-[12px] px-3 py-1.5 bg-black/[0.04] dark:bg-white/[0.06] transition border-none text-black dark:text-white rounded-xl"
-            onclick={checkUpdate}
-          >
-            {$i18n.t('settings.inference.checkForUpdates')}
-          </button>
-        {:else if updateStatus === 'checking'}
-          <button
-            class="text-[12px] px-3 py-1.5 bg-black/[0.04] dark:bg-white/[0.06] border-none text-black dark:text-white rounded-xl pointer-events-none flex items-center gap-1.5"
-            disabled
-          >
-            <svg class="w-3 h-3 animate-spin" viewBox="0 0 24 24" fill="none">
-              <circle cx="12" cy="12" r="10" stroke="currentColor" stroke-width="3" stroke-dasharray="31.4 31.4" stroke-linecap="round" />
-            </svg>
-            {$i18n.t('settings.inference.checking')}
-          </button>
-        {:else if updateStatus === 'available'}
-          <button
-            class="text-[12px] px-3 py-1.5 bg-black/[0.06] dark:bg-white/[0.08] transition border-none text-black dark:text-white rounded-xl"
-            onclick={doUpdate}
-          >
-            {$i18n.t('common.update')}
-          </button>
-        {:else if updateStatus === 'updating'}
-          <button
-            class="text-[12px] px-3 py-1.5 bg-black/[0.04] dark:bg-white/[0.06] border-none text-black dark:text-white rounded-xl pointer-events-none flex items-center gap-1.5"
-            disabled
-          >
-            <div class="w-2.5 h-2.5 rounded-full border-2 border-black/20 dark:border-white/30 border-t-transparent animate-spin"></div>
-            {$i18n.t('common.updating')}
-          </button>
-        {/if}
-      </div>
-    </div>
-  </div>
-
-  <!-- Start on Launch -->
-  <div class="py-4 flex items-center justify-between">
-    <div>
-      <div class="text-[13px]">{$i18n.t('settings.inference.startOnLaunch')}</div>
-      <div class="text-[11px] mt-0.5">{$i18n.t('settings.inference.startOnLaunchDesc')}</div>
-    </div>
-    <Switch
-      checked={$config?.llamaCpp?.enabled ?? false}
-      onchange={(value) => updateConfig('enabled', value)}
-    />
-  </div>
-
-  <!-- Version -->
-  <div class="py-4 flex items-center justify-between">
-    <div>
-      <div class="text-[13px]">{$i18n.t('settings.inference.version')}</div>
-      <div class="text-[11px] mt-0.5">{$i18n.t('settings.inference.versionDesc')}</div>
-    </div>
-    <input
-      type="text"
-      class="bg-black/[0.04] dark:bg-white/[0.06] text-[12px] text-black dark:text-white px-3 py-1.5 border-none outline-none rounded-xl w-24 text-right font-mono"
-      value={$config?.llamaCpp?.version ?? 'latest'}
-      onchange={(e) => updateConfig('version', (e.target as HTMLInputElement).value.trim() || 'latest')}
-    />
-  </div>
-
-  <!-- Variant -->
-  <div class="py-4 flex items-center justify-between">
-    <div>
-      <div class="text-[13px]">{$i18n.t('settings.inference.variant')}</div>
-      <div class="text-[11px] mt-0.5">{$i18n.t('settings.inference.variantDesc')}</div>
-    </div>
-    <select
-      class="bg-black/[0.04] dark:bg-white/[0.06] text-[12px] text-black dark:text-white px-3 py-1.5 border-none outline-none rounded-xl"
-      onchange={(e) => updateConfig('variant', (e.target as HTMLSelectElement).value)}
+    <!-- Version -->
+    <div
+      class="flex min-w-0 items-center justify-between gap-4 max-sm:flex-wrap [&>:first-child]:min-w-0 [&>:last-child]:shrink-0 sm:[&>:last-child]:max-w-[55%]"
     >
-      {#each variantOptions as opt}
-        <option value={opt.value} selected={($config?.llamaCpp?.variant ?? 'auto') === opt.value}>{opt.label}</option>
-      {/each}
-    </select>
-  </div>
-
-  <!-- Port -->
-  <div class="py-4 flex items-center justify-between">
-    <div>
-      <div class="text-[13px]">{$i18n.t('settings.inference.port')}</div>
-      <div class="text-[11px] mt-0.5">{$i18n.t('settings.inference.portDesc')}</div>
+      <div>
+        <div class="text-[12px] text-gray-800 dark:text-gray-200">
+          {$i18n.t('settings.inference.version')}
+        </div>
+        <div class="text-[11px] leading-normal text-gray-600 dark:text-gray-400 mt-0.5">
+          {$i18n.t('settings.inference.versionDesc')}
+        </div>
+      </div>
+      <input
+        type="text"
+        class="placeholder:text-gray-600 dark:placeholder:text-gray-400 min-h-[28px] max-w-full rounded-lg border border-gray-100/50 bg-gray-50/40 px-2.5 py-1 text-[12px] leading-[18px] text-gray-900 outline-none transition-colors dark:border-white/[0.04] dark:bg-white/[0.03] dark:text-gray-100 disabled:cursor-not-allowed disabled:opacity-50 w-24 text-right font-mono"
+        value={$config?.llamaCpp?.version ?? 'latest'}
+        onchange={(e) =>
+          updateConfig('version', (e.target as HTMLInputElement).value.trim() || 'latest')}
+      />
     </div>
-    <input
-      type="number"
-      class="bg-black/[0.04] dark:bg-white/[0.06] text-[12px] text-black dark:text-white px-3 py-1.5 border-none outline-none rounded-xl w-20 text-right"
-      value={$config?.llamaCpp?.port ?? 18881}
-      onchange={(e) => updateConfig('port', parseInt((e.target as HTMLInputElement).value) || 18881)}
-    />
-  </div>
 
-  <!-- Extra Arguments -->
-  <div class="py-4 flex items-center justify-between gap-4">
-    <div class="shrink-0">
-      <div class="text-[13px]">{$i18n.t('settings.inference.extraArguments')}</div>
-      <div class="text-[11px] mt-0.5">{$i18n.t('settings.inference.extraArgumentsDesc')}</div>
-    </div>
-    <input
-      type="text"
-      class="bg-black/[0.04] dark:bg-white/[0.06] text-[12px] text-black dark:text-white px-3 py-1.5 border-none outline-none rounded-xl min-w-0 flex-1 max-w-[280px] text-right font-mono"
-      placeholder={$i18n.t('settings.inference.extraArgumentsPlaceholder')}
-      value={($config?.llamaCpp?.extraArgs ?? []).join(' ')}
-      onchange={(e) => {
-        const val = (e.target as HTMLInputElement).value.trim()
-        updateConfig('extraArgs', val ? val.split(/\s+/) : [])
-      }}
-    />
-  </div>
-
-  <!-- Uninstall -->
-  {#if lsInfo?.binaryPath}
-  <div class="py-4 flex items-center justify-between">
-    <div>
-      <div class="text-[13px]">{$i18n.t('settings.inference.uninstall')}</div>
-      <div class="text-[11px] mt-0.5">{$i18n.t('settings.inference.uninstallDesc')}</div>
-    </div>
-    <button
-      class="text-[12px] px-3 py-1.5 bg-black/[0.04] dark:bg-white/[0.06] transition border-none text-black dark:text-white rounded-xl flex items-center gap-1.5 {uninstalling ? 'pointer-events-none opacity-50' : ''}"
-      disabled={uninstalling}
-      onclick={async () => {
-        if (confirm($i18n.t('settings.inference.uninstallConfirm'))) {
-          uninstalling = true
-          try {
-            await window.electronAPI.uninstallLlamaCpp()
-            lsInfo = await window.electronAPI.getLlamaCppInfo()
-          } catch (e) {
-            console.error('Failed to uninstall llama.cpp:', e)
-          }
-          uninstalling = false
-        }
-      }}
+    <!-- Variant -->
+    <div
+      class="flex min-w-0 items-center justify-between gap-4 max-sm:flex-wrap [&>:first-child]:min-w-0 [&>:last-child]:shrink-0 sm:[&>:last-child]:max-w-[55%]"
     >
-      {#if uninstalling}
-        <div class="w-2.5 h-2.5 rounded-full border-[1.5px] border-black/20 dark:border-white/30 border-t-transparent animate-spin"></div>
-        {$i18n.t('common.uninstalling')}
-      {:else}
-        {$i18n.t('common.uninstall')}
+      <div>
+        <div class="text-[12px] text-gray-800 dark:text-gray-200">
+          {$i18n.t('settings.inference.variant')}
+        </div>
+        <div class="text-[11px] leading-normal text-gray-600 dark:text-gray-400 mt-0.5">
+          {$i18n.t('settings.inference.variantDesc')}
+        </div>
+      </div>
+      <div class="relative inline-flex max-w-full">
+        <select
+          class="w-full min-w-[100px] appearance-none text-ellipsis pr-[30px] min-h-[28px] max-w-full rounded-lg border border-gray-100/50 bg-gray-50/40 px-2.5 py-1 text-[12px] leading-[18px] text-gray-900 outline-none transition-colors dark:border-white/[0.04] dark:bg-white/[0.03] dark:text-gray-100 disabled:cursor-not-allowed disabled:opacity-50"
+          aria-label={$i18n.t('settings.inference.variant')}
+          onchange={(e) => updateConfig('variant', (e.target as HTMLSelectElement).value)}
+        >
+          {#each variantOptions as opt}
+            <option
+              value={opt.value}
+              selected={($config?.llamaCpp?.variant ?? 'auto') === opt.value}>{opt.label}</option
+            >
+          {/each}
+        </select>
+        <span
+          aria-hidden="true"
+          class="inline-flex shrink-0 [&>svg]:size-full pointer-events-none absolute right-2 top-1/2 size-[14px] -translate-y-1/2 text-gray-600 dark:text-gray-400"
+          >{@html NavArrowDownIcon}</span
+        >
+      </div>
+    </div>
+  </div>
+{:else}
+  <div class="flex flex-col gap-4">
+    <!-- Server status & controls -->
+    <div class="pt-1">
+      <div class="flex items-center justify-between mb-3">
+        <div>
+          <div class="text-[12px] text-gray-800 dark:text-gray-200 flex items-center gap-1.5">
+            {$i18n.t('settings.inference.llamaServer')}
+            <span class="text-[10px] text-gray-600 dark:text-gray-400">{$i18n.t('common.experimental')}</span>
+          </div>
+          <div class="text-[11px] leading-normal text-gray-600 dark:text-gray-400 mt-0.5">
+            {$i18n.t('settings.inference.llamaServerDesc')}
+          </div>
+        </div>
+        <div class="flex items-center gap-1.5">
+          {#if isRunning}
+            <div class="w-1.5 h-1.5 rounded-full bg-emerald-400"></div>
+            <span class="text-[12px]">{$i18n.t('common.running')}</span>
+          {:else if lsInfo?.status === 'starting' || lsInfo?.status === 'setting-up'}
+            <div class="w-1.5 h-1.5 rounded-full bg-amber-400/60 animate-pulse"></div>
+            <span class="text-[12px] capitalize"
+              >{lsInfo?.status === 'setting-up'
+                ? $i18n.t('settings.inference.settingUp')
+                : $i18n.t('common.starting')}</span
+            >
+          {:else if lsInfo?.status === 'failed'}
+            <div class="w-1.5 h-1.5 rounded-full bg-red-400/70"></div>
+            <span class="text-[12px]">{$i18n.t('common.failed')}</span>
+          {:else}
+            <div class="w-1.5 h-1.5 rounded-full bg-black/15 dark:bg-white/20"></div>
+            <span class="text-[12px]">{$i18n.t('common.stopped')}</span>
+          {/if}
+        </div>
+      </div>
+
+      {#if setupStatus}
+        <div class="text-[11px] leading-normal text-gray-600 dark:text-gray-400 mb-3 font-mono truncate">
+          {setupStatus}
+        </div>
       {/if}
-    </button>
-  </div>
-  {/if}
 
-</div>
+      <div class="flex items-center gap-2">
+        {#if isRunning}
+          <button
+            class="min-h-[28px] max-w-full rounded-lg border border-gray-100/50 bg-gray-50/40 px-2.5 py-1 text-[12px] leading-[18px] text-gray-900 outline-none transition-colors dark:border-white/[0.04] dark:bg-white/[0.03] dark:text-gray-100 disabled:cursor-not-allowed disabled:opacity-50 shrink-0 hover:bg-gray-50 dark:hover:bg-white/[0.06] flex items-center gap-1.5 {stopping
+              ? 'pointer-events-none opacity-50'
+              : ''}"
+            disabled={stopping}
+            onclick={stopServer}
+          >
+            {#if stopping}
+              <span
+                aria-hidden="true"
+                class="inline-flex shrink-0 [&>svg]:size-full size-3 animate-spin"
+                >{@html RefreshIcon}</span
+              >
+              {$i18n.t('common.stopping')}
+            {:else}
+              <span aria-hidden="true" class="inline-flex shrink-0 [&>svg]:size-full w-3 h-3"
+                >{@html SquareIcon}</span
+              >
+              {$i18n.t('common.stop')}
+            {/if}
+          </button>
+          <button
+            class="min-h-[28px] max-w-full rounded-lg border border-gray-100/50 bg-gray-50/40 px-2.5 py-1 text-[12px] leading-[18px] text-gray-900 outline-none transition-colors dark:border-white/[0.04] dark:bg-white/[0.03] dark:text-gray-100 disabled:cursor-not-allowed disabled:opacity-50 shrink-0 hover:bg-gray-50 dark:hover:bg-white/[0.06] flex items-center gap-1.5 {restarting
+              ? 'pointer-events-none opacity-50'
+              : ''}"
+            disabled={restarting}
+            onclick={restartServer}
+          >
+            {#if restarting}
+              <span
+                aria-hidden="true"
+                class="inline-flex shrink-0 [&>svg]:size-full size-3 animate-spin"
+                >{@html RefreshIcon}</span
+              >
+              {$i18n.t('common.restarting')}
+            {:else}
+              <span aria-hidden="true" class="inline-flex shrink-0 [&>svg]:size-full w-3 h-3"
+                >{@html RestartIcon}</span
+              >
+              {$i18n.t('common.restart')}
+            {/if}
+          </button>
+        {:else}
+          <button
+            class="min-h-[28px] max-w-full rounded-lg border border-gray-100/50 bg-gray-50/40 px-2.5 py-1 text-[12px] leading-[18px] text-gray-900 outline-none transition-colors dark:border-white/[0.04] dark:bg-white/[0.03] dark:text-gray-100 disabled:cursor-not-allowed disabled:opacity-50 shrink-0 hover:bg-gray-50 dark:hover:bg-white/[0.06] flex items-center gap-1.5 {starting
+              ? 'pointer-events-none opacity-50'
+              : ''}"
+            disabled={starting}
+            onclick={startServer}
+          >
+            {#if starting}
+              <span
+                aria-hidden="true"
+                class="inline-flex shrink-0 [&>svg]:size-full size-3 animate-spin"
+                >{@html RefreshIcon}</span
+              >
+              {$i18n.t('common.starting')}
+            {:else}
+              <span aria-hidden="true" class="inline-flex shrink-0 [&>svg]:size-full w-3 h-3"
+                >{@html PlayIcon}</span
+              >
+              {$i18n.t('common.start')}
+            {/if}
+          </button>
+        {/if}
+
+        <button
+          class="min-h-[28px] max-w-full rounded-lg border border-gray-100/50 bg-gray-50/40 px-2.5 py-1 text-[12px] leading-[18px] text-gray-900 outline-none transition-colors dark:border-white/[0.04] dark:bg-white/[0.03] dark:text-gray-100 disabled:cursor-not-allowed disabled:opacity-50 shrink-0 hover:bg-gray-50 dark:hover:bg-white/[0.06] flex items-center gap-1.5 {settingUp
+            ? 'pointer-events-none opacity-50'
+            : ''}"
+          disabled={settingUp}
+          onclick={setupServer}
+        >
+          {#if settingUp}
+            <span
+              aria-hidden="true"
+              class="inline-flex shrink-0 [&>svg]:size-full size-3 animate-spin"
+              >{@html RefreshIcon}</span
+            >
+            {$i18n.t('common.downloading')}
+          {:else}
+            <span aria-hidden="true" class="inline-flex shrink-0 [&>svg]:size-full w-3 h-3"
+              >{@html DownloadIcon}</span
+            >
+            {lsInfo?.binaryPath
+              ? $i18n.t('settings.inference.redownload')
+              : $i18n.t('common.download')}
+          {/if}
+        </button>
+      </div>
+    </div>
+
+    <!-- Running Instance Info -->
+    {#if isRunning && lsInfo}
+      <div class="pt-1">
+        <div class="text-[12px] text-gray-800 dark:text-gray-200 mb-3">
+          {$i18n.t('settings.inference.runningInstance')}
+        </div>
+        <div class="flex flex-col gap-2">
+          <div class="flex items-center justify-between">
+            <span class="text-[11px] leading-normal text-gray-600 dark:text-gray-400">URL</span>
+            <button
+              class="text-[12px] font-mono transition bg-transparent border-none text-gray-900 dark:text-gray-100 p-0 underline decoration-dotted underline-offset-2 cursor-pointer"
+              onclick={() => window.open(lsInfo.url)}>{lsInfo.url}</button
+            >
+          </div>
+          <div class="flex items-center justify-between">
+            <span class="text-[11px] leading-normal text-gray-600 dark:text-gray-400">PID</span>
+            <span class="text-[12px] font-mono">{lsInfo.pid}</span>
+          </div>
+          {#if lsInfo.version}
+            <div class="flex items-center justify-between">
+              <span class="text-[11px] leading-normal text-gray-600 dark:text-gray-400"
+                >{$i18n.t('settings.inference.build')}</span
+              >
+              <span class="text-[12px] font-mono">{lsInfo.version}</span>
+            </div>
+          {/if}
+        </div>
+      </div>
+    {/if}
+
+    <!-- Update Section -->
+    <div class="pt-1">
+      <div class="flex items-center justify-between">
+        <div>
+          <div class="text-[12px] text-gray-800 dark:text-gray-200">
+            {$i18n.t('settings.about.softwareUpdate')}
+          </div>
+          {#if updateStatus === 'up-to-date'}
+            <div class="text-[11px] leading-normal text-gray-600 dark:text-gray-400 mt-0.5">
+              {$i18n.t('settings.inference.upToDate')}
+            </div>
+          {:else if updateStatus === 'available' && updateInfo?.latestVersion}
+            <div class="text-[11px] leading-normal text-gray-600 dark:text-gray-400 mt-0.5">
+              {$i18n.t('settings.inference.updateAvailable', { version: updateInfo.latestVersion })}
+            </div>
+          {:else if updateStatus === 'updating'}
+            <div class="text-[11px] leading-normal text-gray-600 dark:text-gray-400 mt-0.5">
+              {$i18n.t('settings.inference.updating')}
+            </div>
+          {:else if updateStatus === 'error'}
+            <div class="text-[11px] text-red-600 dark:text-red-400 mt-0.5">{updateError}</div>
+          {/if}
+        </div>
+
+        <div>
+          {#if updateStatus === 'idle' || updateStatus === 'up-to-date' || updateStatus === 'error'}
+            <button
+              class="min-h-[28px] max-w-full rounded-lg border border-gray-100/50 bg-gray-50/40 px-2.5 py-1 text-[12px] leading-[18px] text-gray-900 outline-none transition-colors dark:border-white/[0.04] dark:bg-white/[0.03] dark:text-gray-100 disabled:cursor-not-allowed disabled:opacity-50 shrink-0 hover:bg-gray-50 dark:hover:bg-white/[0.06]"
+              onclick={checkUpdate}
+            >
+              {$i18n.t('settings.inference.checkForUpdates')}
+            </button>
+          {:else if updateStatus === 'checking'}
+            <button
+              class="min-h-[28px] max-w-full rounded-lg border border-gray-100/50 bg-gray-50/40 px-2.5 py-1 text-[12px] leading-[18px] text-gray-900 outline-none transition-colors dark:border-white/[0.04] dark:bg-white/[0.03] dark:text-gray-100 disabled:cursor-not-allowed disabled:opacity-50 shrink-0 hover:bg-gray-50 dark:hover:bg-white/[0.06] pointer-events-none flex items-center gap-1.5"
+              disabled
+            >
+              <span
+                aria-hidden="true"
+                class="inline-flex shrink-0 [&>svg]:size-full w-3 h-3 animate-spin"
+                >{@html RefreshIcon}</span
+              >
+              {$i18n.t('settings.inference.checking')}
+            </button>
+          {:else if updateStatus === 'available'}
+            <button
+              class="min-h-[28px] max-w-full rounded-lg border border-gray-100/50 bg-gray-50/40 px-2.5 py-1 text-[12px] leading-[18px] text-gray-900 outline-none transition-colors dark:border-white/[0.04] dark:bg-white/[0.03] dark:text-gray-100 disabled:cursor-not-allowed disabled:opacity-50 shrink-0 hover:bg-gray-50 dark:hover:bg-white/[0.06]"
+              onclick={doUpdate}
+            >
+              {$i18n.t('common.update')}
+            </button>
+          {:else if updateStatus === 'updating'}
+            <button
+              class="min-h-[28px] max-w-full rounded-lg border border-gray-100/50 bg-gray-50/40 px-2.5 py-1 text-[12px] leading-[18px] text-gray-900 outline-none transition-colors dark:border-white/[0.04] dark:bg-white/[0.03] dark:text-gray-100 disabled:cursor-not-allowed disabled:opacity-50 shrink-0 hover:bg-gray-50 dark:hover:bg-white/[0.06] pointer-events-none flex items-center gap-1.5"
+              disabled
+            >
+              <span
+                aria-hidden="true"
+                class="inline-flex shrink-0 [&>svg]:size-full size-3 animate-spin"
+                >{@html RefreshIcon}</span
+              >
+              {$i18n.t('common.updating')}
+            </button>
+          {/if}
+        </div>
+      </div>
+    </div>
+
+    <!-- Start on Launch -->
+    <div
+      class="flex min-w-0 items-center justify-between gap-4 max-sm:flex-wrap [&>:first-child]:min-w-0 [&>:last-child]:shrink-0 sm:[&>:last-child]:max-w-[55%]"
+    >
+      <div>
+        <div class="text-[12px] text-gray-800 dark:text-gray-200">
+          {$i18n.t('settings.inference.startOnLaunch')}
+        </div>
+        <div class="text-[11px] leading-normal text-gray-600 dark:text-gray-400 mt-0.5">
+          {$i18n.t('settings.inference.startOnLaunchDesc')}
+        </div>
+      </div>
+      <Switch
+        checked={$config?.llamaCpp?.enabled ?? false}
+        label={$i18n.t('settings.inference.startOnLaunch')}
+        onchange={(value) => updateConfig('enabled', value)}
+      />
+    </div>
+
+    <!-- Version -->
+    <div
+      class="flex min-w-0 items-center justify-between gap-4 max-sm:flex-wrap [&>:first-child]:min-w-0 [&>:last-child]:shrink-0 sm:[&>:last-child]:max-w-[55%]"
+    >
+      <div>
+        <div class="text-[12px] text-gray-800 dark:text-gray-200">
+          {$i18n.t('settings.inference.version')}
+        </div>
+        <div class="text-[11px] leading-normal text-gray-600 dark:text-gray-400 mt-0.5">
+          {$i18n.t('settings.inference.versionDesc')}
+        </div>
+      </div>
+      <input
+        type="text"
+        class="placeholder:text-gray-600 dark:placeholder:text-gray-400 min-h-[28px] max-w-full rounded-lg border border-gray-100/50 bg-gray-50/40 px-2.5 py-1 text-[12px] leading-[18px] text-gray-900 outline-none transition-colors dark:border-white/[0.04] dark:bg-white/[0.03] dark:text-gray-100 disabled:cursor-not-allowed disabled:opacity-50 w-24 text-right font-mono"
+        value={$config?.llamaCpp?.version ?? 'latest'}
+        onchange={(e) =>
+          updateConfig('version', (e.target as HTMLInputElement).value.trim() || 'latest')}
+      />
+    </div>
+
+    <!-- Variant -->
+    <div
+      class="flex min-w-0 items-center justify-between gap-4 max-sm:flex-wrap [&>:first-child]:min-w-0 [&>:last-child]:shrink-0 sm:[&>:last-child]:max-w-[55%]"
+    >
+      <div>
+        <div class="text-[12px] text-gray-800 dark:text-gray-200">
+          {$i18n.t('settings.inference.variant')}
+        </div>
+        <div class="text-[11px] leading-normal text-gray-600 dark:text-gray-400 mt-0.5">
+          {$i18n.t('settings.inference.variantDesc')}
+        </div>
+      </div>
+      <div class="relative inline-flex max-w-full">
+        <select
+          class="w-full min-w-[100px] appearance-none text-ellipsis pr-[30px] min-h-[28px] max-w-full rounded-lg border border-gray-100/50 bg-gray-50/40 px-2.5 py-1 text-[12px] leading-[18px] text-gray-900 outline-none transition-colors dark:border-white/[0.04] dark:bg-white/[0.03] dark:text-gray-100 disabled:cursor-not-allowed disabled:opacity-50"
+          aria-label={$i18n.t('settings.inference.variant')}
+          onchange={(e) => updateConfig('variant', (e.target as HTMLSelectElement).value)}
+        >
+          {#each variantOptions as opt}
+            <option
+              value={opt.value}
+              selected={($config?.llamaCpp?.variant ?? 'auto') === opt.value}>{opt.label}</option
+            >
+          {/each}
+        </select>
+        <span
+          aria-hidden="true"
+          class="inline-flex shrink-0 [&>svg]:size-full pointer-events-none absolute right-2 top-1/2 size-[14px] -translate-y-1/2 text-gray-600 dark:text-gray-400"
+          >{@html NavArrowDownIcon}</span
+        >
+      </div>
+    </div>
+
+    <!-- Port -->
+    <div
+      class="flex min-w-0 items-center justify-between gap-4 max-sm:flex-wrap [&>:first-child]:min-w-0 [&>:last-child]:shrink-0 sm:[&>:last-child]:max-w-[55%]"
+    >
+      <div>
+        <div class="text-[12px] text-gray-800 dark:text-gray-200">
+          {$i18n.t('settings.inference.port')}
+        </div>
+        <div class="text-[11px] leading-normal text-gray-600 dark:text-gray-400 mt-0.5">
+          {$i18n.t('settings.inference.portDesc')}
+        </div>
+      </div>
+      <input
+        type="number"
+        class="placeholder:text-gray-600 dark:placeholder:text-gray-400 min-h-[28px] max-w-full rounded-lg border border-gray-100/50 bg-gray-50/40 px-2.5 py-1 text-[12px] leading-[18px] text-gray-900 outline-none transition-colors dark:border-white/[0.04] dark:bg-white/[0.03] dark:text-gray-100 disabled:cursor-not-allowed disabled:opacity-50 w-20 text-right"
+        value={$config?.llamaCpp?.port ?? 18881}
+        onchange={(e) =>
+          updateConfig('port', parseInt((e.target as HTMLInputElement).value) || 18881)}
+      />
+    </div>
+
+    <!-- Extra Arguments -->
+    <div
+      class="flex min-w-0 items-center justify-between gap-4 max-sm:flex-wrap [&>:first-child]:min-w-0 [&>:last-child]:shrink-0 sm:[&>:last-child]:max-w-[55%]"
+    >
+      <div class="min-w-0">
+        <div class="text-[12px] text-gray-800 dark:text-gray-200">
+          {$i18n.t('settings.inference.extraArguments')}
+        </div>
+        <div class="text-[11px] leading-normal text-gray-600 dark:text-gray-400 mt-0.5">
+          {$i18n.t('settings.inference.extraArgumentsDesc')}
+        </div>
+      </div>
+      <input
+        type="text"
+        class="placeholder:text-gray-600 dark:placeholder:text-gray-400 min-h-[28px] max-w-full rounded-lg border border-gray-100/50 bg-gray-50/40 px-2.5 py-1 text-[12px] leading-[18px] text-gray-900 outline-none transition-colors dark:border-white/[0.04] dark:bg-white/[0.03] dark:text-gray-100 disabled:cursor-not-allowed disabled:opacity-50 min-w-0 flex-1 max-w-[280px] text-right font-mono"
+        placeholder={$i18n.t('settings.inference.extraArgumentsPlaceholder')}
+        value={($config?.llamaCpp?.extraArgs ?? []).join(' ')}
+        onchange={(e) => {
+          const val = (e.target as HTMLInputElement).value.trim()
+          updateConfig('extraArgs', val ? val.split(/\s+/) : [])
+        }}
+      />
+    </div>
+
+    <!-- Uninstall -->
+    {#if lsInfo?.binaryPath}
+      <div
+        class="flex min-w-0 items-center justify-between gap-4 max-sm:flex-wrap [&>:first-child]:min-w-0 [&>:last-child]:shrink-0 sm:[&>:last-child]:max-w-[55%]"
+      >
+        <div>
+          <div class="text-[12px] text-gray-800 dark:text-gray-200">
+            {$i18n.t('settings.inference.uninstall')}
+          </div>
+          <div class="text-[11px] leading-normal text-gray-600 dark:text-gray-400 mt-0.5">
+            {$i18n.t('settings.inference.uninstallDesc')}
+          </div>
+        </div>
+        <button
+          class="min-h-[28px] max-w-full rounded-lg border border-gray-100/50 bg-gray-50/40 px-2.5 py-1 text-[12px] leading-[18px] text-gray-900 outline-none transition-colors dark:border-white/[0.04] dark:bg-white/[0.03] dark:text-gray-100 disabled:cursor-not-allowed disabled:opacity-50 shrink-0 hover:bg-gray-50 dark:hover:bg-white/[0.06] flex items-center gap-1.5 {uninstalling
+            ? 'pointer-events-none opacity-50'
+            : ''}"
+          disabled={uninstalling}
+          onclick={async () => {
+            if (confirm($i18n.t('settings.inference.uninstallConfirm'))) {
+              uninstalling = true
+              try {
+                await window.electronAPI.uninstallLlamaCpp()
+                lsInfo = await window.electronAPI.getLlamaCppInfo()
+              } catch (e) {
+                console.error('Failed to uninstall llama.cpp:', e)
+              }
+              uninstalling = false
+            }
+          }}
+        >
+          {#if uninstalling}
+            <span
+              aria-hidden="true"
+              class="inline-flex shrink-0 [&>svg]:size-full size-3 animate-spin"
+              >{@html RefreshIcon}</span
+            >
+            {$i18n.t('common.uninstalling')}
+          {:else}
+            {$i18n.t('common.uninstall')}
+          {/if}
+        </button>
+      </div>
+    {/if}
+  </div>
 {/if}

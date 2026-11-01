@@ -1,4 +1,8 @@
 <script lang="ts">
+  import ArrowRightIcon from 'iconoir/icons/arrow-right.svg?raw'
+  import GlobeIcon from 'iconoir/icons/globe.svg?raw'
+  import RestartIcon from 'iconoir/icons/restart.svg?raw'
+  import WarningCircleIcon from 'iconoir/icons/warning-circle.svg?raw'
   import type { WebviewTag, DidFailLoadEvent, ConsoleMessageEvent, IpcMessageEvent } from 'electron'
   import { handleGuestRequest } from '../../../guest-requests'
   import { onMount } from 'svelte'
@@ -195,33 +199,9 @@
           class="mx-auto mb-4 w-10 h-10 rounded-full bg-black/[0.04] dark:bg-white/[0.06] flex items-center justify-center"
         >
           {#if activeWebviewError.code === -1}
-            <svg
-              class="w-5 h-5 opacity-30"
-              fill="none"
-              viewBox="0 0 24 24"
-              stroke="currentColor"
-              stroke-width="1.5"
-            >
-              <path
-                stroke-linecap="round"
-                stroke-linejoin="round"
-                d="M12 9v3.75m9-.75a9 9 0 11-18 0 9 9 0 0118 0zm-9 3.75h.008v.008H12v-.008z"
-              />
-            </svg>
+            <span aria-hidden="true" class="inline-flex shrink-0 [&>svg]:size-full w-5 h-5 opacity-30">{@html WarningCircleIcon}</span>
           {:else}
-            <svg
-              class="w-5 h-5 opacity-30"
-              fill="none"
-              viewBox="0 0 24 24"
-              stroke="currentColor"
-              stroke-width="1.5"
-            >
-              <path
-                stroke-linecap="round"
-                stroke-linejoin="round"
-                d="M12 21a9.004 9.004 0 008.716-6.747M12 21a9.004 9.004 0 01-8.716-6.747M12 21c2.485 0 4.5-4.03 4.5-9S14.485 3 12 3m0 18c-2.485 0-4.5-4.03-4.5-9S9.515 3 12 3m0 0a8.997 8.997 0 017.843 4.582M12 3a8.997 8.997 0 00-7.843 4.582m15.686 0A11.953 11.953 0 0112 10.5c-2.998 0-5.74-1.1-7.843-2.918m15.686 0A8.959 8.959 0 0121 12c0 .778-.099 1.533-.284 2.253m0 0A17.919 17.919 0 0112 16.5a17.92 17.92 0 01-8.716-2.247m0 0A9.015 9.015 0 013 12c0-1.605.42-3.113 1.157-4.418"
-              />
-            </svg>
+            <span aria-hidden="true" class="inline-flex shrink-0 [&>svg]:size-full w-5 h-5 opacity-30">{@html GlobeIcon}</span>
           {/if}
         </div>
         <div class="text-[14px] font-medium mb-1 opacity-80">
@@ -406,7 +386,7 @@
 
               {#if !localInstalled}
                 <button
-                  class="inline-flex items-center justify-between gap-2 w-[220px] max-w-full h-[36px] bg-black dark:bg-white px-4 rounded-none text-white dark:text-black text-[13px] border-none disabled:opacity-50"
+                  class="inline-flex items-center {installPhase === 'working' ? 'justify-start' : 'justify-between'} gap-2 w-[220px] max-w-full h-[36px] bg-black dark:bg-white px-4 rounded-none text-white dark:text-black text-[13px] border-none disabled:opacity-50"
                   onclick={() => {
                     if (installPhase === 'error') {
                       onStartInstall()
@@ -423,34 +403,10 @@
                     {$i18n.t('common.installing')}
                   {:else if installPhase === 'error'}
                     {$i18n.t('common.retry')}
-                    <svg
-                      class="h-3.5 w-3.5"
-                      fill="none"
-                      viewBox="0 0 24 24"
-                      stroke="currentColor"
-                      stroke-width="1.5"
-                    >
-                      <path
-                        stroke-linecap="round"
-                        stroke-linejoin="round"
-                        d="M16.023 9.348h4.992v-.001M2.985 19.644v-4.992m0 0h4.992m-4.993 0l3.181 3.183a8.25 8.25 0 0013.803-3.7M20.015 4.356v4.992m0 0h-4.992m4.993 0l-3.181-3.183a8.25 8.25 0 00-13.803 3.7"
-                      />
-                    </svg>
+                    <span aria-hidden="true" class="inline-flex shrink-0 [&>svg]:size-full h-3.5 w-3.5">{@html RestartIcon}</span>
                   {:else}
                     {$i18n.t('main.getStarted')}
-                    <svg
-                      class="h-3.5 w-3.5"
-                      fill="none"
-                      viewBox="0 0 24 24"
-                      stroke="currentColor"
-                      stroke-width="1.5"
-                    >
-                      <path
-                        stroke-linecap="round"
-                        stroke-linejoin="round"
-                        d="M17 8l4 4m0 0l-4 4m4-4H3"
-                      />
-                    </svg>
+                    <span aria-hidden="true" class="inline-flex shrink-0 [&>svg]:size-full h-3.5 w-3.5">{@html ArrowRightIcon}</span>
                   {/if}
                 </button>
 

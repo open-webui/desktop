@@ -7,18 +7,21 @@
 </script>
 
 <button
-  class="w-9 h-5 rounded-full transition-colors {checked
-    ? 'bg-black/30 dark:bg-white/30'
-    : 'bg-black/[0.10] dark:bg-white/[0.08]'} border-none relative"
+  type="button"
+  role="switch"
+  aria-checked={checked}
   aria-label={label}
+  class="relative h-[16px] w-[28px] shrink-0 rounded-full border-none transition-colors focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-blue-500 {checked
+    ? 'bg-gray-900 dark:bg-white'
+    : 'bg-gray-300 dark:bg-gray-700'}"
   onclick={() => {
     checked = !checked
     onchange?.(checked)
   }}
 >
-  <div
-    class="w-3.5 h-3.5 rounded-full bg-white shadow-sm absolute top-[2.5px] transition-all {checked
-      ? 'left-[15px]'
-      : 'left-[3px]'}"
-  ></div>
+  <span
+    class="pointer-events-none absolute top-[2px] h-[12px] w-[12px] rounded-full transition-all {checked
+      ? 'left-[14px] bg-white dark:bg-black'
+      : 'left-[2px] bg-white dark:bg-gray-500'}"
+  ></span>
 </button>

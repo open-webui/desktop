@@ -7,12 +7,20 @@
   let settingsOpen = $state(false)
 </script>
 
+<svelte:window
+  onkeydown={(event) => {
+    if (settingsOpen && event.key === 'Escape' && !event.defaultPrevented) settingsOpen = false
+  }}
+/>
+
 <div
   class="h-full w-full flex flex-col bg-[#f5f5f7] dark:bg-[#0a0a0a] text-[#1d1d1f] dark:text-[#fafafa] relative"
   in:fade={{ duration: 200 }}
 >
   <div
-    class="absolute inset-x-0 top-0 z-40 drag-region {$appInfo?.platform === 'darwin' ? 'h-[40px]' : 'h-[32px]'}"
+    class="absolute inset-x-0 top-0 z-40 drag-region {$appInfo?.platform === 'darwin'
+      ? 'h-[40px]'
+      : 'h-[32px]'}"
     aria-hidden="true"
   ></div>
   <!-- Local launcher -->
@@ -22,7 +30,7 @@
 
   {#if settingsOpen}
     <div
-      class="absolute inset-0 z-50 flex items-center justify-center p-[56px] bg-black/60 backdrop-blur-sm"
+      class="absolute inset-0 z-50 flex items-center justify-center p-[16px] sm:p-[24px] lg:p-[32px] bg-black/60 backdrop-blur-sm"
       in:fade={{ duration: 150 }}
       out:fade={{ duration: 100 }}
       onclick={() => (settingsOpen = false)}
@@ -31,7 +39,7 @@
     >
       <!-- svelte-ignore a11y_no_static_element_interactions -->
       <div
-        class="w-full h-full max-w-[900px] max-h-[600px] rounded-3xl overflow-hidden shadow-2xl border border-black/[0.08] dark:border-white/[0.08]"
+        class="w-full h-[calc(100dvh-64px)] max-h-[calc(100dvh-64px)] rounded-[32px] overflow-hidden shadow-2xl border border-white dark:border-gray-850"
         in:fade={{ duration: 150 }}
         onclick={(e) => e.stopPropagation()}
       >

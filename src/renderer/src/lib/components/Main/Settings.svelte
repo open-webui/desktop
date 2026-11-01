@@ -1,4 +1,11 @@
 <script lang="ts">
+  import NavArrowLeftIcon from 'iconoir/icons/nav-arrow-left.svg?raw'
+  import SearchIcon from 'iconoir/icons/search.svg?raw'
+  import InfoCircleIcon from 'iconoir/icons/info-circle.svg?raw'
+  import DatabaseIcon from 'iconoir/icons/database.svg?raw'
+  import CpuIcon from 'iconoir/icons/cpu.svg?raw'
+  import GlobeIcon from 'iconoir/icons/globe.svg?raw'
+  import SettingsIcon from 'iconoir/icons/settings.svg?raw'
   import { fade } from 'svelte/transition'
   import i18n from '../../i18n'
 
@@ -8,131 +15,145 @@
   import Models from './Settings/Models.svelte'
   import About from './Settings/About.svelte'
 
-  interface Props {
-    onClose: () => void
-  }
-
-  let { onClose }: Props = $props()
-
+  let { onClose }: { onClose: () => void } = $props()
   let settingsTab = $state('general')
+  let search = $state('')
+  let showSearch = $state(false)
 
   const tabs = [
-    {
-      id: 'general',
-      label: () => $i18n.t('settings.tabs.general'),
-      icon: 'M9.594 3.94c.09-.542.56-.94 1.11-.94h2.593c.55 0 1.02.398 1.11.94l.213 1.281c.063.374.313.686.645.87.074.04.147.083.22.127.325.196.72.257 1.075.124l1.217-.456a1.125 1.125 0 011.37.49l1.296 2.247a1.125 1.125 0 01-.26 1.431l-1.003.827c-.293.241-.438.613-.43.992a7.723 7.723 0 010 .255c-.008.378.137.75.43.991l1.004.827c.424.35.534.955.26 1.43l-1.298 2.247a1.125 1.125 0 01-1.369.491l-1.217-.456c-.355-.133-.75-.072-1.076.124a6.47 6.47 0 01-.22.128c-.331.183-.581.495-.644.869l-.213 1.281c-.09.543-.56.941-1.11.941h-2.594c-.55 0-1.019-.398-1.11-.94l-.213-1.281c-.062-.374-.312-.686-.644-.87a6.52 6.52 0 01-.22-.127c-.325-.196-.72-.257-1.076-.124l-1.217.456a1.125 1.125 0 01-1.369-.49l-1.297-2.247a1.125 1.125 0 01.26-1.431l1.004-.827c.292-.24.437-.613.43-.991a6.932 6.932 0 010-.255c.007-.38-.138-.751-.43-.992l-1.004-.827a1.125 1.125 0 01-.26-1.43l1.297-2.247a1.125 1.125 0 011.37-.491l1.216.456c.356.133.751.072 1.076-.124.072-.044.146-.086.22-.128.332-.183.582-.495.644-.869l.214-1.28z',
-      extra: 'M15 12a3 3 0 11-6 0 3 3 0 016 0z'
-    },
-    {
-      id: 'openwebui',
-      label: () => $i18n.t('settings.tabs.openwebui'),
-      icon: 'M21 12a9 9 0 11-18 0 9 9 0 0118 0z',
-      extra:
-        'M9 3.51a9.012 9.012 0 016 0M9 20.49a9.012 9.012 0 006 0M3.51 9a9.012 9.012 0 000 6M20.49 9a9.012 9.012 0 010 6M12 3v18M3 12h18'
-    },
-    {
-      id: 'inference',
-      label: () => $i18n.t('settings.tabs.inference'),
-      icon: 'M8.25 3v1.5M4.5 8.25H3m18 0h-1.5M4.5 12H3m18 0h-1.5m-15 3.75H3m18 0h-1.5M8.25 19.5V21M12 3v1.5m0 15V21m3.75-18v1.5m0 15V21m-9-1.5h10.5a2.25 2.25 0 002.25-2.25V6.75a2.25 2.25 0 00-2.25-2.25H6.75A2.25 2.25 0 004.5 6.75v10.5a2.25 2.25 0 002.25 2.25zm.75-12h9v9h-9v-9z'
-    },
-    {
-      id: 'models',
-      label: () => $i18n.t('settings.tabs.models'),
-      icon: 'M20.25 6.375c0 2.278-3.694 4.125-8.25 4.125S3.75 8.653 3.75 6.375m16.5 0c0-2.278-3.694-4.125-8.25-4.125S3.75 4.097 3.75 6.375m16.5 0v11.25c0 2.278-3.694 4.125-8.25 4.125s-8.25-1.847-8.25-4.125V6.375m16.5 0v3.75m-16.5-3.75v3.75m16.5 0v3.75C20.25 16.153 16.556 18 12 18s-8.25-1.847-8.25-4.125v-3.75m16.5 0c0 2.278-3.694 4.125-8.25 4.125s-8.25-1.847-8.25-4.125'
-    },
-    {
-      id: 'about',
-      label: () => $i18n.t('settings.tabs.about'),
-      icon: 'M11.25 11.25l.041-.02a.75.75 0 011.063.852l-.708 2.836a.75.75 0 001.063.853l.041-.021M21 12a9 9 0 11-18 0 9 9 0 0118 0zm-9-3.75h.008v.008H12V8.25z'
-    }
-  ]
+    { id: 'general', icon: SettingsIcon, group: 'basics' },
+    { id: 'openwebui', icon: GlobeIcon, group: 'services' },
+    { id: 'inference', icon: CpuIcon, group: 'services' },
+    { id: 'models', icon: DatabaseIcon, group: 'data' },
+    { id: 'about', icon: InfoCircleIcon, group: null }
+  ] as const
+
+  const filteredTabs = $derived.by(() => {
+    const query = search.trim().toLocaleLowerCase()
+    const translations =
+      $i18n.getResourceBundle($i18n.resolvedLanguage ?? 'en-US', 'translation') ?? {}
+    return tabs.filter((tab) =>
+      [
+        $i18n.t(`settings.tabs.${tab.id}`),
+        ...Object.entries(translations)
+          .filter(([key]) => key.startsWith(`settings.${tab.id}.`))
+          .map(([, value]) => String(value))
+      ].some((text) => text.toLocaleLowerCase().includes(query))
+    )
+  })
 </script>
 
 <div
-  class="settings h-full w-full flex bg-[#f5f5f7] dark:bg-[#0a0a0a] text-black dark:text-white"
+  class="flex h-full w-full min-h-0 flex-col bg-white text-[12px] leading-normal text-gray-900 md:flex-row dark:bg-gray-900 dark:text-gray-100 dark:[color-scheme:dark] [&_:is(button,input,select,textarea):focus-visible]:outline-2 [&_:is(button,input,select,textarea):focus-visible]:outline-offset-2 [&_:is(button,input,select,textarea):focus-visible]:outline-blue-500 motion-reduce:[&_*]:transition-none motion-reduce:[&_*]:animate-none"
   in:fade={{ duration: 150 }}
 >
-  <!-- Settings sidebar -->
-  <div
-    class="w-[180px] shrink-0 flex flex-col border-r border-black/[0.06] dark:border-white/[0.06] bg-[#eee] dark:bg-[#111] px-1.5"
+  <nav
+    class="flex min-w-0 shrink-0 flex-col border-b border-gray-100/30 md:min-h-0 md:w-[208px] md:border-r md:border-b-0 dark:border-white/[0.02]"
+    aria-label={$i18n.t('settings.title')}
   >
-    <div class="h-4 shrink-0"></div>
-    <div class="px-3 pb-3">
-      <span class="text-[13px] font-medium">{$i18n.t('settings.title')}</span>
-    </div>
-
-    <div class="flex flex-col gap-0.5 px-1">
-      {#each tabs as tab}
-        <button
-          class="flex items-center gap-2 px-2.5 py-[6px] rounded-2xl text-[12px] transition bg-transparent border-none text-black dark:text-white text-left w-full {settingsTab ===
-          tab.id
-            ? 'bg-black/[0.06] dark:bg-white/[0.08]'
-            : 'hover:bg-black/[0.02]'}"
-          onclick={() => (settingsTab = tab.id)}
-        >
-          <svg
-            class="w-[14px] h-[14px] shrink-0"
-            fill="none"
-            viewBox="0 0 24 24"
-            stroke="currentColor"
-            stroke-width="1.5"
-          >
-            <path stroke-linecap="round" stroke-linejoin="round" d={tab.icon} />
-            {#if tab.extra}
-              <path stroke-linecap="round" stroke-linejoin="round" d={tab.extra} />
-            {/if}
-          </svg>
-          {tab.label()}
-        </button>
-      {/each}
-    </div>
-  </div>
-
-  <div class="flex-1 min-w-0 flex flex-col overflow-hidden">
-    <!-- Content header -->
-    <div
-      class="flex items-center justify-between px-8 pt-5 pb-3 border-b border-black/[0.04] dark:border-white/[0.04]"
-    >
-      <span class="text-[15px] font-medium"
-        >{tabs.find((t) => t.id === settingsTab)?.label() ?? settingsTab}</span
-      >
+    <div class="m-1 flex shrink-0 items-center gap-1 md:mb-0">
       <button
-        class="transition bg-transparent border-none text-black dark:text-white"
+        type="button"
+        class="flex h-[28px] flex-1 items-center gap-1.5 rounded-lg px-2 text-gray-800 transition-colors duration-75 hover:text-gray-900 dark:text-gray-400 dark:hover:text-gray-100"
         onclick={onClose}
-        title={$i18n.t('settings.closeSettings')}
       >
-        <svg
-          class="w-[14px] h-[14px]"
-          fill="none"
-          viewBox="0 0 24 24"
-          stroke="currentColor"
-          stroke-width="2"
+        <span class="inline-flex size-[12px] shrink-0 [&>svg]:size-full" aria-hidden="true"
+          >{@html NavArrowLeftIcon}</span
         >
-          <path stroke-linecap="round" stroke-linejoin="round" d="M6 18L18 6M6 6l12 12" />
-        </svg>
+        {$i18n.t('settings.back')}
+      </button>
+      <button
+        type="button"
+        class="flex size-[28px] shrink-0 items-center justify-center rounded-lg text-gray-800 hover:bg-gray-50 md:hidden dark:text-gray-400 dark:hover:bg-white/[0.04]"
+        aria-label={$i18n.t('settings.search')}
+        aria-expanded={showSearch || !!search}
+        aria-controls="settings-search"
+        onclick={() => (showSearch = !showSearch)}
+      >
+        <span class="inline-flex size-[14px] [&>svg]:size-full" aria-hidden="true"
+          >{@html SearchIcon}</span
+        >
       </button>
     </div>
 
-    <div class="flex-1 overflow-y-auto px-8 py-4">
-      {#if settingsTab === 'general'}
-        <General />
-      {:else if settingsTab === 'openwebui'}
-        <OpenWebUI />
-      {:else if settingsTab === 'inference'}
-        <InferenceRuntime />
-      {:else if settingsTab === 'models'}
-        <Models />
-      {:else if settingsTab === 'about'}
-        <About />
-      {/if}
+    <div
+      class="mx-1 mb-0.5 h-[28px] shrink-0 items-center gap-1.5 rounded-lg bg-gray-50/70 px-2 md:mt-1 md:flex dark:bg-white/[0.03] {showSearch ||
+      search
+        ? 'flex'
+        : 'hidden'}"
+    >
+      <span class="inline-flex size-[14px] shrink-0 [&>svg]:size-full" aria-hidden="true"
+        >{@html SearchIcon}</span
+      >
+      <input
+        id="settings-search"
+        aria-label={$i18n.t('settings.search')}
+        class="w-full min-w-0 bg-transparent py-1 outline-none placeholder:text-gray-600 dark:text-gray-100 dark:placeholder:text-gray-400"
+        bind:value={search}
+        placeholder={$i18n.t('settings.search')}
+        onkeydown={(event) => {
+          if (event.key === 'Enter' && filteredTabs[0]) settingsTab = filteredTabs[0].id
+        }}
+      />
     </div>
+
+    <div
+      class="flex min-h-0 min-w-0 flex-1 gap-px overflow-x-auto p-1 md:flex-col md:overflow-x-hidden md:overflow-y-auto"
+    >
+      {#each filteredTabs as tab, index (tab.id)}
+        {#if tab.group && (index === 0 || filteredTabs[index - 1].group !== tab.group)}
+          <div
+            class="hidden shrink-0 px-2 text-[10px] text-gray-800 md:block dark:text-gray-400 {index ===
+            0
+              ? 'mt-0.5'
+              : 'mt-2'} mb-0.5"
+          >
+            {$i18n.t(`settings.groups.${tab.group}`)}
+          </div>
+        {/if}
+        <button
+          type="button"
+          class="flex h-[28px] shrink-0 items-center gap-1.5 rounded-lg px-2 text-left transition-colors duration-75 md:w-full {settingsTab ===
+          tab.id
+            ? 'bg-gray-50 font-medium text-gray-900 dark:bg-white/[0.04] dark:text-white'
+            : 'text-gray-800 hover:text-gray-900 dark:text-gray-200 dark:hover:text-gray-100'}"
+          aria-current={settingsTab === tab.id ? 'page' : undefined}
+          onclick={() => (settingsTab = tab.id)}
+        >
+          <span class="inline-flex size-[14px] shrink-0 [&>svg]:size-full" aria-hidden="true"
+            >{@html tab.icon}</span
+          >
+          {$i18n.t(`settings.tabs.${tab.id}`)}
+        </button>
+      {:else}
+        <div role="status" class="px-2 py-1 text-gray-800 dark:text-gray-400">
+          {$i18n.t('settings.noMatches')}
+        </div>
+      {/each}
+    </div>
+  </nav>
+
+  <div class="flex min-h-0 min-w-0 flex-1 flex-col p-[16px] md:px-[20px]">
+    <h2
+      id="settings-heading"
+      class="mb-[16px] shrink-0 text-[14px] font-medium text-gray-900 dark:text-white"
+    >
+      {$i18n.t(`settings.tabs.${settingsTab}`)}
+    </h2>
+    {#key settingsTab}
+      <section aria-labelledby="settings-heading" class="min-h-0 flex-1 overflow-y-auto pr-1.5">
+        {#if settingsTab === 'general'}
+          <General />
+        {:else if settingsTab === 'openwebui'}
+          <OpenWebUI />
+        {:else if settingsTab === 'inference'}
+          <InferenceRuntime />
+        {:else if settingsTab === 'models'}
+          <Models />
+        {:else if settingsTab === 'about'}
+          <About />
+        {/if}
+      </section>
+    {/key}
   </div>
 </div>
-
-<style>
-  .settings :global(input::placeholder),
-  .settings :global(textarea::placeholder) {
-    color: inherit;
-    opacity: 1;
-  }
-</style>
