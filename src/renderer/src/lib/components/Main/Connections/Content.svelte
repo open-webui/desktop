@@ -215,8 +215,9 @@
 >
   {#if serverUrl && contentPreloadPath}
     <div
-      class="webview-inset flex shrink-0 items-center justify-center bg-white px-[80px] dark:bg-[#171717]"
+      class="webview-inset flex shrink-0 items-center justify-center bg-white dark:bg-[#171717]"
       style:height="var(--window-drag-height)"
+      style:padding-inline="var(--window-title-padding)"
       style:background-color={webviewBackground}
     >
       <span class="truncate text-[11px] font-medium opacity-60" title={webviewTitle}>{webviewTitle}</span>

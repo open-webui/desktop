@@ -16,6 +16,7 @@
 <div
   class="h-full w-full flex flex-col bg-[#f5f5f7] dark:bg-[#0a0a0a] text-[#1d1d1f] dark:text-[#fafafa] relative"
   style:--window-drag-height={$appInfo?.platform === 'darwin' ? ($serverInfo?.reachable ? '28px' : '40px') : '32px'}
+  style:--window-title-padding={$appInfo?.platform === 'darwin' ? '80px' : 'max(80px, calc(100vw - env(titlebar-area-width, calc(100vw - 138px)) + 8px))'}
   in:fade={{ duration: 200 }}
 >
   <div

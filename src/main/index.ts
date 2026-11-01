@@ -6,6 +6,7 @@ import {
   session,
   clipboard,
   nativeImage,
+  nativeTheme,
   desktopCapturer,
   BrowserWindow,
   globalShortcut,
@@ -250,15 +251,21 @@ function createMainWindow(show = true): void {
     minHeight: MIN_WINDOW_HEIGHT,
     icon: path.join(__dirname, 'assets/icon.png'),
     show: false,
-    titleBarStyle: process.platform === 'win32' ? 'default' : 'hidden',
+    titleBarStyle: 'hidden',
     trafficLightPosition: { x: 10, y: 10 },
     autoHideMenuBar: true,
     vibrancy: 'under-window',
     visualEffectState: 'active',
     backgroundColor: '#00000000',
-    ...(process.platform === 'win32' ? { frame: true } : {}),
     ...(process.platform === 'linux' ? { icon } : {}),
-    ...(process.platform !== 'darwin' ? { titleBarOverlay: true } : {}),
+    ...(process.platform !== 'darwin'
+      ? { titleBarOverlay: {
+          height: 32,
+          color: '#00000000',
+          symbolColor: (CONFIG?.theme === 'dark' ||
+            (CONFIG?.theme !== 'light' && nativeTheme.shouldUseDarkColors)) ? '#ffffff' : '#000000'
+        } }
+      : {}),
     webPreferences: {
       preload: join(__dirname, '../preload/index.js'),
       sandbox: false,
@@ -704,6 +711,12 @@ if (!gotTheLock) {
     })
 
     ipcMain.handle('get:config', () => getConfig())
+    ipcMain.on('window:theme', (event, dark) => {
+      if (process.platform === 'darwin' || !mainWindow || mainWindow.isDestroyed()) return
+      if (event.sender !== mainWindow.webContents || event.senderFrame !== event.sender.mainFrame) return
+      if (typeof dark !== 'boolean') return
+      mainWindow.setTitleBarOverlay({ symbolColor: dark ? '#ffffff' : '#000000' })
+    })
     ipcMain.handle('set:config', async (_event, config) => {
       await setConfig(config)
       CONFIG = await getConfig()

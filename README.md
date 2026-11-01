@@ -7,10 +7,7 @@
 
 ![Open WebUI Desktop](./demo.png)
 
-A desktop installer and launcher for [Open WebUI](https://github.com/open-webui/open-webui). Install and run Open WebUI on your computer without Docker or command-line setup.
-
-> [!WARNING]
-> **Early Alpha.** Things move fast and stuff might break. [Report bugs](https://github.com/open-webui/desktop/issues) or [come hang out on Discord](https://discord.gg/open-webui).
+Open WebUI Desktop sets up [Open WebUI](https://github.com/open-webui/open-webui) on your computer and opens it whenever you need it.
 
 ## Download
 
@@ -31,14 +28,9 @@ Internet is required for installation and updates. [All releases →](https://gi
 
 ## How It Works
 
-Install Open WebUI from the launcher. Open WebUI Desktop starts it, manages it in the background, and opens it in the app.
+Open the app and click **Get Started**. Desktop installs Open WebUI on your computer, starts it for you, and opens it in the app. You use the same Open WebUI you know, with setup and updates handled through Desktop.
 
-Desktop focuses on installing and launching Open WebUI locally. Hosted-server connections and companion workflows belong in [Open WebUI Tether](https://github.com/open-webui/tether).
-
-## Highlights
-
-- **Local installation.** Install and update Open WebUI from the app.
-- **Cross-platform.** macOS, Windows, and Linux.
+Desktop runs your own local copy of Open WebUI. If you already use Open WebUI on another server, [Open WebUI Tether](https://github.com/open-webui/tether) is a companion app that extends what you can do with it.
 
 ## System Requirements
 
@@ -49,7 +41,7 @@ Desktop focuses on installing and launching Open WebUI locally. Hosted-server co
 
 ## Privacy
 
-Desktop does not add telemetry. Installation and updates require network access; external providers configured inside Open WebUI have their own data handling policies.
+Desktop does not collect usage data. If you connect Open WebUI to an external AI provider, that provider's privacy policy applies.
 
 ## Community
 

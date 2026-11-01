@@ -5,6 +5,18 @@ import type { ServiceId } from '../shared/terminal'
 
 import { createTerminalClient } from './terminal-client'
 
+if (process.platform !== 'darwin') {
+  window.addEventListener('DOMContentLoaded', () => {
+    const syncWindowTheme = (): void => {
+      ipcRenderer.send('window:theme', document.documentElement.classList.contains('dark'))
+    }
+    const observer = new MutationObserver(syncWindowTheme)
+    observer.observe(document.documentElement, { attributes: true, attributeFilter: ['class'] })
+    syncWindowTheme()
+    window.addEventListener('unload', () => observer.disconnect(), { once: true })
+  }, { once: true })
+}
+
 const terminals = createTerminalClient((service, id) => ipcRenderer.send('terminal:connect', service, id))
 window.addEventListener('unload', () => terminals.dispose())
 ipcRenderer.on('terminal:port', (event, id: number) => {
