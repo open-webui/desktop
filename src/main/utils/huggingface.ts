@@ -12,7 +12,7 @@ import * as fs from 'fs'
 import * as path from 'path'
 import log from 'electron-log'
 
-import { getInstallDir, downloadFileWithProgress } from './index'
+import { getInstallDir, downloadFileWithProgress, verifyFileChecksum } from './index'
 
 // ─── Types ──────────────────────────────────────────────
 
@@ -67,7 +67,21 @@ const getHfCacheDir = (): string => {
   return dir
 }
 
-const repoSlug = (repo: string): string => repo.replace(/\//g, '--')
+const repoSlug = (repo: string): string => {
+  if (typeof repo !== 'string' || !/^[\w-]+\/[\w.-]+$/.test(repo) || repo.split('/').includes('..')) {
+    throw new Error('Invalid Hugging Face repository')
+  }
+  return repo.replace('/', '--')
+}
+
+const getModelPath = (repo: string, filename: string): string => {
+  const slug = repoSlug(repo)
+  if (typeof filename !== 'string' || !/\.gguf$/i.test(filename) ||
+      !filename.split('/').every((part) => /^[\w][\w.+ -]*$/.test(part))) {
+    throw new Error('Invalid GGUF filename')
+  }
+  return path.join(getHfCacheDir(), slug, filename)
+}
 
 const getManifestPath = (): string => path.join(getHfCacheDir(), 'manifest.json')
 
@@ -150,94 +164,33 @@ export const downloadModel = async (
   token?: string,
   expectedSize?: number
 ): Promise<string> => {
-  const slug = repoSlug(repo)
-  const repoDir = path.join(getHfCacheDir(), slug)
-  if (!fs.existsSync(repoDir)) {
-    fs.mkdirSync(repoDir, { recursive: true })
-  }
-
-  const destPath = path.join(repoDir, filename)
-
-  // Already downloaded?
-  if (fs.existsSync(destPath)) {
-    log.info(`[huggingface] Already cached: ${destPath}`)
-    return destPath
-  }
-
-  // Build download URL
-  const downloadUrl = `https://huggingface.co/${repo}/resolve/main/${encodeURIComponent(filename)}`
-
-  log.info(`[huggingface] Downloading ${repo}/${filename}`)
-  log.info(`[huggingface] URL: ${downloadUrl}`)
-
-  // Download with progress
-  const headers: Record<string, string> = {}
-  if (token) {
-    headers['Authorization'] = `Bearer ${token}`
-  }
-
+  const destPath = getModelPath(repo, filename)
   const key = downloadKey(repo, filename)
-  // Cancel any existing download for the same file
   activeDownloads.get(key)?.abort()
-
-  const abortController = new AbortController()
-  activeDownloads.set(key, abortController)
-  const { signal } = abortController
-
-  // Use fetch for streaming download with progress
-  const response = await fetch(downloadUrl, {
-    headers,
-    redirect: 'follow',
-    signal
-  })
-
-  if (!response.ok) {
-    throw new Error(
-      `Failed to download ${repo}/${filename}: ${response.status} ${response.statusText}`
-    )
-  }
-
-  const contentLength = parseInt(response.headers.get('content-length') ?? '0', 10)
-  const totalBytes = contentLength || expectedSize || 0
-  const reader = response.body?.getReader()
-  if (!reader) {
-    throw new Error('Response body is not readable')
-  }
-
-  const tmpPath = destPath + '.tmp'
-  const writeStream = fs.createWriteStream(tmpPath)
-  let downloadedBytes = 0
+  const controller = new AbortController()
+  activeDownloads.set(key, controller)
+  const headers: Record<string, string> = token ? { Authorization: `Bearer ${token}` } : {}
 
   try {
-    while (true) {
-      const { done, value } = await reader.read()
-      if (done) break
-
-      writeStream.write(Buffer.from(value))
-      downloadedBytes += value.byteLength
-
-      if (onProgress && totalBytes > 0) {
-        onProgress({
-          percent: (downloadedBytes / totalBytes) * 100,
-          downloadedBytes,
-          totalBytes
-        })
+    const files = await getRepoFiles(repo, token, controller.signal)
+    const file = files.find((file) => file.filename === filename)
+    if (!file?.sha256) throw new Error('Model has no SHA-256 checksum')
+    if (fs.existsSync(destPath)) {
+      try {
+        await verifyFileChecksum(destPath, file.sha256)
+        return destPath
+      } catch {
+        controller.signal.throwIfAborted()
       }
     }
-  } catch (err) {
-    writeStream.end()
-    // Clean up partial download
-    try { fs.unlinkSync(tmpPath) } catch {}
-    activeDownloads.delete(downloadKey(repo, filename))
-    throw err
+    fs.mkdirSync(path.dirname(destPath), { recursive: true })
+    const downloadUrl = `https://huggingface.co/${repo}/resolve/main/${filename.split('/').map(encodeURIComponent).join('/')}`
+    await downloadFileWithProgress(downloadUrl, destPath, (percent, downloadedBytes, totalBytes) => {
+      onProgress?.({ percent, downloadedBytes, totalBytes: totalBytes || expectedSize || 0 })
+    }, controller.signal, file.sha256, headers)
   } finally {
-    writeStream.end()
-    await new Promise((resolve) => writeStream.on('finish', resolve))
+    if (activeDownloads.get(key) === controller) activeDownloads.delete(key)
   }
-
-  // Rename tmp to final
-  fs.renameSync(tmpPath, destPath)
-  activeDownloads.delete(downloadKey(repo, filename))
 
   // Update manifest
   const manifest = readManifest()
@@ -265,7 +218,7 @@ export const downloadModel = async (
  */
 export const deleteModel = (repo: string, filename: string): boolean => {
   const slug = repoSlug(repo)
-  const filepath = path.join(getHfCacheDir(), slug, filename)
+  const filepath = getModelPath(repo, filename)
 
   try {
     if (fs.existsSync(filepath)) {
@@ -317,7 +270,7 @@ export interface HfRepoResult {
 export interface HfFileInfo {
   filename: string
   size: number          // bytes
-  lfs?: { size: number }
+  sha256?: string
 }
 
 /**
@@ -360,12 +313,14 @@ export const searchModels = async (
  */
 export const getRepoFiles = async (
   repo: string,
-  token?: string
+  token?: string,
+  signal?: AbortSignal
 ): Promise<HfFileInfo[]> => {
   const headers: Record<string, string> = { Accept: 'application/json' }
   if (token) headers['Authorization'] = `Bearer ${token}`
 
-  const response = await fetch(`https://huggingface.co/api/models/${repo}`, { headers })
+  repoSlug(repo)
+  const response = await fetch(`https://huggingface.co/api/models/${repo}?blobs=true`, { headers, signal })
   if (!response.ok) {
     throw new Error(`Failed to fetch repo info: ${response.status} ${response.statusText}`)
   }
@@ -378,7 +333,8 @@ export const getRepoFiles = async (
     .filter((f: any) => f.rfilename?.endsWith('.gguf'))
     .map((f: any) => ({
       filename: f.rfilename,
-      size: f.lfs?.size ?? f.size ?? 0
+      size: f.lfs?.size ?? f.size ?? 0,
+      sha256: f.lfs?.sha256
     }))
     .sort((a: HfFileInfo, b: HfFileInfo) => a.size - b.size)
 }

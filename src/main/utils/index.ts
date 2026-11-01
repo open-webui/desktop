@@ -5,6 +5,8 @@ import * as os from 'os'
 import * as path from 'path'
 import net from 'net'
 import crypto from 'crypto'
+import { Readable, Transform } from 'stream'
+import { pipeline } from 'stream/promises'
 
 import * as tar from 'tar'
 
@@ -100,8 +102,10 @@ export const getOpenWebUIDataPath = (): string => {
 }
 
 export const openUrl = (url: string) => {
-  if (!url) {
-    throw new Error('No URL provided to open in browser.')
+  try {
+    if (typeof url !== 'string' || !['http:', 'https:', 'mailto:'].includes(new URL(url).protocol)) return
+  } catch {
+    return
   }
   log.info('Opening URL in browser:', url)
   if (url.startsWith('http://0.0.0.0')) {
@@ -193,37 +197,52 @@ const generateDownloadUrl = () => {
   return `${baseUrl}/${releaseDate}/${filename}`
 }
 
-export const downloadFileWithProgress = async (url, downloadPath, onProgress, signal?: AbortSignal) => {
+export const verifyFileChecksum = async (filename: string, sha256: string): Promise<void> => {
+  if (typeof sha256 !== 'string' || !/^[a-f0-9]{64}$/i.test(sha256)) {
+    throw new Error('Missing or invalid SHA-256 checksum')
+  }
+  const hash = crypto.createHash('sha256')
+  for await (const chunk of fs.createReadStream(filename)) hash.update(chunk)
+  if (hash.digest('hex') !== sha256.toLowerCase()) throw new Error('Download checksum mismatch')
+}
+
+export const downloadFileWithProgress = async (
+  url, downloadPath, onProgress, signal: AbortSignal | undefined, sha256: string,
+  headers?: Record<string, string>
+) => {
+  if (typeof sha256 !== 'string' || !/^[a-f0-9]{64}$/i.test(sha256)) {
+    throw new Error('Missing or invalid SHA-256 checksum')
+  }
+  const temporaryPath = `${downloadPath}.${crypto.randomUUID()}.tmp`
   try {
-    const response = await fetch(url, { signal })
-    if (!response || !response.ok) {
+    const response = await fetch(url, { signal, headers })
+    if (!response?.ok || !response.body) {
       throw new Error(`HTTP error! status: ${response?.status}`)
     }
     const totalSize = parseInt(response.headers.get('content-length'), 10)
     let downloadedSize = 0
-    const reader = response.body.getReader()
-    const chunks = []
-
-    while (true) {
-      const { done, value } = await reader.read()
-      if (done) break
-      chunks.push(value)
-      downloadedSize += value.length
-      if (onProgress && totalSize) {
-        onProgress((downloadedSize / totalSize) * 100, downloadedSize, totalSize)
+    const hash = crypto.createHash('sha256')
+    const progress = new Transform({
+      transform(chunk, _encoding, callback) {
+        hash.update(chunk)
+        downloadedSize += chunk.length
+        try {
+          if (onProgress && totalSize) onProgress(downloadedSize / totalSize * 100, downloadedSize, totalSize)
+          callback(null, chunk)
+        } catch (error) {
+          callback(error)
+        }
       }
-    }
-
-    const buffer = Buffer.concat(chunks.map((chunk) => Buffer.from(chunk)))
-    fs.writeFileSync(downloadPath, buffer)
+    })
+    await pipeline(Readable.fromWeb(response.body), progress, fs.createWriteStream(temporaryPath, { flags: 'wx' }), { signal })
+    if (hash.digest('hex') !== sha256.toLowerCase()) throw new Error('Download checksum mismatch')
+    signal?.throwIfAborted()
+    fs.renameSync(temporaryPath, downloadPath)
     log.info('File downloaded successfully:', downloadPath)
     return downloadPath
   } catch (error) {
-    // Clean up partial downloads
     try {
-      if (fs.existsSync(downloadPath)) {
-        fs.unlinkSync(downloadPath)
-      }
+      fs.rmSync(temporaryPath, { force: true })
     } catch {}
     log.error('Download failed:', error)
     throw error
@@ -246,21 +265,35 @@ export const getPythonInstallationDir = (): string => {
   return path.normalize(pythonDir)
 }
 
-const downloadPython = async (onProgress = null) => {
+const pythonChecksums: Record<string, string> = {
+  'aarch64-apple-darwin': '58038f6643b0c51385aa8af1549d2f6d9598c7a48383b9c74fc65481b2b5e6d5',
+  'aarch64-pc-windows-msvc': '23a9d18ad7d62e8470f6dfbf3e3ddc8c6a343ec8a07bad0197689f96f024a98f',
+  'aarch64-unknown-linux-gnu': '872bb2d9959bbcba411af08fa57423d586b779c21c7de70890f99e1c59036efc',
+  'x86_64-apple-darwin': '09d7bfb7e2684d746e2d44bd800becfd07c4c672de907340d279409a8bca2d8b',
+  'x86_64-pc-windows-msvc': 'b9f9d17a11944c13a3a2798c8b48ec861b2f10710dc345094f567beed4271427',
+  'x86_64-unknown-linux-gnu': 'eddc8bf40c7fca5032acd5de4b89e748e17b16cf61918320a0506c7e450a8df3'
+}
+
+const downloadPython = async (onProgress = null, signal?: AbortSignal) => {
   const url = generateDownloadUrl()
   const downloadPath = getPythonDownloadPath()
+  const checksum = pythonChecksums[`${getArchString()}-${getPlatformString()}`]
 
   log.info(`Detected system: ${os.platform()} ${os.arch()}`)
   log.info(`Download path: ${downloadPath}`)
   log.info(`URL: ${url}`)
 
   if (fs.existsSync(downloadPath)) {
-    log.info(`File already exists: ${downloadPath}`)
-    return downloadPath
+    try {
+      await verifyFileChecksum(downloadPath, checksum)
+      return downloadPath
+    } catch {
+      fs.unlinkSync(downloadPath)
+    }
   }
 
   try {
-    const result = await downloadFileWithProgress(url, downloadPath, onProgress)
+    const result = await downloadFileWithProgress(url, downloadPath, onProgress, signal, checksum)
     log.info(`Python downloaded successfully to: ${result}`)
     return result
   } catch (error) {
@@ -286,17 +319,17 @@ export const installPython = async (installationDir?: string, onStatus?: (status
         'An active internet connection is required. Please connect to the internet and try again.'
       )
     }
-    let lastReportedPct = -1
-    await downloadPython((progress, downloaded, total) => {
-      const pct = Math.floor(progress)
-      if (pct === lastReportedPct) return
-      lastReportedPct = pct
-      const mb = (downloaded / 1024 / 1024).toFixed(1)
-      const totalMb = (total / 1024 / 1024).toFixed(1)
-      log.info(`Downloading Python: ${pct}% (${mb}/${totalMb} MB)`)
-      onStatus?.(`Downloading Python… ${pct}% (${mb}/${totalMb} MB)`)
-    })
   }
+  let lastReportedPct = -1
+  await downloadPython((progress, downloaded, total) => {
+    const pct = Math.floor(progress)
+    if (pct === lastReportedPct) return
+    lastReportedPct = pct
+    const mb = (downloaded / 1024 / 1024).toFixed(1)
+    const totalMb = (total / 1024 / 1024).toFixed(1)
+    log.info(`Downloading Python: ${pct}% (${mb}/${totalMb} MB)`)
+    onStatus?.(`Downloading Python… ${pct}% (${mb}/${totalMb} MB)`)
+  }, signal)
   if (!fs.existsSync(pythonDownloadPath)) {
     log.error('Python download not found')
     return false
@@ -306,6 +339,7 @@ export const installPython = async (installationDir?: string, onStatus?: (status
   log.info(installationDir, pythonDownloadPath)
 
   try {
+    signal?.throwIfAborted()
     onStatus?.('Extracting Python…')
     const installBase = getInstallDir()
     await tar.x({ cwd: installBase, file: pythonDownloadPath })
@@ -381,18 +415,23 @@ export const getPythonPath = (installationDir?: string) => {
  * Any additional env overrides (e.g. `configEnvVars`) can be spread after
  * calling this helper.
  */
+export const getProcessEnv = (extra: Record<string, string> = {}): Record<string, string> =>
+  Object.fromEntries(Object.entries({ ...process.env, ...extra }).filter(([key, value]) =>
+    value !== undefined && !/^(LD_PRELOAD|LD_AUDIT|DYLD_INSERT_LIBRARIES|DYLD_LIBRARY_PATH|DYLD_FRAMEWORK_PATH|DYLD_FORCE_FLAT_NAMESPACE|NODE_OPTIONS|NODE_PATH|ELECTRON_RUN_AS_NODE|ELECTRON_NO_ASAR|PYTHONINSPECT|PYTHONSTARTUP|PYTHONHOME)$/i.test(key)
+  ))
+
 const pythonEnv = (extra: Record<string, string> = {}): Record<string, string> => {
-  const base: Record<string, string> = { ...process.env }
+  const base = getProcessEnv(extra)
 
   if (process.platform === 'win32') {
     // python.exe lives at the root of the installation directory on Windows
     const pythonDir = getPythonInstallationDir()
-    const currentPath = process.env['PATH'] || process.env['Path'] || ''
+    const currentPath = base['PATH'] || base['Path'] || ''
     base['PATH'] = `${pythonDir};${currentPath}`
     base['PYTHONIOENCODING'] = 'utf-8'
   }
 
-  return { ...base, ...extra }
+  return base
 }
 
 export const isPythonInstalled = (installationDir?: string) => {

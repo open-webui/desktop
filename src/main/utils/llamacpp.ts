@@ -12,10 +12,12 @@ import log from 'electron-log'
 
 import {
   getConfig,
+  getProcessEnv,
   setConfig,
   getInstallDir,
   findAvailablePort,
-  downloadFileWithProgress
+  downloadFileWithProgress,
+  verifyFileChecksum
 } from './index'
 
 import { getModelsDir } from './huggingface'
@@ -71,6 +73,7 @@ export const getLlamaCppInfo = () => {
 interface ReleaseAsset {
   name: string
   browser_download_url: string
+  digest?: string
 }
 
 /**
@@ -259,6 +262,7 @@ const prepareLlamaCpp = async (
   const config = await getConfig()
   const llamaConfig = config.llamaCpp ?? {}
   const version = requestedVersion || llamaConfig.version || 'latest'
+  if (!/^[a-zA-Z0-9][a-zA-Z0-9._+-]*$/.test(version)) throw new Error('Invalid llama.cpp version')
   const assetName = llamaConfig.assetName?.trim() || ''
   const variant = assetName ? '' : resolveVariant(llamaConfig.variant)
   const useAssetCache = !!assetName || variant !== 'cpu'
@@ -334,6 +338,7 @@ const prepareLlamaCpp = async (
   }
 
   const tag = releaseData.tag_name
+  if (typeof tag !== 'string' || !/^[a-zA-Z0-9][a-zA-Z0-9._+-]*$/.test(tag)) throw new Error('Invalid llama.cpp release tag')
   log.info(`llama.cpp release tag: ${tag}`)
 
   const { pattern, isZip } = getAssetPattern(tag, variant, assetName)
@@ -359,10 +364,18 @@ const prepareLlamaCpp = async (
 
   fs.mkdirSync(versionDir, { recursive: true })
   const downloadPath = path.join(versionDir, asset.name)
+  const checksum = asset.digest?.startsWith('sha256:') ? asset.digest.slice(7) : ''
+  if (fs.existsSync(downloadPath)) {
+    try {
+      await verifyFileChecksum(downloadPath, checksum)
+    } catch {
+      fs.unlinkSync(downloadPath)
+    }
+  }
   if (!fs.existsSync(downloadPath)) {
     await downloadFileWithProgress(asset.browser_download_url, downloadPath, (progress) => {
       onStatus?.(`Downloading… ${progress.toFixed(0)}%`)
-    }, signal)
+    }, signal, checksum)
   }
 
   signal?.throwIfAborted()
@@ -502,7 +515,7 @@ export const startLlamaCpp = (onStatus?: (status: string) => void) => llamaServi
   return {
     file: binary,
     args: ['--host', host, '--port', String(port), '--models-dir', getModelsDir(), ...(llamaConfig.extraArgs ?? [])],
-    env: { ...process.env, ...(config.envVars ?? {}) }, url,
+    env: getProcessEnv(config.envVars), url,
     ready: (signal) => waitForReady(async (probeSignal) => {
       const response = await fetch(`${url}/health`, { signal: probeSignal })
       if (!response.ok) return false
