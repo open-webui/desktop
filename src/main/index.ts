@@ -3,7 +3,6 @@
 import {
   app,
   shell,
-  session,
   clipboard,
   nativeImage,
   nativeTheme,
@@ -549,9 +548,18 @@ if (!gotTheLock) {
       // Grant media / notification permissions for webview partition sessions
       // so that auth flows, media capture, and notifications work correctly.
       newSession.setPermissionRequestHandler((_webContents, permission, callback) => {
-        const allowed = ['media', 'mediaKeySystem', 'notifications', 'clipboard-read', 'clipboard-sanitized-write']
+        const allowed = ['media', 'display-capture', 'mediaKeySystem', 'notifications', 'clipboard-read', 'clipboard-sanitized-write']
         callback(allowed.includes(permission))
       })
+
+      newSession.setDisplayMediaRequestHandler(
+        (request, callback) => {
+          desktopCapturer.getSources({ types: ['screen'] }).then((sources) => {
+            callback({ video: sources[0], audio: 'loopback' })
+          })
+        },
+        { useSystemPicker: true }
+      )
     })
 
     app.on('browser-window-created', (_, window) => {
@@ -959,16 +967,6 @@ if (!gotTheLock) {
 
     // Global shortcut
     registerShortcuts(CONFIG.globalShortcut)
-
-    // Enable screen capture
-    session.defaultSession.setDisplayMediaRequestHandler(
-      (request, callback) => {
-        desktopCapturer.getSources({ types: ['screen'] }).then((sources) => {
-          callback({ video: sources[0], audio: 'loopback' })
-        })
-      },
-      { useSystemPicker: true }
-    )
 
     createMainWindow()
     // Show startup logs immediately while the service prepares and becomes ready.
