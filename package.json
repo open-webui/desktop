@@ -1,6 +1,6 @@
 {
   "name": "open-webui",
-  "version": "0.1.1",
+  "version": "0.1.2",
   "license": "AGPL-3.0",
   "description": "Open WebUI Desktop",
   "main": "./out/main/index.js",
@@ -47,7 +47,7 @@
     "@electron-toolkit/tsconfig": "^2.0.0",
     "@sveltejs/vite-plugin-svelte": "^6.2.0",
     "@types/node": "^22.19.1",
-    "electron": "39.8.10",
+    "electron": "45.2.1",
     "electron-builder": "^26.0.12",
     "electron-vite": "^5.0.0",
     "eslint": "^9.39.1",

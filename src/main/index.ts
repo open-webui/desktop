@@ -75,6 +75,7 @@ import icon from '../../resources/icon.png?asset'
 import { existsSync, writeFileSync, unlinkSync } from 'fs'
 
 if (process.platform === 'linux') {
+  if (process.env.FLATPAK_ID) app.setDesktopName(`${process.env.FLATPAK_ID}.desktop`)
   // Work around /dev/shm access failures in AppImage and other containerised
   // environments.  AppImage's FUSE mount can restrict child-process access to
   // /dev/shm even when --no-sandbox is set, causing FATAL crashes in the
@@ -86,23 +87,6 @@ if (process.platform === 'linux') {
   // This is required for xdg-desktop-portal features like GlobalShortcuts
   // to work (the portal is enabled by default in Chromium 134+ / Electron 33+).
   app.commandLine.appendSwitch('ozone-platform-hint', 'auto')
-
-  // Force software GL rendering via SwiftShader.  The out-of-process GPU
-  // crashes on Ubuntu 24.04+, certain Wayland compositors, and AppArmor-
-  // restricted environments due to shared-memory allocation failures in
-  // /dev/shm or /tmp (#119, #157).
-  //
-  // --disable-gpu kills the display compositor so <webview> guest surfaces
-  // are never painted (#178).  --in-process-gpu breaks <webview> guest
-  // compositing entirely (blank webviews on all Linux).
-  //
-  // SwiftShader keeps the GPU process out-of-process (required for
-  // <webview> compositing) while using software rendering to avoid
-  // driver-level crashes.
-  app.commandLine.appendSwitch('use-gl', 'angle')
-  app.commandLine.appendSwitch('use-angle', 'swiftshader')
-
-  app.commandLine.appendSwitch('disable-gpu-sandbox')
 }
 
 // ─── GPU Crash Recovery ─────────────────────────────────
@@ -113,11 +97,17 @@ if (process.platform === 'linux') {
 // the switch is applied preemptively.
 
 const gpuCrashMarkerPath = join(app.getPath('userData'), '.gpu-sandbox-disabled')
-const gpuSandboxDisabled = existsSync(gpuCrashMarkerPath)
+const gpuSandboxDisabled = existsSync(gpuCrashMarkerPath) || app.commandLine.hasSwitch('disable-gpu-sandbox')
 
 if (gpuSandboxDisabled) {
   log.info('GPU sandbox disabled due to previous GPU process crash')
   app.commandLine.appendSwitch('disable-gpu-sandbox')
+  // Keep webview compositing available when falling back from a Linux GPU crash.
+  if (process.platform === 'linux' && !app.commandLine.hasSwitch('use-angle')) {
+    log.info('Using software rendering after a previous GPU process crash')
+    app.commandLine.appendSwitch('use-gl', 'angle')
+    app.commandLine.appendSwitch('use-angle', 'swiftshader')
+  }
 }
 
 // Prevent Chromium from permanently blocking WebGL / 3-D APIs after
@@ -170,19 +160,22 @@ function tryRegisterShortcut(
   }
 }
 
+const showMainWindow = (): void => {
+  if (!mainWindow) {
+    createMainWindow()
+    return
+  }
+  if (mainWindow.isMinimized()) mainWindow.restore()
+  mainWindow.show()
+  mainWindow.focus()
+}
+
 const registerShortcuts = (globalAccel?: string): void => {
   globalShortcut.unregisterAll()
 
   // Global shortcut – bring main window to foreground
   if (globalAccel) {
-    tryRegisterShortcut(globalAccel, 'Open WebUI', () => {
-      if (mainWindow) {
-        mainWindow.show()
-        mainWindow.focus()
-      } else {
-        createMainWindow()
-      }
-    })
+    tryRegisterShortcut(globalAccel, 'Open WebUI', showMainWindow)
   }
 }
 
@@ -344,6 +337,7 @@ const updateTray = () => {
     const trayIcon = nativeImage.createFromPath(icon)
     tray = new Tray(trayIcon.resize({ width: 16, height: 16 }))
     tray.setToolTip('Open WebUI Desktop')
+    if (process.platform === 'linux') tray.on('click', showMainWindow)
   }
 
   const canOpenInBrowser = webuiService.info.reachable && !!webuiService.info.url
@@ -352,9 +346,7 @@ const updateTray = () => {
     {
       label: 'Open WebUI',
       click: async () => {
-        if (mainWindow?.isMinimized()) mainWindow.restore()
-        mainWindow?.show()
-        mainWindow?.focus()
+        showMainWindow()
         const result = await openLocalWebUI()
         if (result) sendToRenderer('server:open', result)
       }
@@ -521,8 +513,8 @@ if (!gotTheLock) {
     // ─── GPU Process Crash Recovery ──────────────────
     // If the GPU process exits fatally (e.g. sandbox init failure on
     // certain NVIDIA/Intel drivers), write a marker and relaunch with
-    // --disable-gpu-sandbox so the user doesn't have to manually edit
-    // shortcut targets (see issue #110).
+    // the saved GPU workaround (software rendering on Linux) so the user
+    // doesn't have to manually edit shortcut targets (see issue #110).
     app.on('child-process-gone', (_event, details) => {
       if (details.type === 'GPU') {
         log.error(
@@ -558,7 +550,12 @@ if (!gotTheLock) {
     app.on('session-created', (newSession) => {
       // Grant media / notification permissions for webview partition sessions
       // so that auth flows, media capture, and notifications work correctly.
-      newSession.setPermissionRequestHandler((_webContents, permission, callback) => {
+      newSession.setPermissionRequestHandler((_webContents, permission, callback, details) => {
+        if (permission === 'fileSystem') {
+          // The native picker selects the files; only allow reading them.
+          callback('fileAccessType' in details && details.fileAccessType === 'readable')
+          return
+        }
         const allowed = ['media', 'display-capture', 'mediaKeySystem', 'notifications', 'clipboard-read', 'clipboard-sanitized-write']
         callback(allowed.includes(permission))
       })

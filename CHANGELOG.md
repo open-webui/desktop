@@ -5,6 +5,15 @@ All notable changes to this project will be documented in this file.
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/),
 and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
+## [0.1.2] - 2026-11-01
+
+### Fixed
+
+- **Folder uploads and syncing.** Selecting a folder in Workspace → Knowledge no longer fails with “Directory selection was cancelled.” Desktop allows reading the folder you selected while keeping write access blocked (#271).
+- **Slow Linux interface.** Desktop no longer forces every Linux computer to draw the interface without GPU acceleration. Software rendering remains available after a graphics crash, and explicit graphics choices are respected (#273).
+- **Linux tray clicks.** Clicking the tray icon now brings Desktop forward, restores a minimized window, or opens a new window if the previous one was closed (#203).
+- **GNOME Flatpak shortcuts.** Updated shortcut support and corrected the app identity sent to GNOME so the desktop shortcut can register and bring the window forward (#126).
+
 ## [0.1.1] - 2026-11-01
 
 ### Added
