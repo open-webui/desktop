@@ -186,21 +186,21 @@
 
 </script>
 
-<div class="flex flex-col gap-4">
+<div class="flex flex-col">
   <div
-    class="flex min-w-0 items-center justify-between gap-4 max-sm:flex-wrap [&>:first-child]:min-w-0 [&>:last-child]:shrink-0 sm:[&>:last-child]:max-w-[55%]"
+    class="flex min-w-0 items-center justify-between gap-[16px] py-[7px] max-sm:gap-[12px] [&>:first-child]:min-w-0 [&>:last-child]:shrink-0 max-sm:[&>:last-child:not([role=switch])]:max-w-[65%]"
   >
     <div>
-      <div class="text-[12px] text-gray-800 dark:text-gray-200">
+      <div class="text-[12px] leading-[16px] font-normal text-[#171717] dark:text-white">
         {$i18n.t('settings.general.language')}
       </div>
-      <div class="text-[11px] leading-normal text-gray-600 dark:text-gray-400 mt-0.5">
+      <div class="text-[11px] leading-[16px] text-[oklch(0.51_0_0)] dark:text-[oklch(0.77_0_0)] mt-0.5">
         {$i18n.t('settings.general.languageDesc')}
       </div>
     </div>
-    <div class="relative inline-flex max-w-full">
+    <div class="relative inline-flex max-w-full [&>span]:right-[8px] [&>span]:size-[14px] [&>span]:text-[oklch(0.77_0_0)] dark:[&>span]:text-[oklch(0.69_0_0)]">
       <select
-        class="w-full min-w-[100px] appearance-none text-ellipsis pr-[30px] min-h-[28px] max-w-full rounded-lg border border-gray-100/50 bg-gray-50/40 px-2.5 py-1 text-[12px] leading-[18px] text-gray-900 outline-none transition-colors dark:border-white/[0.04] dark:bg-white/[0.03] dark:text-gray-100 disabled:cursor-not-allowed disabled:opacity-50"
+        class="w-full min-w-[100px] appearance-none text-ellipsis ps-[10px] pe-[32px] [field-sizing:content] h-[28px] min-h-[28px] max-w-full rounded-[8px] border border-[oklch(0.94_0_0/0.5)] outline-hidden! bg-[oklch(0.98_0_0/0.4)] px-[8px] py-0 text-[12px] leading-[16px] font-normal text-[oklch(0.42_0_0)] transition-colors duration-150 placeholder:text-[oklch(0.85_0_0)] focus:border-blue-400 disabled:cursor-not-allowed disabled:opacity-50 dark:border-white/[0.04] dark:bg-white/[0.03] dark:text-[oklch(0.85_0_0)] dark:placeholder:text-[oklch(0.42_0_0)] dark:focus:border-blue-500 [&::-webkit-outer-spin-button]:appearance-none [&::-webkit-outer-spin-button]:m-0 [&::-webkit-inner-spin-button]:appearance-none [&::-webkit-inner-spin-button]:m-0 [&[type=number]]:[-moz-appearance:textfield]"
         aria-label={$i18n.t('settings.general.language')}
         onchange={async (e) => {
           const lang = (e.target as HTMLSelectElement).value
@@ -224,19 +224,19 @@
   </div>
 
   <div
-    class="flex min-w-0 items-center justify-between gap-4 max-sm:flex-wrap [&>:first-child]:min-w-0 [&>:last-child]:shrink-0 sm:[&>:last-child]:max-w-[55%]"
+    class="flex min-w-0 items-center justify-between gap-[16px] py-[7px] max-sm:gap-[12px] [&>:first-child]:min-w-0 [&>:last-child]:shrink-0 max-sm:[&>:last-child:not([role=switch])]:max-w-[65%]"
   >
     <div>
-      <div class="text-[12px] text-gray-800 dark:text-gray-200">
+      <div class="text-[12px] leading-[16px] font-normal text-[#171717] dark:text-white">
         {$i18n.t('settings.general.appearance')}
       </div>
-      <div class="text-[11px] leading-normal text-gray-600 dark:text-gray-400 mt-0.5">
+      <div class="text-[11px] leading-[16px] text-[oklch(0.51_0_0)] dark:text-[oklch(0.77_0_0)] mt-0.5">
         {$i18n.t('settings.general.appearanceDesc')}
       </div>
     </div>
-    <div class="relative inline-flex max-w-full">
+    <div class="relative inline-flex max-w-full [&>span]:right-[8px] [&>span]:size-[14px] [&>span]:text-[oklch(0.77_0_0)] dark:[&>span]:text-[oklch(0.69_0_0)]">
       <select
-        class="w-full min-w-[100px] appearance-none text-ellipsis pr-[30px] min-h-[28px] max-w-full rounded-lg border border-gray-100/50 bg-gray-50/40 px-2.5 py-1 text-[12px] leading-[18px] text-gray-900 outline-none transition-colors dark:border-white/[0.04] dark:bg-white/[0.03] dark:text-gray-100 disabled:cursor-not-allowed disabled:opacity-50"
+        class="w-full min-w-[100px] appearance-none text-ellipsis ps-[10px] pe-[32px] [field-sizing:content] h-[28px] min-h-[28px] max-w-full rounded-[8px] border border-[oklch(0.94_0_0/0.5)] outline-hidden! bg-[oklch(0.98_0_0/0.4)] px-[8px] py-0 text-[12px] leading-[16px] font-normal text-[oklch(0.42_0_0)] transition-colors duration-150 placeholder:text-[oklch(0.85_0_0)] focus:border-blue-400 disabled:cursor-not-allowed disabled:opacity-50 dark:border-white/[0.04] dark:bg-white/[0.03] dark:text-[oklch(0.85_0_0)] dark:placeholder:text-[oklch(0.42_0_0)] dark:focus:border-blue-500 [&::-webkit-outer-spin-button]:appearance-none [&::-webkit-outer-spin-button]:m-0 [&::-webkit-inner-spin-button]:appearance-none [&::-webkit-inner-spin-button]:m-0 [&[type=number]]:[-moz-appearance:textfield]"
         aria-label={$i18n.t('settings.general.appearance')}
         value={theme}
         onchange={(e) => applyTheme(e.currentTarget.value)}
@@ -254,13 +254,13 @@
   </div>
 
   <div
-    class="flex min-w-0 items-center justify-between gap-4 max-sm:flex-wrap [&>:first-child]:min-w-0 [&>:last-child]:shrink-0 sm:[&>:last-child]:max-w-[55%]"
+    class="flex min-w-0 items-center justify-between gap-[16px] py-[7px] max-sm:gap-[12px] [&>:first-child]:min-w-0 [&>:last-child]:shrink-0 max-sm:[&>:last-child:not([role=switch])]:max-w-[65%]"
   >
     <div>
-      <div class="text-[12px] text-gray-800 dark:text-gray-200">
+      <div class="text-[12px] leading-[16px] font-normal text-[#171717] dark:text-white">
         {$i18n.t('settings.general.launchAtLogin')}
       </div>
-      <div class="text-[11px] leading-normal text-gray-600 dark:text-gray-400 mt-0.5">
+      <div class="text-[11px] leading-[16px] text-[oklch(0.51_0_0)] dark:text-[oklch(0.77_0_0)] mt-0.5">
         {$i18n.t('settings.general.launchAtLoginDesc')}
       </div>
     </div>
@@ -275,13 +275,13 @@
   </div>
 
   <div
-    class="flex min-w-0 items-center justify-between gap-4 max-sm:flex-wrap [&>:first-child]:min-w-0 [&>:last-child]:shrink-0 sm:[&>:last-child]:max-w-[55%]"
+    class="flex min-w-0 items-center justify-between gap-[16px] py-[7px] max-sm:gap-[12px] [&>:first-child]:min-w-0 [&>:last-child]:shrink-0 max-sm:[&>:last-child:not([role=switch])]:max-w-[65%]"
   >
     <div>
-      <div class="text-[12px] text-gray-800 dark:text-gray-200">
+      <div class="text-[12px] leading-[16px] font-normal text-[#171717] dark:text-white">
         {$i18n.t('settings.general.runInBackground')}
       </div>
-      <div class="text-[11px] leading-normal text-gray-600 dark:text-gray-400 mt-0.5">
+      <div class="text-[11px] leading-[16px] text-[oklch(0.51_0_0)] dark:text-[oklch(0.77_0_0)] mt-0.5">
         {$i18n.t('settings.general.runInBackgroundDesc')}
       </div>
     </div>
@@ -297,13 +297,13 @@
   </div>
 
   <div
-    class="flex min-w-0 items-center justify-between gap-4 max-sm:flex-wrap [&>:first-child]:min-w-0 [&>:last-child]:shrink-0 sm:[&>:last-child]:max-w-[55%]"
+    class="flex min-w-0 items-center justify-between gap-[16px] py-[7px] max-sm:gap-[12px] [&>:first-child]:min-w-0 [&>:last-child]:shrink-0 max-sm:[&>:last-child:not([role=switch])]:max-w-[65%]"
   >
     <div>
-      <div class="text-[12px] text-gray-800 dark:text-gray-200">
+      <div class="text-[12px] leading-[16px] font-normal text-[#171717] dark:text-white">
         {$i18n.t('settings.general.globalShortcut')}
       </div>
-      <div class="text-[11px] leading-normal text-gray-600 dark:text-gray-400 mt-0.5">
+      <div class="text-[11px] leading-[16px] text-[oklch(0.51_0_0)] dark:text-[oklch(0.77_0_0)] mt-0.5">
         {#if recording}
           {$i18n.t('settings.general.globalShortcutRecording')}
         {:else}
@@ -311,10 +311,10 @@
         {/if}
       </div>
     </div>
-    <div class="flex items-center gap-1.5">
+    <div class="flex items-center gap-[6px]">
       <button
         bind:this={shortcutInputEl}
-        class="min-h-[28px] max-w-full rounded-lg border border-gray-100/50 bg-gray-50/40 px-2.5 py-1 text-[12px] leading-[18px] text-gray-900 outline-none transition-colors dark:border-white/[0.04] dark:bg-white/[0.03] dark:text-gray-100 disabled:cursor-not-allowed disabled:opacity-50 shrink-0 hover:bg-gray-50 dark:hover:bg-white/[0.06] min-w-[80px] text-center {recording
+        class="inline-flex max-w-full shrink-0 items-center justify-center gap-[6px] whitespace-nowrap border-none bg-transparent p-0 text-[12px] leading-[16px] text-[oklch(0.69_0_0)] transition-colors duration-150 hover:text-[oklch(0.2_0_0)] disabled:cursor-not-allowed disabled:opacity-50 dark:hover:text-white [&>span[aria-hidden]]:size-[12px] min-w-[80px] text-center {recording
           ? 'animate-pulse'
           : ''}"
         aria-label={$i18n.t('settings.general.globalShortcut')}
@@ -330,7 +330,7 @@
         }}
       >
         {#if recording}
-          <span class="text-[11px] leading-normal text-gray-600 dark:text-gray-400"
+          <span class="text-[11px] leading-[16px] text-[oklch(0.51_0_0)] dark:text-[oklch(0.77_0_0)]"
             >{$i18n.t('settings.general.pressShortcut')}</span
           >
         {:else if shortcutValue}
@@ -341,7 +341,7 @@
       </button>
       {#if shortcutValue && !recording}
         <button
-          class="inline-flex size-[28px] shrink-0 items-center justify-center rounded-lg text-gray-800 hover:bg-gray-50 dark:text-gray-200 dark:hover:bg-white/[0.04]"
+          class="inline-flex max-w-full shrink-0 items-center justify-center gap-[6px] whitespace-nowrap border-none bg-transparent p-0 text-[12px] leading-[16px] text-[oklch(0.69_0_0)] transition-colors duration-150 hover:text-[oklch(0.2_0_0)] disabled:cursor-not-allowed disabled:opacity-50 dark:hover:text-white [&>span[aria-hidden]]:size-[12px] size-[28px]"
           aria-label={$i18n.t('common.remove')}
           onclick={async () => {
             shortcutValue = ''
@@ -349,7 +349,7 @@
             config.set(await window.electronAPI.getConfig())
           }}
         >
-          <span aria-hidden="true" class="inline-flex shrink-0 [&>svg]:size-full w-3 h-3"
+          <span aria-hidden="true" class="inline-flex shrink-0 [&>svg]:size-full size-[12px]"
             >{@html XmarkIcon}</span
           >
         </button>
@@ -360,7 +360,7 @@
   <!-- Advanced (collapsed by default) -->
   <div class="pt-1">
     <button
-      class="flex items-center gap-1.5 bg-transparent border-none text-gray-900 dark:text-gray-100 p-0 cursor-pointer"
+      class="inline-flex max-w-full shrink-0 items-center justify-center gap-[6px] whitespace-nowrap border-none bg-transparent p-0 text-[12px] leading-[16px] text-[oklch(0.69_0_0)] transition-colors duration-150 hover:text-[oklch(0.2_0_0)] disabled:cursor-not-allowed disabled:opacity-50 dark:hover:text-white [&>span[aria-hidden]]:size-[12px]"
       aria-expanded={advancedOpen}
       onclick={() => {
         advancedOpen = !advancedOpen
@@ -368,35 +368,35 @@
     >
       <span
         aria-hidden="true"
-        class="inline-flex shrink-0 [&>svg]:size-full w-3 h-3 transition-transform duration-200 {advancedOpen
+        class="inline-flex shrink-0 [&>svg]:size-full size-[12px] transition-transform duration-200 {advancedOpen
           ? 'rotate-90'
           : ''}">{@html NavArrowRightIcon}</span
       >
-      <span class="text-[12px] text-gray-800 dark:text-gray-200">{$i18n.t('common.advanced')}</span>
+      <span class="text-[12px] leading-[16px] font-normal text-[#171717] dark:text-white">{$i18n.t('common.advanced')}</span>
     </button>
 
     {#if advancedOpen}
-      <div class="flex flex-col gap-4 mt-4">
+      <div class="mt-[16px] flex flex-col">
         <!-- Install location -->
         <div
-          class="flex min-w-0 items-center justify-between gap-4 max-sm:flex-wrap [&>:first-child]:min-w-0 [&>:last-child]:shrink-0 sm:[&>:last-child]:max-w-[55%]"
+          class="flex min-w-0 items-center justify-between gap-[16px] py-[7px] max-sm:gap-[12px] [&>:first-child]:min-w-0 [&>:last-child]:shrink-0 max-sm:[&>:last-child:not([role=switch])]:max-w-[65%]"
         >
           <div class="min-w-0">
-            <div class="text-[12px] text-gray-800 dark:text-gray-200">
+            <div class="text-[12px] leading-[16px] font-normal text-[#171717] dark:text-white">
               {$i18n.t('settings.general.installLocation')}
             </div>
-            <div class="text-[11px] leading-normal text-gray-600 dark:text-gray-400 mt-0.5">
+            <div class="text-[11px] leading-[16px] text-[oklch(0.51_0_0)] dark:text-[oklch(0.77_0_0)] mt-0.5">
               {$i18n.t('settings.general.installLocationDesc')}
             </div>
-            <div class="text-[11px] text-gray-600 dark:text-gray-400 mt-0.5">
+            <div class="text-[11px] leading-[16px] text-[oklch(0.51_0_0)] dark:text-[oklch(0.77_0_0)] mt-0.5">
               {$i18n.t('settings.general.installLocationNote')}
             </div>
           </div>
-          <div class="flex items-center gap-1.5 min-w-0 flex-1 max-w-[280px] justify-end">
+          <div class="flex min-w-[140px] flex-[0_1_280px] max-w-[280px] shrink! items-center justify-end gap-[6px]">
             <input
               type="text"
               aria-label={$i18n.t('settings.general.installLocation')}
-              class="placeholder:text-gray-600 dark:placeholder:text-gray-400 min-h-[28px] max-w-full rounded-lg border border-gray-100/50 bg-gray-50/40 px-2.5 py-1 text-[12px] leading-[18px] text-gray-900 outline-none transition-colors dark:border-white/[0.04] dark:bg-white/[0.03] dark:text-gray-100 disabled:cursor-not-allowed disabled:opacity-50 min-w-0 flex-1 text-right font-mono"
+              class="h-[28px] min-h-[28px] max-w-full rounded-[8px] border border-[oklch(0.94_0_0/0.5)] outline-hidden! bg-[oklch(0.98_0_0/0.4)] px-[8px] py-0 text-[12px] leading-[16px] font-normal text-[oklch(0.42_0_0)] transition-colors duration-150 placeholder:text-[oklch(0.85_0_0)] focus:border-blue-400 disabled:cursor-not-allowed disabled:opacity-50 dark:border-white/[0.04] dark:bg-white/[0.03] dark:text-[oklch(0.85_0_0)] dark:placeholder:text-[oklch(0.42_0_0)] dark:focus:border-blue-500 [&::-webkit-outer-spin-button]:appearance-none [&::-webkit-outer-spin-button]:m-0 [&::-webkit-inner-spin-button]:appearance-none [&::-webkit-inner-spin-button]:m-0 [&[type=number]]:[-moz-appearance:textfield] min-w-0 flex-1"
               placeholder={defaultInstallDir || 'Default'}
               value={installDirPath === defaultInstallDir ? '' : installDirPath}
               onchange={async (e) => {
@@ -407,7 +407,7 @@
               }}
             />
             <button
-              class="min-h-[28px] max-w-full rounded-lg border border-gray-100/50 bg-gray-50/40 px-2.5 py-1 text-[12px] leading-[18px] text-gray-900 outline-none transition-colors dark:border-white/[0.04] dark:bg-white/[0.03] dark:text-gray-100 disabled:cursor-not-allowed disabled:opacity-50 shrink-0 hover:bg-gray-50 dark:hover:bg-white/[0.06]"
+              class="inline-flex max-w-full shrink-0 items-center justify-center gap-[6px] whitespace-nowrap border-none bg-transparent p-0 text-[12px] leading-[16px] text-[oklch(0.69_0_0)] transition-colors duration-150 hover:text-[oklch(0.2_0_0)] disabled:cursor-not-allowed disabled:opacity-50 dark:hover:text-white [&>span[aria-hidden]]:size-[12px]"
               onclick={async () => {
                 const folder = await window.electronAPI.selectFolder()
                 if (folder) {
@@ -426,15 +426,15 @@
         <div class="pt-1">
           <div class="flex items-center justify-between mb-3">
             <div>
-              <div class="text-[12px] text-gray-800 dark:text-gray-200">
+              <div class="text-[12px] leading-[16px] font-normal text-[#171717] dark:text-white">
                 {$i18n.t('settings.general.environmentVariables')}
               </div>
-              <div class="text-[11px] leading-normal text-gray-600 dark:text-gray-400 mt-0.5">
+              <div class="text-[11px] leading-[16px] text-[oklch(0.51_0_0)] dark:text-[oklch(0.77_0_0)] mt-0.5">
                 {$i18n.t('settings.general.environmentVariablesDesc')}
               </div>
             </div>
             <button
-              class="min-h-[28px] max-w-full rounded-lg border border-gray-100/50 bg-gray-50/40 px-2.5 py-1 text-[12px] leading-[18px] text-gray-900 outline-none transition-colors dark:border-white/[0.04] dark:bg-white/[0.03] dark:text-gray-100 disabled:cursor-not-allowed disabled:opacity-50 shrink-0 hover:bg-gray-50 dark:hover:bg-white/[0.06]"
+              class="inline-flex max-w-full shrink-0 items-center justify-center gap-[6px] whitespace-nowrap border-none bg-transparent p-0 text-[12px] leading-[16px] text-[oklch(0.69_0_0)] transition-colors duration-150 hover:text-[oklch(0.2_0_0)] disabled:cursor-not-allowed disabled:opacity-50 dark:hover:text-white [&>span[aria-hidden]]:size-[12px]"
               onclick={addEnvVar}
             >
               {$i18n.t('common.add')}
@@ -448,18 +448,18 @@
                   <input
                     type="text"
                     placeholder={$i18n.t('settings.general.keyPlaceholder')}
-                    class="placeholder:text-gray-600 dark:placeholder:text-gray-400 min-h-[28px] max-w-full rounded-lg border border-gray-100/50 bg-gray-50/40 px-2.5 py-1 text-[12px] leading-[18px] text-gray-900 outline-none transition-colors dark:border-white/[0.04] dark:bg-white/[0.03] dark:text-gray-100 disabled:cursor-not-allowed disabled:opacity-50 flex-1 min-w-0 font-mono"
+                    class="h-[28px] min-h-[28px] max-w-full rounded-[8px] border border-[oklch(0.94_0_0/0.5)] outline-hidden! bg-[oklch(0.98_0_0/0.4)] px-[8px] py-0 text-[12px] leading-[16px] font-normal text-[oklch(0.42_0_0)] transition-colors duration-150 placeholder:text-[oklch(0.85_0_0)] focus:border-blue-400 disabled:cursor-not-allowed disabled:opacity-50 dark:border-white/[0.04] dark:bg-white/[0.03] dark:text-[oklch(0.85_0_0)] dark:placeholder:text-[oklch(0.42_0_0)] dark:focus:border-blue-500 [&::-webkit-outer-spin-button]:appearance-none [&::-webkit-outer-spin-button]:m-0 [&::-webkit-inner-spin-button]:appearance-none [&::-webkit-inner-spin-button]:m-0 [&[type=number]]:[-moz-appearance:textfield] flex-1 min-w-0"
                     value={entry.key}
                     oninput={(e) => {
                       envEntries[i].key = (e.target as HTMLInputElement).value
                     }}
                     onblur={saveEnvVars}
                   />
-                  <span class="text-[11px] leading-normal text-gray-600 dark:text-gray-400">=</span>
+                  <span class="text-[11px] leading-[16px] text-[oklch(0.51_0_0)] dark:text-[oklch(0.77_0_0)]">=</span>
                   <input
                     type="text"
                     placeholder="value"
-                    class="placeholder:text-gray-600 dark:placeholder:text-gray-400 min-h-[28px] max-w-full rounded-lg border border-gray-100/50 bg-gray-50/40 px-2.5 py-1 text-[12px] leading-[18px] text-gray-900 outline-none transition-colors dark:border-white/[0.04] dark:bg-white/[0.03] dark:text-gray-100 disabled:cursor-not-allowed disabled:opacity-50 flex-[2] min-w-0 font-mono"
+                    class="h-[28px] min-h-[28px] max-w-full rounded-[8px] border border-[oklch(0.94_0_0/0.5)] outline-hidden! bg-[oklch(0.98_0_0/0.4)] px-[8px] py-0 text-[12px] leading-[16px] font-normal text-[oklch(0.42_0_0)] transition-colors duration-150 placeholder:text-[oklch(0.85_0_0)] focus:border-blue-400 disabled:cursor-not-allowed disabled:opacity-50 dark:border-white/[0.04] dark:bg-white/[0.03] dark:text-[oklch(0.85_0_0)] dark:placeholder:text-[oklch(0.42_0_0)] dark:focus:border-blue-500 [&::-webkit-outer-spin-button]:appearance-none [&::-webkit-outer-spin-button]:m-0 [&::-webkit-inner-spin-button]:appearance-none [&::-webkit-inner-spin-button]:m-0 [&[type=number]]:[-moz-appearance:textfield] flex-[2] min-w-0"
                     value={entry.value}
                     oninput={(e) => {
                       envEntries[i].value = (e.target as HTMLInputElement).value
@@ -467,11 +467,11 @@
                     onblur={saveEnvVars}
                   />
                   <button
-                    class="transition bg-transparent border-none text-gray-900 dark:text-gray-100 p-0.5 shrink-0"
+                    class="inline-flex max-w-full shrink-0 items-center justify-center gap-[6px] whitespace-nowrap border-none bg-transparent p-0 text-[12px] leading-[16px] text-[oklch(0.69_0_0)] transition-colors duration-150 hover:text-[oklch(0.2_0_0)] disabled:cursor-not-allowed disabled:opacity-50 dark:hover:text-white [&>span[aria-hidden]]:size-[12px] p-[2px]"
                     aria-label={$i18n.t('common.remove')}
                     onclick={() => removeEnvVar(i)}
                   >
-                    <span aria-hidden="true" class="inline-flex shrink-0 [&>svg]:size-full w-3 h-3"
+                    <span aria-hidden="true" class="inline-flex shrink-0 [&>svg]:size-full size-[12px]"
                       >{@html XmarkIcon}</span
                     >
                   </button>
@@ -479,25 +479,25 @@
               {/each}
             </div>
           {:else}
-            <div class="text-[11px] leading-normal text-gray-600 dark:text-gray-400">
+            <div class="text-[11px] leading-[16px] text-[oklch(0.51_0_0)] dark:text-[oklch(0.77_0_0)]">
               {$i18n.t('settings.general.noEnvVars')}
             </div>
           {/if}
         </div>
 
         <div
-          class="flex min-w-0 items-center justify-between gap-4 max-sm:flex-wrap [&>:first-child]:min-w-0 [&>:last-child]:shrink-0 sm:[&>:last-child]:max-w-[55%]"
+          class="flex min-w-0 items-center justify-between gap-[16px] py-[7px] max-sm:gap-[12px] [&>:first-child]:min-w-0 [&>:last-child]:shrink-0 max-sm:[&>:last-child:not([role=switch])]:max-w-[65%]"
         >
           <div>
-            <div class="text-[12px] text-gray-800 dark:text-gray-200">
+            <div class="text-[12px] leading-[16px] font-normal text-[#171717] dark:text-white">
               {$i18n.t('settings.general.factoryReset')}
             </div>
-            <div class="text-[11px] leading-normal text-gray-600 dark:text-gray-400 mt-0.5">
+            <div class="text-[11px] leading-[16px] text-[oklch(0.51_0_0)] dark:text-[oklch(0.77_0_0)] mt-0.5">
               {$i18n.t('settings.general.factoryResetDesc')}
             </div>
           </div>
           <button
-            class="min-h-[28px] max-w-full rounded-lg border border-gray-100/50 bg-gray-50/40 px-2.5 py-1 text-[12px] leading-[18px] text-gray-900 outline-none transition-colors dark:border-white/[0.04] dark:bg-white/[0.03] dark:text-gray-100 disabled:cursor-not-allowed disabled:opacity-50 shrink-0 hover:bg-gray-50 dark:hover:bg-white/[0.06] flex items-center gap-1.5 {resetting
+            class="inline-flex max-w-full shrink-0 items-center justify-center gap-[6px] whitespace-nowrap border-none bg-transparent p-0 text-[12px] leading-[16px] text-[oklch(0.69_0_0)] transition-colors duration-150 hover:text-[oklch(0.2_0_0)] disabled:cursor-not-allowed disabled:opacity-50 dark:hover:text-white [&>span[aria-hidden]]:size-[12px] {resetting
               ? 'pointer-events-none opacity-50'
               : ''}"
             disabled={resetting}
@@ -512,7 +512,7 @@
             {#if resetting}
               <span
                 aria-hidden="true"
-                class="inline-flex shrink-0 [&>svg]:size-full w-3 h-3 animate-spin"
+                class="inline-flex shrink-0 [&>svg]:size-full size-[12px] animate-spin"
                 >{@html RefreshIcon}</span
               >
               {$i18n.t('common.resetting')}

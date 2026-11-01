@@ -89,22 +89,21 @@
   }
 </script>
 
+<div class="flex min-w-0 flex-col text-[#171717] dark:text-white">
 {#if !loaded}
   <div class="py-6 text-[12px] text-center">{$i18n.t('common.loading')}</div>
 {:else if !installed}
-  <div
-    class="flex min-w-0 items-center justify-between gap-4 max-sm:flex-wrap [&>:first-child]:min-w-0 [&>:last-child]:shrink-0 sm:[&>:last-child]:max-w-[55%]"
-  >
+  <div class="flex min-w-0 items-center justify-between gap-[16px] py-[7px] max-sm:gap-[12px] [&>:first-child]:min-w-0 [&>:last-child]:shrink-0 max-sm:[&>:last-child:not([role=switch])]:max-w-[65%]">
     <div>
-      <div class="text-[12px] text-gray-800 dark:text-gray-200">
+      <div class="text-[12px] leading-[16px] font-normal text-[#171717] dark:text-white">
         {$i18n.t('settings.openwebui.notInstalled')}
       </div>
-      <div class="text-[11px] leading-normal text-gray-600 dark:text-gray-400 mt-0.5">
+      <div class="text-[11px] leading-[16px] text-[oklch(0.51_0_0)] dark:text-[oklch(0.77_0_0)] mt-0.5">
         {$i18n.t('settings.openwebui.notInstalledDesc')}
       </div>
     </div>
     <button
-      class="min-h-[28px] max-w-full rounded-lg border border-gray-100/50 bg-gray-50/40 px-2.5 py-1 text-[12px] leading-[18px] text-gray-900 outline-none transition-colors dark:border-white/[0.04] dark:bg-white/[0.03] dark:text-gray-100 disabled:cursor-not-allowed disabled:opacity-50 shrink-0 hover:bg-gray-50 dark:hover:bg-white/[0.06] flex items-center gap-1.5 {installing
+      class="inline-flex max-w-full shrink-0 items-center justify-center gap-[6px] whitespace-nowrap border-none bg-transparent p-0 text-[12px] leading-[16px] text-[oklch(0.69_0_0)] transition-colors duration-150 hover:text-[oklch(0.2_0_0)] disabled:cursor-not-allowed disabled:opacity-50 dark:hover:text-white [&>span[aria-hidden]]:size-[12px] {installing
         ? 'pointer-events-none opacity-50'
         : ''}"
       disabled={installing}
@@ -120,7 +119,7 @@
       }}
     >
       {#if installing}
-        <span aria-hidden="true" class="inline-flex shrink-0 [&>svg]:size-full size-3 animate-spin"
+        <span aria-hidden="true" class="inline-flex shrink-0 [&>svg]:size-full size-[12px] animate-spin"
           >{@html RefreshIcon}</span
         >
         {$i18n.t('common.installing')}
@@ -130,20 +129,20 @@
     </button>
   </div>
 {:else}
-  <div class="flex flex-col gap-4">
+  <div>
     <!-- Server status & controls -->
-    <div class="pt-1">
-      <div class="flex items-center justify-between mb-3">
+    <div class="mb-[4px] pb-[14px]">
+      <div class="flex min-w-0 items-center justify-between gap-[16px] pb-[7px] max-sm:gap-[12px] [&>:first-child]:min-w-0">
         <div>
-          <div class="text-[12px] text-gray-800 dark:text-gray-200">
+          <div class="text-[12px] leading-[16px] font-normal text-[#171717] dark:text-white">
             {$i18n.t('settings.openwebui.server')}
           </div>
-          <div class="text-[11px] leading-normal text-gray-600 dark:text-gray-400 mt-0.5">
+          <div class="text-[11px] leading-[16px] text-[oklch(0.51_0_0)] dark:text-[oklch(0.77_0_0)] mt-0.5">
             {#if version}v{version} ·
             {/if}{$i18n.t('settings.openwebui.localInstance')}
           </div>
         </div>
-        <div class="flex items-center gap-1.5">
+        <div class="flex shrink-0 items-center gap-[8px] text-[11px] text-[#676767] dark:text-[#b4b4b4]">
           {#if isRunning}
             <div class="w-1.5 h-1.5 rounded-full bg-emerald-400"></div>
             <span class="text-[12px]">{$i18n.t('common.running')}</span>
@@ -157,10 +156,10 @@
         </div>
       </div>
 
-      <div class="flex items-center gap-2">
+      <div class="flex flex-wrap items-center gap-[12px]">
         {#if isRunning}
           <button
-            class="min-h-[28px] max-w-full rounded-lg border border-gray-100/50 bg-gray-50/40 px-2.5 py-1 text-[12px] leading-[18px] text-gray-900 outline-none transition-colors dark:border-white/[0.04] dark:bg-white/[0.03] dark:text-gray-100 disabled:cursor-not-allowed disabled:opacity-50 shrink-0 hover:bg-gray-50 dark:hover:bg-white/[0.06] flex items-center gap-1.5 {stopping
+            class="inline-flex max-w-full shrink-0 items-center justify-center gap-[6px] whitespace-nowrap border-none bg-transparent p-0 text-[12px] leading-[16px] text-[oklch(0.69_0_0)] transition-colors duration-150 hover:text-[oklch(0.2_0_0)] disabled:cursor-not-allowed disabled:opacity-50 dark:hover:text-white [&>span[aria-hidden]]:size-[12px] {stopping
               ? 'pointer-events-none opacity-50'
               : ''}"
             disabled={stopping}
@@ -169,19 +168,19 @@
             {#if stopping}
               <span
                 aria-hidden="true"
-                class="inline-flex shrink-0 [&>svg]:size-full size-3 animate-spin"
+                class="inline-flex shrink-0 [&>svg]:size-full size-[12px] animate-spin"
                 >{@html RefreshIcon}</span
               >
               {$i18n.t('common.stopping')}
             {:else}
-              <span aria-hidden="true" class="inline-flex shrink-0 [&>svg]:size-full w-3 h-3"
+              <span aria-hidden="true" class="inline-flex shrink-0 [&>svg]:size-full size-[12px]"
                 >{@html SquareIcon}</span
               >
               {$i18n.t('common.stop')}
             {/if}
           </button>
           <button
-            class="min-h-[28px] max-w-full rounded-lg border border-gray-100/50 bg-gray-50/40 px-2.5 py-1 text-[12px] leading-[18px] text-gray-900 outline-none transition-colors dark:border-white/[0.04] dark:bg-white/[0.03] dark:text-gray-100 disabled:cursor-not-allowed disabled:opacity-50 shrink-0 hover:bg-gray-50 dark:hover:bg-white/[0.06] flex items-center gap-1.5 {restarting
+            class="inline-flex max-w-full shrink-0 items-center justify-center gap-[6px] whitespace-nowrap border-none bg-transparent p-0 text-[12px] leading-[16px] text-[oklch(0.69_0_0)] transition-colors duration-150 hover:text-[oklch(0.2_0_0)] disabled:cursor-not-allowed disabled:opacity-50 dark:hover:text-white [&>span[aria-hidden]]:size-[12px] {restarting
               ? 'pointer-events-none opacity-50'
               : ''}"
             disabled={restarting}
@@ -190,12 +189,12 @@
             {#if restarting}
               <span
                 aria-hidden="true"
-                class="inline-flex shrink-0 [&>svg]:size-full size-3 animate-spin"
+                class="inline-flex shrink-0 [&>svg]:size-full size-[12px] animate-spin"
                 >{@html RefreshIcon}</span
               >
               {$i18n.t('common.restarting')}
             {:else}
-              <span aria-hidden="true" class="inline-flex shrink-0 [&>svg]:size-full w-3 h-3"
+              <span aria-hidden="true" class="inline-flex shrink-0 [&>svg]:size-full size-[12px]"
                 >{@html RestartIcon}</span
               >
               {$i18n.t('common.restart')}
@@ -203,7 +202,7 @@
           </button>
         {:else}
           <button
-            class="min-h-[28px] max-w-full rounded-lg border border-gray-100/50 bg-gray-50/40 px-2.5 py-1 text-[12px] leading-[18px] text-gray-900 outline-none transition-colors dark:border-white/[0.04] dark:bg-white/[0.03] dark:text-gray-100 disabled:cursor-not-allowed disabled:opacity-50 shrink-0 hover:bg-gray-50 dark:hover:bg-white/[0.06] flex items-center gap-1.5 {starting
+            class="inline-flex max-w-full shrink-0 items-center justify-center gap-[6px] whitespace-nowrap border-none bg-transparent p-0 text-[12px] leading-[16px] text-[oklch(0.69_0_0)] transition-colors duration-150 hover:text-[oklch(0.2_0_0)] disabled:cursor-not-allowed disabled:opacity-50 dark:hover:text-white [&>span[aria-hidden]]:size-[12px] {starting
               ? 'pointer-events-none opacity-50'
               : ''}"
             disabled={starting}
@@ -212,12 +211,12 @@
             {#if starting}
               <span
                 aria-hidden="true"
-                class="inline-flex shrink-0 [&>svg]:size-full size-3 animate-spin"
+                class="inline-flex shrink-0 [&>svg]:size-full size-[12px] animate-spin"
                 >{@html RefreshIcon}</span
               >
               {$i18n.t('common.starting')}
             {:else}
-              <span aria-hidden="true" class="inline-flex shrink-0 [&>svg]:size-full w-3 h-3"
+              <span aria-hidden="true" class="inline-flex shrink-0 [&>svg]:size-full size-[12px]"
                 >{@html PlayIcon}</span
               >
               {$i18n.t('common.start')}
@@ -226,7 +225,7 @@
         {/if}
 
         <button
-          class="min-h-[28px] max-w-full rounded-lg border border-gray-100/50 bg-gray-50/40 px-2.5 py-1 text-[12px] leading-[18px] text-gray-900 outline-none transition-colors dark:border-white/[0.04] dark:bg-white/[0.03] dark:text-gray-100 disabled:cursor-not-allowed disabled:opacity-50 shrink-0 hover:bg-gray-50 dark:hover:bg-white/[0.06] flex items-center gap-1.5 {updating
+          class="inline-flex max-w-full shrink-0 items-center justify-center gap-[6px] whitespace-nowrap border-none bg-transparent p-0 text-[12px] leading-[16px] text-[oklch(0.69_0_0)] transition-colors duration-150 hover:text-[oklch(0.2_0_0)] disabled:cursor-not-allowed disabled:opacity-50 dark:hover:text-white [&>span[aria-hidden]]:size-[12px] {updating
             ? 'pointer-events-none opacity-50'
             : ''}"
           disabled={updating}
@@ -235,12 +234,12 @@
           {#if updating}
             <span
               aria-hidden="true"
-              class="inline-flex shrink-0 [&>svg]:size-full size-3 animate-spin"
+              class="inline-flex shrink-0 [&>svg]:size-full size-[12px] animate-spin"
               >{@html RefreshIcon}</span
             >
             {$i18n.t('common.updating')}
           {:else}
-            <span aria-hidden="true" class="inline-flex shrink-0 [&>svg]:size-full w-3 h-3"
+            <span aria-hidden="true" class="inline-flex shrink-0 [&>svg]:size-full size-[12px]"
               >{@html DownloadIcon}</span
             >
             {$i18n.t('common.update')}
@@ -251,22 +250,22 @@
 
     <!-- Running Instance Info -->
     {#if isRunning}
-      <div class="pt-1">
-        <div class="text-[12px] text-gray-800 dark:text-gray-200 mb-3">
+      <div class="mb-[4px] pb-[14px]">
+        <div class="text-[12px] leading-[16px] font-normal text-[#171717] dark:text-white mb-2">
           {$i18n.t('settings.openwebui.runningInstance')}
         </div>
-        <div class="flex flex-col gap-2">
-          <div class="flex items-center justify-between">
-            <span class="text-[11px] leading-normal text-gray-600 dark:text-gray-400">URL</span>
+        <div class="text-[11px] [&>div]:py-[4px] [&>div]:gap-[12px] max-sm:[&>div>:last-child]:max-w-[75%]">
+          <div class="flex min-w-0 items-center justify-between gap-[16px] py-[7px] max-sm:gap-[12px] [&>:first-child]:min-w-0 [&>:last-child]:shrink-0 max-sm:[&>:last-child:not([role=switch])]:max-w-[65%]">
+            <span class="text-[11px] leading-[16px] text-[oklch(0.51_0_0)] dark:text-[oklch(0.77_0_0)]">URL</span>
             <button
-              class="text-[12px] font-mono transition bg-transparent border-none text-gray-900 dark:text-gray-100 p-0 underline decoration-dotted underline-offset-2 cursor-pointer"
+              class="min-w-0 [overflow-wrap:anywhere] text-right text-[11px] text-[#676767] transition-colors duration-150 hover:text-[#171717] dark:text-[#b4b4b4] dark:hover:text-white font-mono"
               onclick={() => window.open($serverInfo?.url ?? 'http://127.0.0.1:8080')}
               >{$serverInfo?.url ?? 'http://127.0.0.1:8080'}</button
             >
           </div>
           {#if serverPid}
-            <div class="flex items-center justify-between">
-              <span class="text-[11px] leading-normal text-gray-600 dark:text-gray-400">PID</span>
+            <div class="flex min-w-0 items-center justify-between gap-[16px] py-[7px] max-sm:gap-[12px] [&>:first-child]:min-w-0 [&>:last-child]:shrink-0 max-sm:[&>:last-child:not([role=switch])]:max-w-[65%]">
+              <span class="text-[11px] leading-[16px] text-[oklch(0.51_0_0)] dark:text-[oklch(0.77_0_0)]">PID</span>
               <span class="text-[12px] font-mono">{serverPid}</span>
             </div>
           {/if}
@@ -274,14 +273,12 @@
       </div>
     {/if}
 
-    <div
-      class="flex min-w-0 items-center justify-between gap-4 max-sm:flex-wrap [&>:first-child]:min-w-0 [&>:last-child]:shrink-0 sm:[&>:last-child]:max-w-[55%]"
-    >
+    <div class="flex min-w-0 items-center justify-between gap-[16px] py-[7px] max-sm:gap-[12px] [&>:first-child]:min-w-0 [&>:last-child]:shrink-0 max-sm:[&>:last-child:not([role=switch])]:max-w-[65%]">
       <div>
-        <div class="text-[12px] text-gray-800 dark:text-gray-200">
+        <div class="text-[12px] leading-[16px] font-normal text-[#171717] dark:text-white">
           {$i18n.t('settings.openwebui.startOnLaunch')}
         </div>
-        <div class="text-[11px] leading-normal text-gray-600 dark:text-gray-400 mt-0.5">
+        <div class="text-[11px] leading-[16px] text-[oklch(0.51_0_0)] dark:text-[oklch(0.77_0_0)] mt-0.5">
           {$i18n.t('settings.openwebui.startOnLaunchDesc')}
         </div>
       </div>
@@ -292,34 +289,31 @@
       />
     </div>
 
-    <div
-      class="flex min-w-0 items-center justify-between gap-4 max-sm:flex-wrap [&>:first-child]:min-w-0 [&>:last-child]:shrink-0 sm:[&>:last-child]:max-w-[55%]"
-    >
+    <div class="flex min-w-0 items-center justify-between gap-[16px] py-[7px] max-sm:gap-[12px] [&>:first-child]:min-w-0 [&>:last-child]:shrink-0 max-sm:[&>:last-child:not([role=switch])]:max-w-[65%]">
       <div>
-        <div class="text-[12px] text-gray-800 dark:text-gray-200">
+        <div class="text-[12px] leading-[16px] font-normal text-[#171717] dark:text-white">
           {$i18n.t('settings.openwebui.serverPort')}
         </div>
-        <div class="text-[11px] leading-normal text-gray-600 dark:text-gray-400 mt-0.5">
+        <div class="text-[11px] leading-[16px] text-[oklch(0.51_0_0)] dark:text-[oklch(0.77_0_0)] mt-0.5">
           {$i18n.t('settings.openwebui.serverPortDesc')}
         </div>
       </div>
       <input
         type="number"
-        class="placeholder:text-gray-600 dark:placeholder:text-gray-400 min-h-[28px] max-w-full rounded-lg border border-gray-100/50 bg-gray-50/40 px-2.5 py-1 text-[12px] leading-[18px] text-gray-900 outline-none transition-colors dark:border-white/[0.04] dark:bg-white/[0.03] dark:text-gray-100 disabled:cursor-not-allowed disabled:opacity-50 w-20 text-right"
+        class="h-[28px] min-h-[28px] max-w-full rounded-[8px] border border-[oklch(0.94_0_0/0.5)] outline-hidden! bg-[oklch(0.98_0_0/0.4)] px-[8px] py-0 text-[12px] leading-[16px] font-normal text-[oklch(0.42_0_0)] transition-colors duration-150 placeholder:text-[oklch(0.85_0_0)] focus:border-blue-400 disabled:cursor-not-allowed disabled:opacity-50 dark:border-white/[0.04] dark:bg-white/[0.03] dark:text-[oklch(0.85_0_0)] dark:placeholder:text-[oklch(0.42_0_0)] dark:focus:border-blue-500 [&::-webkit-outer-spin-button]:appearance-none [&::-webkit-outer-spin-button]:m-0 [&::-webkit-inner-spin-button]:appearance-none [&::-webkit-inner-spin-button]:m-0 [&[type=number]]:[-moz-appearance:textfield] w-[88px]"
+        aria-label={$i18n.t('settings.openwebui.serverPort')}
         value={$config?.localServer?.port ?? 8080}
         onchange={(e) =>
           updateConfig('port', parseInt((e.target as HTMLInputElement).value) || 8080)}
       />
     </div>
 
-    <div
-      class="flex min-w-0 items-center justify-between gap-4 max-sm:flex-wrap [&>:first-child]:min-w-0 [&>:last-child]:shrink-0 sm:[&>:last-child]:max-w-[55%]"
-    >
+    <div class="flex min-w-0 items-center justify-between gap-[16px] py-[7px] max-sm:gap-[12px] [&>:first-child]:min-w-0 [&>:last-child]:shrink-0 max-sm:[&>:last-child:not([role=switch])]:max-w-[65%]">
       <div>
-        <div class="text-[12px] text-gray-800 dark:text-gray-200">
+        <div class="text-[12px] leading-[16px] font-normal text-[#171717] dark:text-white">
           {$i18n.t('settings.openwebui.serveOnLocalNetwork')}
         </div>
-        <div class="text-[11px] leading-normal text-gray-600 dark:text-gray-400 mt-0.5">
+        <div class="text-[11px] leading-[16px] text-[oklch(0.51_0_0)] dark:text-[oklch(0.77_0_0)] mt-0.5">
           {$i18n.t('settings.openwebui.serveOnLocalNetworkDesc')}
         </div>
       </div>
@@ -330,14 +324,12 @@
       />
     </div>
 
-    <div
-      class="flex min-w-0 items-center justify-between gap-4 max-sm:flex-wrap [&>:first-child]:min-w-0 [&>:last-child]:shrink-0 sm:[&>:last-child]:max-w-[55%]"
-    >
+    <div class="flex min-w-0 items-center justify-between gap-[16px] py-[7px] max-sm:gap-[12px] [&>:first-child]:min-w-0 [&>:last-child]:shrink-0 max-sm:[&>:last-child:not([role=switch])]:max-w-[65%]">
       <div>
-        <div class="text-[12px] text-gray-800 dark:text-gray-200">
+        <div class="text-[12px] leading-[16px] font-normal text-[#171717] dark:text-white">
           {$i18n.t('settings.openwebui.autoUpdate')}
         </div>
-        <div class="text-[11px] leading-normal text-gray-600 dark:text-gray-400 mt-0.5">
+        <div class="text-[11px] leading-[16px] text-[oklch(0.51_0_0)] dark:text-[oklch(0.77_0_0)] mt-0.5">
           {$i18n.t('settings.openwebui.autoUpdateDesc')}
         </div>
       </div>
@@ -349,41 +341,39 @@
     </div>
 
     <!-- Version Pin -->
-    <div
-      class="flex min-w-0 items-center justify-between gap-4 max-sm:flex-wrap [&>:first-child]:min-w-0 [&>:last-child]:shrink-0 sm:[&>:last-child]:max-w-[55%]"
-    >
+    <div class="flex min-w-0 items-center justify-between gap-[16px] py-[7px] max-sm:gap-[12px] [&>:first-child]:min-w-0 [&>:last-child]:shrink-0 max-sm:[&>:last-child:not([role=switch])]:max-w-[65%]">
       <div>
-        <div class="text-[12px] text-gray-800 dark:text-gray-200">
+        <div class="text-[12px] leading-[16px] font-normal text-[#171717] dark:text-white">
           {$i18n.t('settings.openwebui.version')}
         </div>
-        <div class="text-[11px] leading-normal text-gray-600 dark:text-gray-400 mt-0.5">
+        <div class="text-[11px] leading-[16px] text-[oklch(0.51_0_0)] dark:text-[oklch(0.77_0_0)] mt-0.5">
           {$i18n.t('settings.openwebui.versionDesc')}
         </div>
       </div>
       <input
         type="text"
-        class="placeholder:text-gray-600 dark:placeholder:text-gray-400 min-h-[28px] max-w-full rounded-lg border border-gray-100/50 bg-gray-50/40 px-2.5 py-1 text-[12px] leading-[18px] text-gray-900 outline-none transition-colors dark:border-white/[0.04] dark:bg-white/[0.03] dark:text-gray-100 disabled:cursor-not-allowed disabled:opacity-50 w-28 text-right font-mono"
+        class="h-[28px] min-h-[28px] max-w-full rounded-[8px] border border-[oklch(0.94_0_0/0.5)] outline-hidden! bg-[oklch(0.98_0_0/0.4)] px-[8px] py-0 text-[12px] leading-[16px] font-normal text-[oklch(0.42_0_0)] transition-colors duration-150 placeholder:text-[oklch(0.85_0_0)] focus:border-blue-400 disabled:cursor-not-allowed disabled:opacity-50 dark:border-white/[0.04] dark:bg-white/[0.03] dark:text-[oklch(0.85_0_0)] dark:placeholder:text-[oklch(0.42_0_0)] dark:focus:border-blue-500 [&::-webkit-outer-spin-button]:appearance-none [&::-webkit-outer-spin-button]:m-0 [&::-webkit-inner-spin-button]:appearance-none [&::-webkit-inner-spin-button]:m-0 [&[type=number]]:[-moz-appearance:textfield] w-[96px]"
+        aria-label={$i18n.t('settings.openwebui.version')}
         placeholder="latest"
         value={$config?.localServer?.version ?? ''}
         onchange={(e) => updateConfig('version', (e.target as HTMLInputElement).value.trim())}
       />
     </div>
 
-    <div
-      class="flex min-w-0 items-center justify-between gap-4 max-sm:flex-wrap [&>:first-child]:min-w-0 [&>:last-child]:shrink-0 sm:[&>:last-child]:max-w-[55%]"
-    >
-      <div class="min-w-0">
-        <div class="text-[12px] text-gray-800 dark:text-gray-200">
+    <div class="flex min-w-0 items-center justify-between gap-[16px] py-[7px] max-sm:gap-[12px] [&>:first-child]:min-w-0 [&>:last-child]:shrink-0 max-sm:[&>:last-child:not([role=switch])]:max-w-[65%]">
+      <div>
+        <div class="text-[12px] leading-[16px] font-normal text-[#171717] dark:text-white">
           {$i18n.t('settings.openwebui.dataLocation')}
         </div>
-        <div class="text-[11px] leading-normal text-gray-600 dark:text-gray-400 mt-0.5">
+        <div class="text-[11px] leading-[16px] text-[oklch(0.51_0_0)] dark:text-[oklch(0.77_0_0)] mt-0.5">
           {$i18n.t('settings.openwebui.dataLocationDesc')}
         </div>
       </div>
-      <div class="flex items-center gap-1.5 min-w-0 flex-1 max-w-[280px] justify-end">
+      <div class="flex min-w-[140px] flex-[0_1_280px] max-w-[280px] shrink! items-center gap-[6px]">
         <input
           type="text"
-          class="placeholder:text-gray-600 dark:placeholder:text-gray-400 min-h-[28px] max-w-full rounded-lg border border-gray-100/50 bg-gray-50/40 px-2.5 py-1 text-[12px] leading-[18px] text-gray-900 outline-none transition-colors dark:border-white/[0.04] dark:bg-white/[0.03] dark:text-gray-100 disabled:cursor-not-allowed disabled:opacity-50 min-w-0 flex-1 text-right font-mono"
+          class="h-[28px] min-h-[28px] max-w-full rounded-[8px] border border-[oklch(0.94_0_0/0.5)] outline-hidden! bg-[oklch(0.98_0_0/0.4)] px-[8px] py-0 text-[12px] leading-[16px] font-normal text-[oklch(0.42_0_0)] transition-colors duration-150 placeholder:text-[oklch(0.85_0_0)] focus:border-blue-400 disabled:cursor-not-allowed disabled:opacity-50 dark:border-white/[0.04] dark:bg-white/[0.03] dark:text-[oklch(0.85_0_0)] dark:placeholder:text-[oklch(0.42_0_0)] dark:focus:border-blue-500 [&::-webkit-outer-spin-button]:appearance-none [&::-webkit-outer-spin-button]:m-0 [&::-webkit-inner-spin-button]:appearance-none [&::-webkit-inner-spin-button]:m-0 [&[type=number]]:[-moz-appearance:textfield] min-w-0 flex-1"
+        aria-label={$i18n.t('settings.openwebui.dataLocation')}
           placeholder={defaultDataPath || 'Default'}
           value={$config?.dataDir ?? ''}
           onchange={async (e) => {
@@ -393,7 +383,7 @@
           }}
         />
         <button
-          class="min-h-[28px] max-w-full rounded-lg border border-gray-100/50 bg-gray-50/40 px-2.5 py-1 text-[12px] leading-[18px] text-gray-900 outline-none transition-colors dark:border-white/[0.04] dark:bg-white/[0.03] dark:text-gray-100 disabled:cursor-not-allowed disabled:opacity-50 shrink-0 hover:bg-gray-50 dark:hover:bg-white/[0.06]"
+          class="inline-flex max-w-full shrink-0 items-center justify-center gap-[6px] whitespace-nowrap border-none bg-transparent p-0 text-[12px] leading-[16px] text-[oklch(0.69_0_0)] transition-colors duration-150 hover:text-[oklch(0.2_0_0)] disabled:cursor-not-allowed disabled:opacity-50 dark:hover:text-white [&>span[aria-hidden]]:size-[12px]"
           onclick={async () => {
             const folder = await window.electronAPI.selectFolder()
             if (folder) {
@@ -408,19 +398,17 @@
     </div>
 
     <!-- Uninstall -->
-    <div
-      class="flex min-w-0 items-center justify-between gap-4 max-sm:flex-wrap [&>:first-child]:min-w-0 [&>:last-child]:shrink-0 sm:[&>:last-child]:max-w-[55%]"
-    >
+    <div class="flex min-w-0 items-center justify-between gap-[16px] py-[7px] max-sm:gap-[12px] [&>:first-child]:min-w-0 [&>:last-child]:shrink-0 max-sm:[&>:last-child:not([role=switch])]:max-w-[65%] mt-[10px] pt-[16px]!">
       <div>
-        <div class="text-[12px] text-gray-800 dark:text-gray-200">
+        <div class="text-[12px] leading-[16px] font-normal text-[#171717] dark:text-white">
           {$i18n.t('settings.openwebui.uninstall')}
         </div>
-        <div class="text-[11px] leading-normal text-gray-600 dark:text-gray-400 mt-0.5">
+        <div class="text-[11px] leading-[16px] text-[oklch(0.51_0_0)] dark:text-[oklch(0.77_0_0)] mt-0.5">
           {$i18n.t('settings.openwebui.uninstallDesc')}
         </div>
       </div>
       <button
-        class="min-h-[28px] max-w-full rounded-lg border border-gray-100/50 bg-gray-50/40 px-2.5 py-1 text-[12px] leading-[18px] text-gray-900 outline-none transition-colors dark:border-white/[0.04] dark:bg-white/[0.03] dark:text-gray-100 disabled:cursor-not-allowed disabled:opacity-50 shrink-0 hover:bg-gray-50 dark:hover:bg-white/[0.06] flex items-center gap-1.5 {uninstalling
+        class="inline-flex max-w-full shrink-0 items-center justify-center gap-[6px] whitespace-nowrap border-none bg-transparent p-0 text-[12px] leading-[16px] text-[oklch(0.69_0_0)] transition-colors duration-150 hover:text-[oklch(0.2_0_0)] disabled:cursor-not-allowed disabled:opacity-50 dark:hover:text-white [&>span[aria-hidden]]:size-[12px] {uninstalling
           ? 'pointer-events-none opacity-50'
           : ''}"
         disabled={uninstalling}
@@ -441,7 +429,7 @@
         {#if uninstalling}
           <span
             aria-hidden="true"
-            class="inline-flex shrink-0 [&>svg]:size-full size-3 animate-spin"
+            class="inline-flex shrink-0 [&>svg]:size-full size-[12px] animate-spin"
             >{@html RefreshIcon}</span
           >
           {$i18n.t('common.uninstalling')}
@@ -452,3 +440,5 @@
     </div>
   </div>
 {/if}
+
+</div>

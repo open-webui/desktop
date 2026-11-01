@@ -187,24 +187,23 @@
   }
 </script>
 
+<div class="flex min-w-0 flex-col text-[#171717] dark:text-white">
 {#if !loaded}
   <div class="py-6 text-[12px] text-center">{$i18n.t('common.loading')}</div>
 {:else if !installed}
-  <div class="flex flex-col gap-4">
-    <div
-      class="flex min-w-0 items-center justify-between gap-4 max-sm:flex-wrap [&>:first-child]:min-w-0 [&>:last-child]:shrink-0 sm:[&>:last-child]:max-w-[55%]"
-    >
+  <div>
+    <div class="flex min-w-0 items-center justify-between gap-[16px] py-[7px] max-sm:gap-[12px] [&>:first-child]:min-w-0 [&>:last-child]:shrink-0 max-sm:[&>:last-child:not([role=switch])]:max-w-[65%]">
       <div>
-        <div class="text-[12px] text-gray-800 dark:text-gray-200 flex items-center gap-1.5">
+        <div class="text-[12px] leading-[16px] font-normal text-[#171717] dark:text-white flex items-center gap-[6px]">
           {$i18n.t('settings.inference.notInstalled')}
           <span class="text-[10px] text-gray-600 dark:text-gray-400">{$i18n.t('common.experimental')}</span>
         </div>
-        <div class="text-[11px] leading-normal text-gray-600 dark:text-gray-400 mt-0.5">
+        <div class="text-[11px] leading-[16px] text-[oklch(0.51_0_0)] dark:text-[oklch(0.77_0_0)] mt-0.5">
           {$i18n.t('settings.inference.notInstalledDesc')}
         </div>
       </div>
       <button
-        class="min-h-[28px] max-w-full rounded-lg border border-gray-100/50 bg-gray-50/40 px-2.5 py-1 text-[12px] leading-[18px] text-gray-900 outline-none transition-colors dark:border-white/[0.04] dark:bg-white/[0.03] dark:text-gray-100 disabled:cursor-not-allowed disabled:opacity-50 shrink-0 hover:bg-gray-50 dark:hover:bg-white/[0.06] flex items-center gap-1.5 {installing
+        class="inline-flex max-w-full shrink-0 items-center justify-center gap-[6px] whitespace-nowrap border-none bg-transparent p-0 text-[12px] leading-[16px] text-[oklch(0.69_0_0)] transition-colors duration-150 hover:text-[oklch(0.2_0_0)] disabled:cursor-not-allowed disabled:opacity-50 dark:hover:text-white [&>span[aria-hidden]]:size-[12px] {installing
           ? 'pointer-events-none opacity-50'
           : ''}"
         disabled={installing}
@@ -222,7 +221,7 @@
         {#if installing}
           <span
             aria-hidden="true"
-            class="inline-flex shrink-0 [&>svg]:size-full size-3 animate-spin"
+            class="inline-flex shrink-0 [&>svg]:size-full size-[12px] animate-spin"
             >{@html RefreshIcon}</span
           >
           {$i18n.t('common.installing')}
@@ -233,20 +232,19 @@
     </div>
 
     <!-- Version -->
-    <div
-      class="flex min-w-0 items-center justify-between gap-4 max-sm:flex-wrap [&>:first-child]:min-w-0 [&>:last-child]:shrink-0 sm:[&>:last-child]:max-w-[55%]"
-    >
+    <div class="flex min-w-0 items-center justify-between gap-[16px] py-[7px] max-sm:gap-[12px] [&>:first-child]:min-w-0 [&>:last-child]:shrink-0 max-sm:[&>:last-child:not([role=switch])]:max-w-[65%]">
       <div>
-        <div class="text-[12px] text-gray-800 dark:text-gray-200">
+        <div class="text-[12px] leading-[16px] font-normal text-[#171717] dark:text-white">
           {$i18n.t('settings.inference.version')}
         </div>
-        <div class="text-[11px] leading-normal text-gray-600 dark:text-gray-400 mt-0.5">
+        <div class="text-[11px] leading-[16px] text-[oklch(0.51_0_0)] dark:text-[oklch(0.77_0_0)] mt-0.5">
           {$i18n.t('settings.inference.versionDesc')}
         </div>
       </div>
       <input
         type="text"
-        class="placeholder:text-gray-600 dark:placeholder:text-gray-400 min-h-[28px] max-w-full rounded-lg border border-gray-100/50 bg-gray-50/40 px-2.5 py-1 text-[12px] leading-[18px] text-gray-900 outline-none transition-colors dark:border-white/[0.04] dark:bg-white/[0.03] dark:text-gray-100 disabled:cursor-not-allowed disabled:opacity-50 w-24 text-right font-mono"
+        class="h-[28px] min-h-[28px] max-w-full rounded-[8px] border border-[oklch(0.94_0_0/0.5)] outline-hidden! bg-[oklch(0.98_0_0/0.4)] px-[8px] py-0 text-[12px] leading-[16px] font-normal text-[oklch(0.42_0_0)] transition-colors duration-150 placeholder:text-[oklch(0.85_0_0)] focus:border-blue-400 disabled:cursor-not-allowed disabled:opacity-50 dark:border-white/[0.04] dark:bg-white/[0.03] dark:text-[oklch(0.85_0_0)] dark:placeholder:text-[oklch(0.42_0_0)] dark:focus:border-blue-500 [&::-webkit-outer-spin-button]:appearance-none [&::-webkit-outer-spin-button]:m-0 [&::-webkit-inner-spin-button]:appearance-none [&::-webkit-inner-spin-button]:m-0 [&[type=number]]:[-moz-appearance:textfield] w-[96px]"
+        aria-label={$i18n.t('settings.inference.version')}
         value={$config?.llamaCpp?.version ?? 'latest'}
         onchange={(e) =>
           updateConfig('version', (e.target as HTMLInputElement).value.trim() || 'latest')}
@@ -254,20 +252,18 @@
     </div>
 
     <!-- Variant -->
-    <div
-      class="flex min-w-0 items-center justify-between gap-4 max-sm:flex-wrap [&>:first-child]:min-w-0 [&>:last-child]:shrink-0 sm:[&>:last-child]:max-w-[55%]"
-    >
+    <div class="flex min-w-0 items-center justify-between gap-[16px] py-[7px] max-sm:gap-[12px] [&>:first-child]:min-w-0 [&>:last-child]:shrink-0 max-sm:[&>:last-child:not([role=switch])]:max-w-[65%]">
       <div>
-        <div class="text-[12px] text-gray-800 dark:text-gray-200">
+        <div class="text-[12px] leading-[16px] font-normal text-[#171717] dark:text-white">
           {$i18n.t('settings.inference.variant')}
         </div>
-        <div class="text-[11px] leading-normal text-gray-600 dark:text-gray-400 mt-0.5">
+        <div class="text-[11px] leading-[16px] text-[oklch(0.51_0_0)] dark:text-[oklch(0.77_0_0)] mt-0.5">
           {$i18n.t('settings.inference.variantDesc')}
         </div>
       </div>
-      <div class="relative inline-flex max-w-full">
+      <div class="relative inline-flex max-w-full [&>span]:right-[8px] [&>span]:size-[14px] [&>span]:text-[oklch(0.77_0_0)] dark:[&>span]:text-[oklch(0.69_0_0)]">
         <select
-          class="w-full min-w-[100px] appearance-none text-ellipsis pr-[30px] min-h-[28px] max-w-full rounded-lg border border-gray-100/50 bg-gray-50/40 px-2.5 py-1 text-[12px] leading-[18px] text-gray-900 outline-none transition-colors dark:border-white/[0.04] dark:bg-white/[0.03] dark:text-gray-100 disabled:cursor-not-allowed disabled:opacity-50"
+          class="w-full min-w-[100px] appearance-none text-ellipsis ps-[10px] pe-[32px] [field-sizing:content] h-[28px] min-h-[28px] max-w-full rounded-[8px] border border-[oklch(0.94_0_0/0.5)] outline-hidden! bg-[oklch(0.98_0_0/0.4)] px-[8px] py-0 text-[12px] leading-[16px] font-normal text-[oklch(0.42_0_0)] transition-colors duration-150 placeholder:text-[oklch(0.85_0_0)] focus:border-blue-400 disabled:cursor-not-allowed disabled:opacity-50 dark:border-white/[0.04] dark:bg-white/[0.03] dark:text-[oklch(0.85_0_0)] dark:placeholder:text-[oklch(0.42_0_0)] dark:focus:border-blue-500 [&::-webkit-outer-spin-button]:appearance-none [&::-webkit-outer-spin-button]:m-0 [&::-webkit-inner-spin-button]:appearance-none [&::-webkit-inner-spin-button]:m-0 [&[type=number]]:[-moz-appearance:textfield]"
           aria-label={$i18n.t('settings.inference.variant')}
           onchange={(e) => updateConfig('variant', (e.target as HTMLSelectElement).value)}
         >
@@ -287,20 +283,20 @@
     </div>
   </div>
 {:else}
-  <div class="flex flex-col gap-4">
+  <div>
     <!-- Server status & controls -->
-    <div class="pt-1">
-      <div class="flex items-center justify-between mb-3">
+    <div class="mb-[4px] pb-[14px]">
+      <div class="flex min-w-0 items-center justify-between gap-[16px] pb-[7px] max-sm:gap-[12px] [&>:first-child]:min-w-0">
         <div>
-          <div class="text-[12px] text-gray-800 dark:text-gray-200 flex items-center gap-1.5">
+          <div class="text-[12px] leading-[16px] font-normal text-[#171717] dark:text-white flex items-center gap-[6px]">
             {$i18n.t('settings.inference.llamaServer')}
             <span class="text-[10px] text-gray-600 dark:text-gray-400">{$i18n.t('common.experimental')}</span>
           </div>
-          <div class="text-[11px] leading-normal text-gray-600 dark:text-gray-400 mt-0.5">
+          <div class="text-[11px] leading-[16px] text-[oklch(0.51_0_0)] dark:text-[oklch(0.77_0_0)] mt-0.5">
             {$i18n.t('settings.inference.llamaServerDesc')}
           </div>
         </div>
-        <div class="flex items-center gap-1.5">
+        <div class="flex shrink-0 items-center gap-[8px] text-[11px] text-[#676767] dark:text-[#b4b4b4]">
           {#if isRunning}
             <div class="w-1.5 h-1.5 rounded-full bg-emerald-400"></div>
             <span class="text-[12px]">{$i18n.t('common.running')}</span>
@@ -322,15 +318,15 @@
       </div>
 
       {#if setupStatus}
-        <div class="text-[11px] leading-normal text-gray-600 dark:text-gray-400 mb-3 font-mono truncate">
+        <div class="text-[11px] leading-[16px] text-[oklch(0.51_0_0)] dark:text-[oklch(0.77_0_0)] mb-3 font-mono truncate">
           {setupStatus}
         </div>
       {/if}
 
-      <div class="flex items-center gap-2">
+      <div class="flex flex-wrap items-center gap-[12px]">
         {#if isRunning}
           <button
-            class="min-h-[28px] max-w-full rounded-lg border border-gray-100/50 bg-gray-50/40 px-2.5 py-1 text-[12px] leading-[18px] text-gray-900 outline-none transition-colors dark:border-white/[0.04] dark:bg-white/[0.03] dark:text-gray-100 disabled:cursor-not-allowed disabled:opacity-50 shrink-0 hover:bg-gray-50 dark:hover:bg-white/[0.06] flex items-center gap-1.5 {stopping
+            class="inline-flex max-w-full shrink-0 items-center justify-center gap-[6px] whitespace-nowrap border-none bg-transparent p-0 text-[12px] leading-[16px] text-[oklch(0.69_0_0)] transition-colors duration-150 hover:text-[oklch(0.2_0_0)] disabled:cursor-not-allowed disabled:opacity-50 dark:hover:text-white [&>span[aria-hidden]]:size-[12px] {stopping
               ? 'pointer-events-none opacity-50'
               : ''}"
             disabled={stopping}
@@ -339,19 +335,19 @@
             {#if stopping}
               <span
                 aria-hidden="true"
-                class="inline-flex shrink-0 [&>svg]:size-full size-3 animate-spin"
+                class="inline-flex shrink-0 [&>svg]:size-full size-[12px] animate-spin"
                 >{@html RefreshIcon}</span
               >
               {$i18n.t('common.stopping')}
             {:else}
-              <span aria-hidden="true" class="inline-flex shrink-0 [&>svg]:size-full w-3 h-3"
+              <span aria-hidden="true" class="inline-flex shrink-0 [&>svg]:size-full size-[12px]"
                 >{@html SquareIcon}</span
               >
               {$i18n.t('common.stop')}
             {/if}
           </button>
           <button
-            class="min-h-[28px] max-w-full rounded-lg border border-gray-100/50 bg-gray-50/40 px-2.5 py-1 text-[12px] leading-[18px] text-gray-900 outline-none transition-colors dark:border-white/[0.04] dark:bg-white/[0.03] dark:text-gray-100 disabled:cursor-not-allowed disabled:opacity-50 shrink-0 hover:bg-gray-50 dark:hover:bg-white/[0.06] flex items-center gap-1.5 {restarting
+            class="inline-flex max-w-full shrink-0 items-center justify-center gap-[6px] whitespace-nowrap border-none bg-transparent p-0 text-[12px] leading-[16px] text-[oklch(0.69_0_0)] transition-colors duration-150 hover:text-[oklch(0.2_0_0)] disabled:cursor-not-allowed disabled:opacity-50 dark:hover:text-white [&>span[aria-hidden]]:size-[12px] {restarting
               ? 'pointer-events-none opacity-50'
               : ''}"
             disabled={restarting}
@@ -360,12 +356,12 @@
             {#if restarting}
               <span
                 aria-hidden="true"
-                class="inline-flex shrink-0 [&>svg]:size-full size-3 animate-spin"
+                class="inline-flex shrink-0 [&>svg]:size-full size-[12px] animate-spin"
                 >{@html RefreshIcon}</span
               >
               {$i18n.t('common.restarting')}
             {:else}
-              <span aria-hidden="true" class="inline-flex shrink-0 [&>svg]:size-full w-3 h-3"
+              <span aria-hidden="true" class="inline-flex shrink-0 [&>svg]:size-full size-[12px]"
                 >{@html RestartIcon}</span
               >
               {$i18n.t('common.restart')}
@@ -373,7 +369,7 @@
           </button>
         {:else}
           <button
-            class="min-h-[28px] max-w-full rounded-lg border border-gray-100/50 bg-gray-50/40 px-2.5 py-1 text-[12px] leading-[18px] text-gray-900 outline-none transition-colors dark:border-white/[0.04] dark:bg-white/[0.03] dark:text-gray-100 disabled:cursor-not-allowed disabled:opacity-50 shrink-0 hover:bg-gray-50 dark:hover:bg-white/[0.06] flex items-center gap-1.5 {starting
+            class="inline-flex max-w-full shrink-0 items-center justify-center gap-[6px] whitespace-nowrap border-none bg-transparent p-0 text-[12px] leading-[16px] text-[oklch(0.69_0_0)] transition-colors duration-150 hover:text-[oklch(0.2_0_0)] disabled:cursor-not-allowed disabled:opacity-50 dark:hover:text-white [&>span[aria-hidden]]:size-[12px] {starting
               ? 'pointer-events-none opacity-50'
               : ''}"
             disabled={starting}
@@ -382,12 +378,12 @@
             {#if starting}
               <span
                 aria-hidden="true"
-                class="inline-flex shrink-0 [&>svg]:size-full size-3 animate-spin"
+                class="inline-flex shrink-0 [&>svg]:size-full size-[12px] animate-spin"
                 >{@html RefreshIcon}</span
               >
               {$i18n.t('common.starting')}
             {:else}
-              <span aria-hidden="true" class="inline-flex shrink-0 [&>svg]:size-full w-3 h-3"
+              <span aria-hidden="true" class="inline-flex shrink-0 [&>svg]:size-full size-[12px]"
                 >{@html PlayIcon}</span
               >
               {$i18n.t('common.start')}
@@ -396,7 +392,7 @@
         {/if}
 
         <button
-          class="min-h-[28px] max-w-full rounded-lg border border-gray-100/50 bg-gray-50/40 px-2.5 py-1 text-[12px] leading-[18px] text-gray-900 outline-none transition-colors dark:border-white/[0.04] dark:bg-white/[0.03] dark:text-gray-100 disabled:cursor-not-allowed disabled:opacity-50 shrink-0 hover:bg-gray-50 dark:hover:bg-white/[0.06] flex items-center gap-1.5 {settingUp
+          class="inline-flex max-w-full shrink-0 items-center justify-center gap-[6px] whitespace-nowrap border-none bg-transparent p-0 text-[12px] leading-[16px] text-[oklch(0.69_0_0)] transition-colors duration-150 hover:text-[oklch(0.2_0_0)] disabled:cursor-not-allowed disabled:opacity-50 dark:hover:text-white [&>span[aria-hidden]]:size-[12px] {settingUp
             ? 'pointer-events-none opacity-50'
             : ''}"
           disabled={settingUp}
@@ -405,12 +401,12 @@
           {#if settingUp}
             <span
               aria-hidden="true"
-              class="inline-flex shrink-0 [&>svg]:size-full size-3 animate-spin"
+              class="inline-flex shrink-0 [&>svg]:size-full size-[12px] animate-spin"
               >{@html RefreshIcon}</span
             >
             {$i18n.t('common.downloading')}
           {:else}
-            <span aria-hidden="true" class="inline-flex shrink-0 [&>svg]:size-full w-3 h-3"
+            <span aria-hidden="true" class="inline-flex shrink-0 [&>svg]:size-full size-[12px]"
               >{@html DownloadIcon}</span
             >
             {lsInfo?.binaryPath
@@ -423,25 +419,25 @@
 
     <!-- Running Instance Info -->
     {#if isRunning && lsInfo}
-      <div class="pt-1">
-        <div class="text-[12px] text-gray-800 dark:text-gray-200 mb-3">
+      <div class="mb-[4px] pb-[14px]">
+        <div class="text-[12px] leading-[16px] font-normal text-[#171717] dark:text-white mb-2">
           {$i18n.t('settings.inference.runningInstance')}
         </div>
-        <div class="flex flex-col gap-2">
-          <div class="flex items-center justify-between">
-            <span class="text-[11px] leading-normal text-gray-600 dark:text-gray-400">URL</span>
+        <div class="text-[11px] [&>div]:py-[4px] [&>div]:gap-[12px] max-sm:[&>div>:last-child]:max-w-[75%]">
+          <div class="flex min-w-0 items-center justify-between gap-[16px] py-[7px] max-sm:gap-[12px] [&>:first-child]:min-w-0 [&>:last-child]:shrink-0 max-sm:[&>:last-child:not([role=switch])]:max-w-[65%]">
+            <span class="text-[11px] leading-[16px] text-[oklch(0.51_0_0)] dark:text-[oklch(0.77_0_0)]">URL</span>
             <button
-              class="text-[12px] font-mono transition bg-transparent border-none text-gray-900 dark:text-gray-100 p-0 underline decoration-dotted underline-offset-2 cursor-pointer"
+              class="min-w-0 [overflow-wrap:anywhere] text-right text-[11px] text-[#676767] transition-colors duration-150 hover:text-[#171717] dark:text-[#b4b4b4] dark:hover:text-white font-mono"
               onclick={() => window.open(lsInfo.url)}>{lsInfo.url}</button
             >
           </div>
-          <div class="flex items-center justify-between">
-            <span class="text-[11px] leading-normal text-gray-600 dark:text-gray-400">PID</span>
+          <div class="flex min-w-0 items-center justify-between gap-[16px] py-[7px] max-sm:gap-[12px] [&>:first-child]:min-w-0 [&>:last-child]:shrink-0 max-sm:[&>:last-child:not([role=switch])]:max-w-[65%]">
+            <span class="text-[11px] leading-[16px] text-[oklch(0.51_0_0)] dark:text-[oklch(0.77_0_0)]">PID</span>
             <span class="text-[12px] font-mono">{lsInfo.pid}</span>
           </div>
           {#if lsInfo.version}
-            <div class="flex items-center justify-between">
-              <span class="text-[11px] leading-normal text-gray-600 dark:text-gray-400"
+            <div class="flex min-w-0 items-center justify-between gap-[16px] py-[7px] max-sm:gap-[12px] [&>:first-child]:min-w-0 [&>:last-child]:shrink-0 max-sm:[&>:last-child:not([role=switch])]:max-w-[65%]">
+              <span class="text-[11px] leading-[16px] text-[oklch(0.51_0_0)] dark:text-[oklch(0.77_0_0)]"
                 >{$i18n.t('settings.inference.build')}</span
               >
               <span class="text-[12px] font-mono">{lsInfo.version}</span>
@@ -452,22 +448,22 @@
     {/if}
 
     <!-- Update Section -->
-    <div class="pt-1">
-      <div class="flex items-center justify-between">
+    <div class="mb-[4px] pb-[14px]">
+      <div class="flex min-w-0 items-center justify-between gap-[16px] py-[7px] max-sm:gap-[12px] [&>:first-child]:min-w-0 [&>:last-child]:shrink-0 max-sm:[&>:last-child:not([role=switch])]:max-w-[65%]">
         <div>
-          <div class="text-[12px] text-gray-800 dark:text-gray-200">
+          <div class="text-[12px] leading-[16px] font-normal text-[#171717] dark:text-white">
             {$i18n.t('settings.about.softwareUpdate')}
           </div>
           {#if updateStatus === 'up-to-date'}
-            <div class="text-[11px] leading-normal text-gray-600 dark:text-gray-400 mt-0.5">
+            <div class="text-[11px] leading-[16px] text-[oklch(0.51_0_0)] dark:text-[oklch(0.77_0_0)] mt-0.5">
               {$i18n.t('settings.inference.upToDate')}
             </div>
           {:else if updateStatus === 'available' && updateInfo?.latestVersion}
-            <div class="text-[11px] leading-normal text-gray-600 dark:text-gray-400 mt-0.5">
+            <div class="text-[11px] leading-[16px] text-[oklch(0.51_0_0)] dark:text-[oklch(0.77_0_0)] mt-0.5">
               {$i18n.t('settings.inference.updateAvailable', { version: updateInfo.latestVersion })}
             </div>
           {:else if updateStatus === 'updating'}
-            <div class="text-[11px] leading-normal text-gray-600 dark:text-gray-400 mt-0.5">
+            <div class="text-[11px] leading-[16px] text-[oklch(0.51_0_0)] dark:text-[oklch(0.77_0_0)] mt-0.5">
               {$i18n.t('settings.inference.updating')}
             </div>
           {:else if updateStatus === 'error'}
@@ -478,38 +474,38 @@
         <div>
           {#if updateStatus === 'idle' || updateStatus === 'up-to-date' || updateStatus === 'error'}
             <button
-              class="min-h-[28px] max-w-full rounded-lg border border-gray-100/50 bg-gray-50/40 px-2.5 py-1 text-[12px] leading-[18px] text-gray-900 outline-none transition-colors dark:border-white/[0.04] dark:bg-white/[0.03] dark:text-gray-100 disabled:cursor-not-allowed disabled:opacity-50 shrink-0 hover:bg-gray-50 dark:hover:bg-white/[0.06]"
+              class="inline-flex max-w-full shrink-0 items-center justify-center gap-[6px] whitespace-nowrap border-none bg-transparent p-0 text-[12px] leading-[16px] text-[oklch(0.69_0_0)] transition-colors duration-150 hover:text-[oklch(0.2_0_0)] disabled:cursor-not-allowed disabled:opacity-50 dark:hover:text-white [&>span[aria-hidden]]:size-[12px]"
               onclick={checkUpdate}
             >
               {$i18n.t('settings.inference.checkForUpdates')}
             </button>
           {:else if updateStatus === 'checking'}
             <button
-              class="min-h-[28px] max-w-full rounded-lg border border-gray-100/50 bg-gray-50/40 px-2.5 py-1 text-[12px] leading-[18px] text-gray-900 outline-none transition-colors dark:border-white/[0.04] dark:bg-white/[0.03] dark:text-gray-100 disabled:cursor-not-allowed disabled:opacity-50 shrink-0 hover:bg-gray-50 dark:hover:bg-white/[0.06] pointer-events-none flex items-center gap-1.5"
+              class="inline-flex max-w-full shrink-0 items-center justify-center gap-[6px] whitespace-nowrap border-none bg-transparent p-0 text-[12px] leading-[16px] text-[oklch(0.69_0_0)] transition-colors duration-150 hover:text-[oklch(0.2_0_0)] disabled:cursor-not-allowed disabled:opacity-50 dark:hover:text-white [&>span[aria-hidden]]:size-[12px]"
               disabled
             >
               <span
                 aria-hidden="true"
-                class="inline-flex shrink-0 [&>svg]:size-full w-3 h-3 animate-spin"
+                class="inline-flex shrink-0 [&>svg]:size-full size-[12px] animate-spin"
                 >{@html RefreshIcon}</span
               >
               {$i18n.t('settings.inference.checking')}
             </button>
           {:else if updateStatus === 'available'}
             <button
-              class="min-h-[28px] max-w-full rounded-lg border border-gray-100/50 bg-gray-50/40 px-2.5 py-1 text-[12px] leading-[18px] text-gray-900 outline-none transition-colors dark:border-white/[0.04] dark:bg-white/[0.03] dark:text-gray-100 disabled:cursor-not-allowed disabled:opacity-50 shrink-0 hover:bg-gray-50 dark:hover:bg-white/[0.06]"
+              class="inline-flex max-w-full shrink-0 items-center justify-center gap-[6px] whitespace-nowrap border-none bg-transparent p-0 text-[12px] leading-[16px] text-[oklch(0.69_0_0)] transition-colors duration-150 hover:text-[oklch(0.2_0_0)] disabled:cursor-not-allowed disabled:opacity-50 dark:hover:text-white [&>span[aria-hidden]]:size-[12px]"
               onclick={doUpdate}
             >
               {$i18n.t('common.update')}
             </button>
           {:else if updateStatus === 'updating'}
             <button
-              class="min-h-[28px] max-w-full rounded-lg border border-gray-100/50 bg-gray-50/40 px-2.5 py-1 text-[12px] leading-[18px] text-gray-900 outline-none transition-colors dark:border-white/[0.04] dark:bg-white/[0.03] dark:text-gray-100 disabled:cursor-not-allowed disabled:opacity-50 shrink-0 hover:bg-gray-50 dark:hover:bg-white/[0.06] pointer-events-none flex items-center gap-1.5"
+              class="inline-flex max-w-full shrink-0 items-center justify-center gap-[6px] whitespace-nowrap border-none bg-transparent p-0 text-[12px] leading-[16px] text-[oklch(0.69_0_0)] transition-colors duration-150 hover:text-[oklch(0.2_0_0)] disabled:cursor-not-allowed disabled:opacity-50 dark:hover:text-white [&>span[aria-hidden]]:size-[12px]"
               disabled
             >
               <span
                 aria-hidden="true"
-                class="inline-flex shrink-0 [&>svg]:size-full size-3 animate-spin"
+                class="inline-flex shrink-0 [&>svg]:size-full size-[12px] animate-spin"
                 >{@html RefreshIcon}</span
               >
               {$i18n.t('common.updating')}
@@ -520,14 +516,12 @@
     </div>
 
     <!-- Start on Launch -->
-    <div
-      class="flex min-w-0 items-center justify-between gap-4 max-sm:flex-wrap [&>:first-child]:min-w-0 [&>:last-child]:shrink-0 sm:[&>:last-child]:max-w-[55%]"
-    >
+    <div class="flex min-w-0 items-center justify-between gap-[16px] py-[7px] max-sm:gap-[12px] [&>:first-child]:min-w-0 [&>:last-child]:shrink-0 max-sm:[&>:last-child:not([role=switch])]:max-w-[65%]">
       <div>
-        <div class="text-[12px] text-gray-800 dark:text-gray-200">
+        <div class="text-[12px] leading-[16px] font-normal text-[#171717] dark:text-white">
           {$i18n.t('settings.inference.startOnLaunch')}
         </div>
-        <div class="text-[11px] leading-normal text-gray-600 dark:text-gray-400 mt-0.5">
+        <div class="text-[11px] leading-[16px] text-[oklch(0.51_0_0)] dark:text-[oklch(0.77_0_0)] mt-0.5">
           {$i18n.t('settings.inference.startOnLaunchDesc')}
         </div>
       </div>
@@ -539,20 +533,19 @@
     </div>
 
     <!-- Version -->
-    <div
-      class="flex min-w-0 items-center justify-between gap-4 max-sm:flex-wrap [&>:first-child]:min-w-0 [&>:last-child]:shrink-0 sm:[&>:last-child]:max-w-[55%]"
-    >
+    <div class="flex min-w-0 items-center justify-between gap-[16px] py-[7px] max-sm:gap-[12px] [&>:first-child]:min-w-0 [&>:last-child]:shrink-0 max-sm:[&>:last-child:not([role=switch])]:max-w-[65%]">
       <div>
-        <div class="text-[12px] text-gray-800 dark:text-gray-200">
+        <div class="text-[12px] leading-[16px] font-normal text-[#171717] dark:text-white">
           {$i18n.t('settings.inference.version')}
         </div>
-        <div class="text-[11px] leading-normal text-gray-600 dark:text-gray-400 mt-0.5">
+        <div class="text-[11px] leading-[16px] text-[oklch(0.51_0_0)] dark:text-[oklch(0.77_0_0)] mt-0.5">
           {$i18n.t('settings.inference.versionDesc')}
         </div>
       </div>
       <input
         type="text"
-        class="placeholder:text-gray-600 dark:placeholder:text-gray-400 min-h-[28px] max-w-full rounded-lg border border-gray-100/50 bg-gray-50/40 px-2.5 py-1 text-[12px] leading-[18px] text-gray-900 outline-none transition-colors dark:border-white/[0.04] dark:bg-white/[0.03] dark:text-gray-100 disabled:cursor-not-allowed disabled:opacity-50 w-24 text-right font-mono"
+        class="h-[28px] min-h-[28px] max-w-full rounded-[8px] border border-[oklch(0.94_0_0/0.5)] outline-hidden! bg-[oklch(0.98_0_0/0.4)] px-[8px] py-0 text-[12px] leading-[16px] font-normal text-[oklch(0.42_0_0)] transition-colors duration-150 placeholder:text-[oklch(0.85_0_0)] focus:border-blue-400 disabled:cursor-not-allowed disabled:opacity-50 dark:border-white/[0.04] dark:bg-white/[0.03] dark:text-[oklch(0.85_0_0)] dark:placeholder:text-[oklch(0.42_0_0)] dark:focus:border-blue-500 [&::-webkit-outer-spin-button]:appearance-none [&::-webkit-outer-spin-button]:m-0 [&::-webkit-inner-spin-button]:appearance-none [&::-webkit-inner-spin-button]:m-0 [&[type=number]]:[-moz-appearance:textfield] w-[96px]"
+        aria-label={$i18n.t('settings.inference.version')}
         value={$config?.llamaCpp?.version ?? 'latest'}
         onchange={(e) =>
           updateConfig('version', (e.target as HTMLInputElement).value.trim() || 'latest')}
@@ -560,20 +553,18 @@
     </div>
 
     <!-- Variant -->
-    <div
-      class="flex min-w-0 items-center justify-between gap-4 max-sm:flex-wrap [&>:first-child]:min-w-0 [&>:last-child]:shrink-0 sm:[&>:last-child]:max-w-[55%]"
-    >
+    <div class="flex min-w-0 items-center justify-between gap-[16px] py-[7px] max-sm:gap-[12px] [&>:first-child]:min-w-0 [&>:last-child]:shrink-0 max-sm:[&>:last-child:not([role=switch])]:max-w-[65%]">
       <div>
-        <div class="text-[12px] text-gray-800 dark:text-gray-200">
+        <div class="text-[12px] leading-[16px] font-normal text-[#171717] dark:text-white">
           {$i18n.t('settings.inference.variant')}
         </div>
-        <div class="text-[11px] leading-normal text-gray-600 dark:text-gray-400 mt-0.5">
+        <div class="text-[11px] leading-[16px] text-[oklch(0.51_0_0)] dark:text-[oklch(0.77_0_0)] mt-0.5">
           {$i18n.t('settings.inference.variantDesc')}
         </div>
       </div>
-      <div class="relative inline-flex max-w-full">
+      <div class="relative inline-flex max-w-full [&>span]:right-[8px] [&>span]:size-[14px] [&>span]:text-[oklch(0.77_0_0)] dark:[&>span]:text-[oklch(0.69_0_0)]">
         <select
-          class="w-full min-w-[100px] appearance-none text-ellipsis pr-[30px] min-h-[28px] max-w-full rounded-lg border border-gray-100/50 bg-gray-50/40 px-2.5 py-1 text-[12px] leading-[18px] text-gray-900 outline-none transition-colors dark:border-white/[0.04] dark:bg-white/[0.03] dark:text-gray-100 disabled:cursor-not-allowed disabled:opacity-50"
+          class="w-full min-w-[100px] appearance-none text-ellipsis ps-[10px] pe-[32px] [field-sizing:content] h-[28px] min-h-[28px] max-w-full rounded-[8px] border border-[oklch(0.94_0_0/0.5)] outline-hidden! bg-[oklch(0.98_0_0/0.4)] px-[8px] py-0 text-[12px] leading-[16px] font-normal text-[oklch(0.42_0_0)] transition-colors duration-150 placeholder:text-[oklch(0.85_0_0)] focus:border-blue-400 disabled:cursor-not-allowed disabled:opacity-50 dark:border-white/[0.04] dark:bg-white/[0.03] dark:text-[oklch(0.85_0_0)] dark:placeholder:text-[oklch(0.42_0_0)] dark:focus:border-blue-500 [&::-webkit-outer-spin-button]:appearance-none [&::-webkit-outer-spin-button]:m-0 [&::-webkit-inner-spin-button]:appearance-none [&::-webkit-inner-spin-button]:m-0 [&[type=number]]:[-moz-appearance:textfield]"
           aria-label={$i18n.t('settings.inference.variant')}
           onchange={(e) => updateConfig('variant', (e.target as HTMLSelectElement).value)}
         >
@@ -593,20 +584,19 @@
     </div>
 
     <!-- Port -->
-    <div
-      class="flex min-w-0 items-center justify-between gap-4 max-sm:flex-wrap [&>:first-child]:min-w-0 [&>:last-child]:shrink-0 sm:[&>:last-child]:max-w-[55%]"
-    >
+    <div class="flex min-w-0 items-center justify-between gap-[16px] py-[7px] max-sm:gap-[12px] [&>:first-child]:min-w-0 [&>:last-child]:shrink-0 max-sm:[&>:last-child:not([role=switch])]:max-w-[65%]">
       <div>
-        <div class="text-[12px] text-gray-800 dark:text-gray-200">
+        <div class="text-[12px] leading-[16px] font-normal text-[#171717] dark:text-white">
           {$i18n.t('settings.inference.port')}
         </div>
-        <div class="text-[11px] leading-normal text-gray-600 dark:text-gray-400 mt-0.5">
+        <div class="text-[11px] leading-[16px] text-[oklch(0.51_0_0)] dark:text-[oklch(0.77_0_0)] mt-0.5">
           {$i18n.t('settings.inference.portDesc')}
         </div>
       </div>
       <input
         type="number"
-        class="placeholder:text-gray-600 dark:placeholder:text-gray-400 min-h-[28px] max-w-full rounded-lg border border-gray-100/50 bg-gray-50/40 px-2.5 py-1 text-[12px] leading-[18px] text-gray-900 outline-none transition-colors dark:border-white/[0.04] dark:bg-white/[0.03] dark:text-gray-100 disabled:cursor-not-allowed disabled:opacity-50 w-20 text-right"
+        class="h-[28px] min-h-[28px] max-w-full rounded-[8px] border border-[oklch(0.94_0_0/0.5)] outline-hidden! bg-[oklch(0.98_0_0/0.4)] px-[8px] py-0 text-[12px] leading-[16px] font-normal text-[oklch(0.42_0_0)] transition-colors duration-150 placeholder:text-[oklch(0.85_0_0)] focus:border-blue-400 disabled:cursor-not-allowed disabled:opacity-50 dark:border-white/[0.04] dark:bg-white/[0.03] dark:text-[oklch(0.85_0_0)] dark:placeholder:text-[oklch(0.42_0_0)] dark:focus:border-blue-500 [&::-webkit-outer-spin-button]:appearance-none [&::-webkit-outer-spin-button]:m-0 [&::-webkit-inner-spin-button]:appearance-none [&::-webkit-inner-spin-button]:m-0 [&[type=number]]:[-moz-appearance:textfield] w-[88px]"
+        aria-label={$i18n.t('settings.inference.port')}
         value={$config?.llamaCpp?.port ?? 18881}
         onchange={(e) =>
           updateConfig('port', parseInt((e.target as HTMLInputElement).value) || 18881)}
@@ -614,20 +604,19 @@
     </div>
 
     <!-- Extra Arguments -->
-    <div
-      class="flex min-w-0 items-center justify-between gap-4 max-sm:flex-wrap [&>:first-child]:min-w-0 [&>:last-child]:shrink-0 sm:[&>:last-child]:max-w-[55%]"
-    >
-      <div class="min-w-0">
-        <div class="text-[12px] text-gray-800 dark:text-gray-200">
+    <div class="flex min-w-0 items-center justify-between gap-[16px] py-[7px] max-sm:gap-[12px] [&>:first-child]:min-w-0 [&>:last-child]:shrink-0 max-sm:[&>:last-child:not([role=switch])]:max-w-[65%]">
+      <div>
+        <div class="text-[12px] leading-[16px] font-normal text-[#171717] dark:text-white">
           {$i18n.t('settings.inference.extraArguments')}
         </div>
-        <div class="text-[11px] leading-normal text-gray-600 dark:text-gray-400 mt-0.5">
+        <div class="text-[11px] leading-[16px] text-[oklch(0.51_0_0)] dark:text-[oklch(0.77_0_0)] mt-0.5">
           {$i18n.t('settings.inference.extraArgumentsDesc')}
         </div>
       </div>
       <input
         type="text"
-        class="placeholder:text-gray-600 dark:placeholder:text-gray-400 min-h-[28px] max-w-full rounded-lg border border-gray-100/50 bg-gray-50/40 px-2.5 py-1 text-[12px] leading-[18px] text-gray-900 outline-none transition-colors dark:border-white/[0.04] dark:bg-white/[0.03] dark:text-gray-100 disabled:cursor-not-allowed disabled:opacity-50 min-w-0 flex-1 max-w-[280px] text-right font-mono"
+        class="h-[28px] min-h-[28px] max-w-full rounded-[8px] border border-[oklch(0.94_0_0/0.5)] outline-hidden! bg-[oklch(0.98_0_0/0.4)] px-[8px] py-0 text-[12px] leading-[16px] font-normal text-[oklch(0.42_0_0)] transition-colors duration-150 placeholder:text-[oklch(0.85_0_0)] focus:border-blue-400 disabled:cursor-not-allowed disabled:opacity-50 dark:border-white/[0.04] dark:bg-white/[0.03] dark:text-[oklch(0.85_0_0)] dark:placeholder:text-[oklch(0.42_0_0)] dark:focus:border-blue-500 [&::-webkit-outer-spin-button]:appearance-none [&::-webkit-outer-spin-button]:m-0 [&::-webkit-inner-spin-button]:appearance-none [&::-webkit-inner-spin-button]:m-0 [&[type=number]]:[-moz-appearance:textfield] min-w-[112px] flex-1 basis-[280px] shrink! max-w-[280px]"
+        aria-label={$i18n.t('settings.inference.extraArguments')}
         placeholder={$i18n.t('settings.inference.extraArgumentsPlaceholder')}
         value={($config?.llamaCpp?.extraArgs ?? []).join(' ')}
         onchange={(e) => {
@@ -639,19 +628,17 @@
 
     <!-- Uninstall -->
     {#if lsInfo?.binaryPath}
-      <div
-        class="flex min-w-0 items-center justify-between gap-4 max-sm:flex-wrap [&>:first-child]:min-w-0 [&>:last-child]:shrink-0 sm:[&>:last-child]:max-w-[55%]"
-      >
+      <div class="flex min-w-0 items-center justify-between gap-[16px] py-[7px] max-sm:gap-[12px] [&>:first-child]:min-w-0 [&>:last-child]:shrink-0 max-sm:[&>:last-child:not([role=switch])]:max-w-[65%] mt-[10px] pt-[16px]!">
         <div>
-          <div class="text-[12px] text-gray-800 dark:text-gray-200">
+          <div class="text-[12px] leading-[16px] font-normal text-[#171717] dark:text-white">
             {$i18n.t('settings.inference.uninstall')}
           </div>
-          <div class="text-[11px] leading-normal text-gray-600 dark:text-gray-400 mt-0.5">
+          <div class="text-[11px] leading-[16px] text-[oklch(0.51_0_0)] dark:text-[oklch(0.77_0_0)] mt-0.5">
             {$i18n.t('settings.inference.uninstallDesc')}
           </div>
         </div>
         <button
-          class="min-h-[28px] max-w-full rounded-lg border border-gray-100/50 bg-gray-50/40 px-2.5 py-1 text-[12px] leading-[18px] text-gray-900 outline-none transition-colors dark:border-white/[0.04] dark:bg-white/[0.03] dark:text-gray-100 disabled:cursor-not-allowed disabled:opacity-50 shrink-0 hover:bg-gray-50 dark:hover:bg-white/[0.06] flex items-center gap-1.5 {uninstalling
+          class="inline-flex max-w-full shrink-0 items-center justify-center gap-[6px] whitespace-nowrap border-none bg-transparent p-0 text-[12px] leading-[16px] text-[oklch(0.69_0_0)] transition-colors duration-150 hover:text-[oklch(0.2_0_0)] disabled:cursor-not-allowed disabled:opacity-50 dark:hover:text-white [&>span[aria-hidden]]:size-[12px] {uninstalling
             ? 'pointer-events-none opacity-50'
             : ''}"
           disabled={uninstalling}
@@ -671,7 +658,7 @@
           {#if uninstalling}
             <span
               aria-hidden="true"
-              class="inline-flex shrink-0 [&>svg]:size-full size-3 animate-spin"
+              class="inline-flex shrink-0 [&>svg]:size-full size-[12px] animate-spin"
               >{@html RefreshIcon}</span
             >
             {$i18n.t('common.uninstalling')}
@@ -683,3 +670,5 @@
     {/if}
   </div>
 {/if}
+
+</div>
