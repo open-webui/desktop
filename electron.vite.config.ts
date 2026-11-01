@@ -14,9 +14,7 @@ export default defineConfig({
       rollupOptions: {
         input: {
           index: resolve(__dirname, 'src/preload/index.ts'),
-          'content-preload': resolve(__dirname, 'src/preload/content-preload.ts'),
-          'spotlight-preload': resolve(__dirname, 'src/preload/spotlight-preload.ts'),
-          'voice-input-preload': resolve(__dirname, 'src/preload/voice-input-preload.ts')
+          'content-preload': resolve(__dirname, 'src/preload/content-preload.ts')
         }
       }
     }
@@ -25,9 +23,7 @@ export default defineConfig({
     build: {
       rollupOptions: {
         input: {
-          index: resolve(__dirname, 'src/renderer/index.html'),
-          spotlight: resolve(__dirname, 'src/renderer/spotlight.html'),
-          'voice-input': resolve(__dirname, 'src/renderer/voice-input.html')
+          index: resolve(__dirname, 'src/renderer/index.html')
         }
       }
     },

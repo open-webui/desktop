@@ -1,4 +1,13 @@
 <script lang="ts">
+  import DownloadIcon from 'iconoir/icons/download.svg?raw'
+  import HeartIcon from 'iconoir/icons/heart.svg?raw'
+  import NavArrowLeftIcon from 'iconoir/icons/nav-arrow-left.svg?raw'
+  import NavArrowRightIcon from 'iconoir/icons/nav-arrow-right.svg?raw'
+  import OpenNewWindowIcon from 'iconoir/icons/open-new-window.svg?raw'
+  import RefreshIcon from 'iconoir/icons/refresh.svg?raw'
+  import SearchIcon from 'iconoir/icons/search.svg?raw'
+  import TrashIcon from 'iconoir/icons/trash.svg?raw'
+  import XmarkIcon from 'iconoir/icons/xmark.svg?raw'
   import { onMount } from 'svelte'
   import i18n from '../../../i18n'
 
@@ -93,7 +102,7 @@
         searchResults = await window.electronAPI.searchHfModels(q.trim())
       } catch (e: any) {
         console.error('Search failed:', e)
-        searchError = e?.message ?? 'Search failed'
+        searchError = e?.message ?? $i18n.t('error.searchFailed')
         searchResults = []
       }
       searching = false
@@ -184,220 +193,277 @@
 </script>
 
 {#if !loaded}
-  <div class="py-6 text-[12px] opacity-20 text-center">{$i18n.t('common.loading')}</div>
+  <div class="py-6 text-[12px] text-center">{$i18n.t('common.loading')}</div>
 {:else}
-<div class="flex flex-col divide-y divide-white/[0.04]">
-
-  <!-- Models directory -->
-  <div class="py-4 flex items-center justify-between gap-4">
-    <div class="shrink-0">
-      <div class="text-[13px] opacity-70">{$i18n.t('settings.models.modelsDirectory')}</div>
-      <div class="text-[11px] opacity-25 mt-0.5">{$i18n.t('settings.models.modelsHint')}</div>
-    </div>
-    <button class="text-[12px] font-mono hover:opacity-80 transition bg-transparent border-none text-[#1d1d1f] dark:text-[#fafafa] p-0 underline decoration-dotted underline-offset-2 cursor-pointer flex items-center gap-1.5 min-w-0 truncate" onclick={() => { if (modelsDir) window.electronAPI.openPath(modelsDir) }}>
-      <span class="truncate">{modelsDir || '…'}</span>
-      <svg class="w-3 h-3 shrink-0" fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="1.5">
-        <path stroke-linecap="round" stroke-linejoin="round" d="M13.5 6H5.25A2.25 2.25 0 003 8.25v10.5A2.25 2.25 0 005.25 21h10.5A2.25 2.25 0 0018 18.75V10.5m-10.5 6L21 3m0 0h-5.25M21 3v5.25" />
-      </svg>
-    </button>
-  </div>
-
-  <!-- Downloaded models + active downloads -->
-  <div class="py-4">
-    <div class="text-[12px] opacity-50 mb-2">{$i18n.t('settings.models.downloadedModels')}</div>
-
-    {#if models.length > 0 || hasActiveDownloads}
-      <div class="flex flex-col">
-
-        <!-- Active downloads -->
-        {#each [...activeDownloads.values()] as dl (dlKey(dl.repo, dl.filename))}
-          <div class="flex items-center gap-3 py-2 group">
-            <div class="min-w-0 flex-1">
-              <div class="flex items-center gap-2">
-                <span class="text-[12px] opacity-60 truncate font-mono">{dl.filename}</span>
-                <span class="text-[10px] opacity-30 font-mono shrink-0">{dl.percent.toFixed(1)}%</span>
-              </div>
-              <div class="mt-1.5 w-full h-[3px] bg-black/[0.06] dark:bg-white/[0.06] rounded-full overflow-hidden">
-                <div
-                  class="h-full bg-emerald-400/70 rounded-full transition-[width] duration-300"
-                  style="width: {dl.percent}%"
-                ></div>
-              </div>
-              <div class="text-[10px] opacity-20 mt-1 truncate">{dl.repo}</div>
-            </div>
-            <button
-              class="opacity-0 group-hover:opacity-40 hover:!opacity-70 transition bg-transparent border-none text-[#1d1d1f] dark:text-[#fafafa] p-1 shrink-0"
-              onclick={() => cancelDownload(dl.repo, dl.filename)}
-              title={$i18n.t('settings.models.cancelDownload')}
-            >
-              <svg class="w-3 h-3" fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="2">
-                <path stroke-linecap="round" stroke-linejoin="round" d="M6 18L18 6M6 6l12 12" />
-              </svg>
-            </button>
-          </div>
-        {/each}
-
-        <!-- Completed downloads -->
-        {#each models as model}
-          <div class="flex items-center gap-3 py-2 group">
-            <div class="min-w-0 flex-1">
-              <div class="text-[12px] opacity-60 truncate font-mono">{model.filename}</div>
-              <div class="text-[10px] opacity-20 truncate mt-0.5">{model.repo} · {formatSize(model.size)}</div>
-            </div>
-            <button
-              class="opacity-0 group-hover:opacity-30 hover:!opacity-60 transition bg-transparent border-none text-[#1d1d1f] dark:text-[#fafafa] p-1 shrink-0 {deleting === `${model.repo}/${model.filename}` ? '!opacity-30 pointer-events-none' : ''}"
-              onclick={() => removeModel(model.repo, model.filename)}
-              title={$i18n.t('settings.models.deleteModel')}
-            >
-              {#if deleting === `${model.repo}/${model.filename}`}
-                <div class="w-3 h-3 rounded-full border-[1.5px] border-black/20 dark:border-white/30 border-t-transparent animate-spin"></div>
-              {:else}
-                <svg class="w-3 h-3" fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="1.5">
-                  <path stroke-linecap="round" stroke-linejoin="round" d="M14.74 9l-.346 9m-4.788 0L9.26 9m9.968-3.21c.342.052.682.107 1.022.166m-1.022-.165L18.16 19.673a2.25 2.25 0 01-2.244 2.077H8.084a2.25 2.25 0 01-2.244-2.077L4.772 5.79m14.456 0a48.108 48.108 0 00-3.478-.397m-12 .562c.34-.059.68-.114 1.022-.165m0 0a48.11 48.11 0 013.478-.397m7.5 0v-.916c0-1.18-.91-2.164-2.09-2.201a51.964 51.964 0 00-3.32 0c-1.18.037-2.09 1.022-2.09 2.201v.916m7.5 0a48.667 48.667 0 00-7.5 0" />
-                </svg>
-              {/if}
-            </button>
-          </div>
-        {/each}
-      </div>
-    {:else}
-      <div class="text-[11px] opacity-20 py-3">{$i18n.t('settings.models.noModels')}</div>
-    {/if}
-  </div>
-
-  <!-- Download from HF -->
-  <div class="py-4">
-    <div class="text-[12px] opacity-50 mb-2">
-      {#if selectedRepo}
-        <button
-          class="opacity-70 hover:opacity-100 transition bg-transparent border-none text-[#1d1d1f] dark:text-[#fafafa] p-0 text-[12px] flex items-center gap-1 font-mono truncate"
-          onclick={backToSearch}
-        >
-          <svg class="w-3 h-3 shrink-0 opacity-50" fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="2">
-            <path stroke-linecap="round" stroke-linejoin="round" d="M15.75 19.5L8.25 12l7.5-7.5" />
-          </svg>
-          <span class="truncate">{selectedRepo}</span>
-        </button>
-      {:else}
-        {$i18n.t('settings.models.downloadFromHF')}
-      {/if}
-    </div>
-
-    {#if selectedRepo}
-      <!-- Repo file browser -->
-      {#if loadingFiles}
-        <div class="flex items-center gap-2 py-3 justify-center">
-          <div class="w-3 h-3 rounded-full border-[1.5px] border-black/20 dark:border-white/30 border-t-transparent animate-spin"></div>
-          <span class="text-[11px] opacity-30">{$i18n.t('settings.models.loadingFiles')}</span>
+  <div class="flex flex-col gap-4">
+    <!-- Models directory -->
+    <div
+      class="flex min-w-0 items-center justify-between gap-[16px] py-[7px] max-sm:gap-[12px] [&>:first-child]:min-w-0 [&>:last-child]:shrink-0 max-sm:[&>:last-child:not([role=switch])]:max-w-[65%]"
+    >
+      <div class="min-w-0">
+        <div class="text-[12px] leading-[16px] font-normal text-[#171717] dark:text-white">
+          {$i18n.t('settings.models.modelsDirectory')}
         </div>
-      {:else if repoFiles.length === 0}
-        <div class="text-[11px] opacity-20 text-center py-3">{$i18n.t('settings.models.noGgufFiles')}</div>
-      {:else}
+        <div class="text-[11px] leading-[16px] text-[oklch(0.51_0_0)] dark:text-[oklch(0.77_0_0)] mt-0.5">
+          {$i18n.t('settings.models.modelsHint')}
+        </div>
+      </div>
+      <button
+        class="inline-flex max-w-full shrink-0 items-center justify-center gap-[6px] whitespace-nowrap border-none bg-transparent p-0 text-[12px] leading-[16px] text-[oklch(0.69_0_0)] transition-colors duration-150 hover:text-[oklch(0.2_0_0)] disabled:cursor-not-allowed disabled:opacity-50 dark:hover:text-white [&>span[aria-hidden]]:size-[12px] min-w-0 truncate font-mono"
+        onclick={() => {
+          if (modelsDir) window.electronAPI.openPath(modelsDir)
+        }}
+      >
+        <span class="truncate">{modelsDir || '…'}</span>
+        <span aria-hidden="true" class="inline-flex shrink-0 [&>svg]:size-full size-[12px] shrink-0"
+          >{@html OpenNewWindowIcon}</span
+        >
+      </button>
+    </div>
+
+    <!-- Downloaded models + active downloads -->
+    <div class="pt-1">
+      <div class="text-[12px] mb-2">{$i18n.t('settings.models.downloadedModels')}</div>
+
+      {#if models.length > 0 || hasActiveDownloads}
         <div class="flex flex-col">
-          {#each repoFiles as file}
-            {@const downloaded = isDownloaded(selectedRepo, file.filename)}
-            {@const dlActive = isDownloading(selectedRepo, file.filename)}
-            <div class="flex items-center gap-3 py-2 group">
+          <!-- Active downloads -->
+          {#each [...activeDownloads.values()] as dl (dlKey(dl.repo, dl.filename))}
+            <div class="group flex items-center gap-[12px] py-[8px]">
               <div class="min-w-0 flex-1">
-                <div class="text-[12px] opacity-50 truncate font-mono">{file.filename}</div>
-                <div class="text-[10px] opacity-20 mt-0.5">{formatSize(file.size)}</div>
-                {#if dlActive}
-                  <div class="mt-1.5 w-full h-[3px] bg-black/[0.06] dark:bg-white/[0.06] rounded-full overflow-hidden">
-                    <div
-                      class="h-full bg-emerald-400/70 rounded-full transition-[width] duration-300"
-                      style="width: {getDownloadPercent(selectedRepo, file.filename)}%"
-                    ></div>
-                  </div>
-                {/if}
-              </div>
-              {#if downloaded}
-                <span class="text-[10px] opacity-25 shrink-0">{$i18n.t('settings.models.downloaded')}</span>
-              {:else if dlActive}
-                <div class="flex items-center gap-1.5 shrink-0">
-                  <span class="text-[10px] opacity-40 font-mono">{getDownloadPercent(selectedRepo, file.filename).toFixed(0)}%</span>
-                  <button
-                    class="opacity-30 hover:opacity-70 transition bg-transparent border-none text-[#1d1d1f] dark:text-[#fafafa] p-0.5"
-                    onclick={() => cancelDownload(selectedRepo, file.filename)}
-                    title={$i18n.t('settings.models.cancelDownload')}
+                <div class="flex items-center gap-2">
+                  <span class="text-[12px] truncate font-mono">{dl.filename}</span>
+                  <span class="text-[11px] leading-[16px] text-[oklch(0.51_0_0)] dark:text-[oklch(0.77_0_0)] font-mono shrink-0"
+                    >{dl.percent.toFixed(1)}%</span
                   >
-                    <svg class="w-3 h-3" fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="2">
-                      <path stroke-linecap="round" stroke-linejoin="round" d="M6 18L18 6M6 6l12 12" />
-                    </svg>
-                  </button>
                 </div>
-              {:else}
-                <button
-                  class="opacity-0 group-hover:opacity-40 hover:!opacity-70 transition bg-transparent border-none text-[#1d1d1f] dark:text-[#fafafa] p-1 shrink-0"
-                  onclick={() => startDownload(selectedRepo, file.filename, file.size)}
-                  title={$i18n.t('common.download')}
+                <div
+                  class="mt-1.5 w-full h-[3px] bg-black/[0.06] dark:bg-white/[0.06] rounded-full overflow-hidden"
                 >
-                  <svg class="w-3.5 h-3.5" fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="1.5">
-                    <path stroke-linecap="round" stroke-linejoin="round" d="M3 16.5v2.25A2.25 2.25 0 005.25 21h13.5A2.25 2.25 0 0021 18.75V16.5M16.5 12L12 16.5m0 0L7.5 12m4.5 4.5V3" />
-                  </svg>
-                </button>
-              {/if}
+                  <div
+                    class="h-full bg-gray-400 dark:bg-gray-300 rounded-full transition-[width] duration-300"
+                    style="width: {dl.percent}%"
+                  ></div>
+                </div>
+                <div class="text-[11px] leading-[16px] text-[oklch(0.51_0_0)] dark:text-[oklch(0.77_0_0)] mt-1 truncate">{dl.repo}</div>
+              </div>
+              <button
+                class="inline-flex max-w-full shrink-0 items-center justify-center gap-[6px] whitespace-nowrap border-none bg-transparent p-0 text-[12px] leading-[16px] text-[oklch(0.69_0_0)] transition-colors duration-150 hover:text-[oklch(0.2_0_0)] disabled:cursor-not-allowed disabled:opacity-50 dark:hover:text-white [&>span[aria-hidden]]:size-[12px] p-[4px]"
+                onclick={() => cancelDownload(dl.repo, dl.filename)}
+                title={$i18n.t('settings.models.cancelDownload')}
+              >
+                <span aria-hidden="true" class="inline-flex shrink-0 [&>svg]:size-full size-[12px]"
+                  >{@html XmarkIcon}</span
+                >
+              </button>
+            </div>
+          {/each}
+
+          <!-- Completed downloads -->
+          {#each models as model}
+            <div class="group flex items-center gap-[12px] py-[8px]">
+              <div class="min-w-0 flex-1">
+                <div class="text-[12px] truncate font-mono">{model.filename}</div>
+                <div class="text-[11px] leading-[16px] text-[oklch(0.51_0_0)] dark:text-[oklch(0.77_0_0)] truncate mt-0.5">
+                  {model.repo} · {formatSize(model.size)}
+                </div>
+              </div>
+              <button
+                class="inline-flex max-w-full shrink-0 items-center justify-center gap-[6px] whitespace-nowrap border-none bg-transparent p-0 text-[12px] leading-[16px] text-[oklch(0.69_0_0)] transition-colors duration-150 hover:text-[oklch(0.2_0_0)] disabled:cursor-not-allowed disabled:opacity-50 dark:hover:text-white [&>span[aria-hidden]]:size-[12px] p-[4px] {deleting ===
+                `${model.repo}/${model.filename}`
+                  ? '!opacity-50 pointer-events-none'
+                  : ''}"
+                onclick={() => removeModel(model.repo, model.filename)}
+                title={$i18n.t('settings.models.deleteModel')}
+              >
+                {#if deleting === `${model.repo}/${model.filename}`}
+                  <span
+                    aria-hidden="true"
+                    class="inline-flex shrink-0 [&>svg]:size-full size-[12px] animate-spin"
+                    >{@html RefreshIcon}</span
+                  >
+                {:else}
+                  <span aria-hidden="true" class="inline-flex shrink-0 [&>svg]:size-full size-[12px]"
+                    >{@html TrashIcon}</span
+                  >
+                {/if}
+              </button>
             </div>
           {/each}
         </div>
+      {:else}
+        <div class="text-[11px] leading-[16px] text-[oklch(0.51_0_0)] dark:text-[oklch(0.77_0_0)] py-3">
+          {$i18n.t('settings.models.noModels')}
+        </div>
       {/if}
+    </div>
 
-    {:else}
-      <!-- Search -->
-      <div class="relative mb-2">
-        <svg class="w-3.5 h-3.5 absolute left-2.5 top-1/2 -translate-y-1/2 opacity-25 pointer-events-none" fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="1.5">
-          <path stroke-linecap="round" stroke-linejoin="round" d="M21 21l-5.197-5.197m0 0A7.5 7.5 0 105.196 5.196a7.5 7.5 0 0010.607 10.607z" />
-        </svg>
-        <input
-          type="text"
-          class="bg-black/[0.04] dark:bg-white/[0.06] text-[12px] text-[#1d1d1f] dark:text-[#fafafa] pl-8 pr-3 py-2 border-none outline-none rounded-xl opacity-70 w-full"
-          placeholder={$i18n.t('settings.models.searchPlaceholder')}
-          value={searchQuery}
-          oninput={onSearchInput}
-        />
-        {#if searching}
-          <div class="w-3 h-3 rounded-full border-[1.5px] border-black/20 dark:border-white/30 border-t-transparent animate-spin absolute right-2.5 top-1/2 -translate-y-1/2"></div>
+    <!-- Download from HF -->
+    <div class="pt-1">
+      <div class="text-[12px] mb-2">
+        {#if selectedRepo}
+          <button
+            class="inline-flex max-w-full shrink-0 items-center justify-center gap-[6px] whitespace-nowrap border-none bg-transparent p-0 text-[12px] leading-[16px] text-[oklch(0.69_0_0)] transition-colors duration-150 hover:text-[oklch(0.2_0_0)] disabled:cursor-not-allowed disabled:opacity-50 dark:hover:text-white [&>span[aria-hidden]]:size-[12px] min-w-0 truncate font-mono"
+            onclick={backToSearch}
+          >
+            <span aria-hidden="true" class="inline-flex shrink-0 [&>svg]:size-full size-[12px] shrink-0"
+              >{@html NavArrowLeftIcon}</span
+            >
+            <span class="truncate">{selectedRepo}</span>
+          </button>
+        {:else}
+          {$i18n.t('settings.models.downloadFromHF')}
         {/if}
       </div>
 
-      {#if searchError}
-        <div class="text-[11px] text-red-400/70 text-center py-2">{searchError}</div>
-      {:else if searchResults.length > 0}
-        <div class="flex flex-col max-h-[300px] overflow-y-auto">
-          {#each searchResults as repo}
-            <button
-              class="flex items-center justify-between gap-2 py-2 hover:bg-black/[0.03] dark:hover:bg-white/[0.04] rounded-lg transition border-none text-left w-full text-[#1d1d1f] dark:text-[#fafafa] bg-transparent px-1"
-              onclick={() => selectRepo(repo.id)}
+      {#if selectedRepo}
+        <!-- Repo file browser -->
+        {#if loadingFiles}
+          <div class="flex items-center gap-2 py-3 justify-center">
+            <span
+              aria-hidden="true"
+              class="inline-flex shrink-0 [&>svg]:size-full size-[12px] animate-spin"
+              >{@html RefreshIcon}</span
             >
-              <div class="min-w-0 flex-1">
-                <div class="text-[12px] opacity-60 truncate">{repo.id}</div>
-                <div class="text-[10px] opacity-25 flex items-center gap-2 mt-0.5">
-                  <span class="flex items-center gap-0.5">
-                    <svg class="w-2.5 h-2.5" fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="1.5">
-                      <path stroke-linecap="round" stroke-linejoin="round" d="M3 16.5v2.25A2.25 2.25 0 005.25 21h13.5A2.25 2.25 0 0021 18.75V16.5M16.5 12L12 16.5m0 0L7.5 12m4.5 4.5V3" />
-                    </svg>
-                    {formatDownloads(repo.downloads)}
-                  </span>
-                  <span class="flex items-center gap-0.5">
-                    <svg class="w-2.5 h-2.5" fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="1.5">
-                      <path stroke-linecap="round" stroke-linejoin="round" d="M21 8.25c0-2.485-2.099-4.5-4.688-4.5-1.935 0-3.597 1.126-4.312 2.733-.715-1.607-2.377-2.733-4.313-2.733C5.1 3.75 3 5.765 3 8.25c0 7.22 9 12 9 12s9-4.78 9-12z" />
-                    </svg>
-                    {repo.likes}
-                  </span>
+            <span class="text-[11px] leading-[16px] text-[oklch(0.51_0_0)] dark:text-[oklch(0.77_0_0)]"
+              >{$i18n.t('settings.models.loadingFiles')}</span
+            >
+          </div>
+        {:else if repoFiles.length === 0}
+          <div class="text-[11px] leading-[16px] text-[oklch(0.51_0_0)] dark:text-[oklch(0.77_0_0)] text-center py-3">
+            {$i18n.t('settings.models.noGgufFiles')}
+          </div>
+        {:else}
+          <div class="flex flex-col">
+            {#each repoFiles as file}
+              {@const downloaded = isDownloaded(selectedRepo, file.filename)}
+              {@const dlActive = isDownloading(selectedRepo, file.filename)}
+              <div class="group flex items-center gap-[12px] py-[8px]">
+                <div class="min-w-0 flex-1">
+                  <div class="text-[12px] truncate font-mono">{file.filename}</div>
+                  <div class="text-[11px] leading-[16px] text-[oklch(0.51_0_0)] dark:text-[oklch(0.77_0_0)] mt-0.5">{formatSize(file.size)}</div>
+                  {#if dlActive}
+                    <div
+                      class="mt-1.5 w-full h-[3px] bg-black/[0.06] dark:bg-white/[0.06] rounded-full overflow-hidden"
+                    >
+                      <div
+                        class="h-full bg-gray-400 dark:bg-gray-300 rounded-full transition-[width] duration-300"
+                        style="width: {getDownloadPercent(selectedRepo, file.filename)}%"
+                      ></div>
+                    </div>
+                  {/if}
                 </div>
+                {#if downloaded}
+                  <span class="text-[11px] leading-[16px] text-[oklch(0.51_0_0)] dark:text-[oklch(0.77_0_0)] shrink-0"
+                    >{$i18n.t('settings.models.downloaded')}</span
+                  >
+                {:else if dlActive}
+                  <div class="flex items-center gap-[6px] shrink-0">
+                    <span class="text-[11px] leading-[16px] text-[oklch(0.51_0_0)] dark:text-[oklch(0.77_0_0)] font-mono"
+                      >{getDownloadPercent(selectedRepo, file.filename).toFixed(0)}%</span
+                    >
+                    <button
+                      class="inline-flex max-w-full shrink-0 items-center justify-center gap-[6px] whitespace-nowrap border-none bg-transparent p-0 text-[12px] leading-[16px] text-[oklch(0.69_0_0)] transition-colors duration-150 hover:text-[oklch(0.2_0_0)] disabled:cursor-not-allowed disabled:opacity-50 dark:hover:text-white [&>span[aria-hidden]]:size-[12px] p-[2px]"
+                      onclick={() => cancelDownload(selectedRepo, file.filename)}
+                      title={$i18n.t('settings.models.cancelDownload')}
+                    >
+                      <span
+                        aria-hidden="true"
+                        class="inline-flex shrink-0 [&>svg]:size-full size-[12px]"
+                        >{@html XmarkIcon}</span
+                      >
+                    </button>
+                  </div>
+                {:else}
+                  <button
+                    class="inline-flex max-w-full shrink-0 items-center justify-center gap-[6px] whitespace-nowrap border-none bg-transparent p-0 text-[12px] leading-[16px] text-[oklch(0.69_0_0)] transition-colors duration-150 hover:text-[oklch(0.2_0_0)] disabled:cursor-not-allowed disabled:opacity-50 dark:hover:text-white [&>span[aria-hidden]]:size-[12px] p-[4px]"
+                    onclick={() => startDownload(selectedRepo, file.filename, file.size)}
+                    title={$i18n.t('common.download')}
+                  >
+                    <span
+                      aria-hidden="true"
+                      class="inline-flex shrink-0 [&>svg]:size-full size-[14px]"
+                      >{@html DownloadIcon}</span
+                    >
+                  </button>
+                {/if}
               </div>
-              <svg class="w-3 h-3 opacity-15 shrink-0" fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="2">
-                <path stroke-linecap="round" stroke-linejoin="round" d="M8.25 4.5l7.5 7.5-7.5 7.5" />
-              </svg>
-            </button>
-          {/each}
+            {/each}
+          </div>
+        {/if}
+      {:else}
+        <!-- Search -->
+        <div class="relative mb-2">
+          <span
+            aria-hidden="true"
+            class="inline-flex shrink-0 [&>svg]:size-full size-[14px] absolute left-2.5 top-1/2 -translate-y-1/2 pointer-events-none"
+            >{@html SearchIcon}</span
+          >
+          <input
+            type="text"
+            class="h-[28px] min-h-[28px] max-w-full rounded-[8px] border border-[oklch(0.94_0_0/0.5)] outline-hidden! bg-[oklch(0.98_0_0/0.4)] px-[8px] py-0 text-[12px] leading-[16px] font-normal text-[oklch(0.42_0_0)] transition-colors duration-150 placeholder:text-[oklch(0.85_0_0)] focus:border-blue-400 disabled:cursor-not-allowed disabled:opacity-50 dark:border-white/[0.04] dark:bg-white/[0.03] dark:text-[oklch(0.85_0_0)] dark:placeholder:text-[oklch(0.42_0_0)] dark:focus:border-blue-500 [&::-webkit-outer-spin-button]:appearance-none [&::-webkit-outer-spin-button]:m-0 [&::-webkit-inner-spin-button]:appearance-none [&::-webkit-inner-spin-button]:m-0 [&[type=number]]:[-moz-appearance:textfield] pl-[30px] pr-[30px] w-full"
+            aria-label={$i18n.t('settings.models.searchPlaceholder')}
+            placeholder={$i18n.t('settings.models.searchPlaceholder')}
+            value={searchQuery}
+            oninput={onSearchInput}
+          />
+          {#if searching}
+            <span
+              aria-hidden="true"
+              class="inline-flex shrink-0 [&>svg]:size-full size-[12px] animate-spin absolute right-2.5 top-1/2 -translate-y-1/2"
+              >{@html RefreshIcon}</span
+            >
+          {/if}
         </div>
-      {:else if searchQuery.trim() && !searching}
-        <div class="text-[11px] opacity-20 text-center py-3">{$i18n.t('settings.models.noReposFound')}</div>
-      {:else if !searchQuery.trim()}
-        <div class="text-[11px] opacity-20 text-center py-3">{$i18n.t('settings.models.searchForModels')}</div>
-      {/if}
-    {/if}
-  </div>
 
-</div>
+        {#if searchError}
+          <div class="text-[11px] text-red-700 dark:text-red-400 text-center py-2">{searchError}</div>
+        {:else if searchResults.length > 0}
+          <div class="flex flex-col max-h-[300px] overflow-y-auto">
+            {#each searchResults as repo}
+              <button
+                class="flex items-center justify-between gap-2 py-2 text-[oklch(0.69_0_0)] hover:text-[oklch(0.2_0_0)] dark:hover:text-white rounded-[8px] transition border-none text-left w-full bg-transparent px-1"
+                onclick={() => selectRepo(repo.id)}
+              >
+                <div class="min-w-0 flex-1">
+                  <div class="text-[12px] truncate">{repo.id}</div>
+                  <div class="text-[11px] leading-[16px] text-[oklch(0.51_0_0)] dark:text-[oklch(0.77_0_0)] flex items-center gap-2 mt-0.5">
+                    <span class="flex items-center gap-0.5">
+                      <span
+                        aria-hidden="true"
+                        class="inline-flex shrink-0 [&>svg]:size-full w-2.5 h-2.5"
+                        >{@html DownloadIcon}</span
+                      >
+                      {formatDownloads(repo.downloads)}
+                    </span>
+                    <span class="flex items-center gap-0.5">
+                      <span
+                        aria-hidden="true"
+                        class="inline-flex shrink-0 [&>svg]:size-full w-2.5 h-2.5"
+                        >{@html HeartIcon}</span
+                      >
+                      {repo.likes}
+                    </span>
+                  </div>
+                </div>
+                <span
+                  aria-hidden="true"
+                  class="inline-flex shrink-0 [&>svg]:size-full size-[12px] shrink-0"
+                  >{@html NavArrowRightIcon}</span
+                >
+              </button>
+            {/each}
+          </div>
+        {:else if searchQuery.trim() && !searching}
+          <div class="text-[11px] leading-[16px] text-[oklch(0.51_0_0)] dark:text-[oklch(0.77_0_0)] text-center py-3">
+            {$i18n.t('settings.models.noReposFound')}
+          </div>
+        {:else if !searchQuery.trim()}
+          <div class="text-[11px] leading-[16px] text-[oklch(0.51_0_0)] dark:text-[oklch(0.77_0_0)] text-center py-3">
+            {$i18n.t('settings.models.searchForModels')}
+          </div>
+        {/if}
+      {/if}
+    </div>
+  </div>
 {/if}

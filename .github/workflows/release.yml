@@ -280,7 +280,8 @@ jobs:
             - name: Merge Linux latest-linux.yml (x64 + arm64)
               run: |
                   X64_YML="ubuntu-latest-x64/latest-linux.yml"
-                  ARM_YML="ubuntu-24.04-arm-arm64/latest-linux.yml"
+                  # electron-builder names the arm64 Linux manifest "latest-linux-arm64.yml"
+                  ARM_YML="ubuntu-24.04-arm-arm64/latest-linux-arm64.yml"
 
                   if [ -f "$X64_YML" ] && [ -f "$ARM_YML" ]; then
                     echo "Merging latest-linux.yml from both architectures"
@@ -300,7 +301,7 @@ jobs:
                     rm -f "$ARM_YML"
                   else
                     echo "Skipping merge — need both $X64_YML and $ARM_YML"
-                    ls -la ubuntu-*-*/latest-linux.yml 2>/dev/null || true
+                    ls -la ubuntu-*-*/latest-linux*.yml 2>/dev/null || true
                   fi
 
             - name: Merge Windows latest.yml (x64 + arm64)

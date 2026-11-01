@@ -1,307 +1,271 @@
 <script lang="ts">
+  import ArrowRightIcon from 'iconoir/icons/arrow-right.svg?raw'
+  import GlobeIcon from 'iconoir/icons/globe.svg?raw'
+  import RestartIcon from 'iconoir/icons/restart.svg?raw'
+  import WarningCircleIcon from 'iconoir/icons/warning-circle.svg?raw'
+  import type { WebviewTag, DidFailLoadEvent, ConsoleMessageEvent, IpcMessageEvent, PageTitleUpdatedEvent } from 'electron'
+  import { handleGuestRequest } from '../../../guest-requests'
   import { onMount } from 'svelte'
   import { fade, fly } from 'svelte/transition'
   import { config, serverInfo, appState } from '../../../stores'
   import i18n from '../../../i18n'
-  import LocalInstall from '../../Setup/LocalInstall.svelte'
   import GetStartedModal from './GetStartedModal.svelte'
-  import AddConnectionModal from './AddConnectionModal.svelte'
+  import logoImage from '../../../assets/images/splash.png'
   import landingVideo from '../../../../assets/landing.mp4'
 
-  interface Props {
-    sidebarOpen: boolean
-    view: string
-    activeConnectionId: string
-    connectingId: string
-    openConnections: Map<string, string>
-    localConn: any
+  let {
+    serverUrl,
+    connecting,
+    canRefresh = $bindable(false),
+    launchError,
+    localInstalled,
+    installPhase,
+    installError,
+    installStatus,
+    toastVisible,
+    onStartInstall,
+    onOpenWebUI,
+    onOpenTerminal
+  }: {
+    serverUrl: string
+    connecting: boolean
+    canRefresh?: boolean
+    launchError: string
     localInstalled: boolean
-    remoteConnections: any[]
     installPhase: string
     installError: string
     installStatus: string
     toastVisible: boolean
-    url: string
-    connecting: boolean
-    error: string
-    autoInstall: boolean
-    onStartInstall: (options?: { installOpenTerminal?: boolean; installLlamaCpp?: boolean; installDir?: string }) => void
-    onAddConnection: () => void
-    onSetView: (v: string) => void
-    showAddConnectionModal: boolean
-  }
-
-  let {
-    sidebarOpen,
-    view,
-    activeConnectionId,
-    connectingId,
-    openConnections,
-    localConn,
-    localInstalled,
-    remoteConnections,
-    installPhase = $bindable('idle'),
-    installError = $bindable(''),
-    installStatus = $bindable(''),
-    toastVisible = $bindable(false),
-    url = $bindable(''),
-    connecting = $bindable(false),
-    error = $bindable(''),
-    autoInstall = $bindable(false),
-    onStartInstall,
-    onAddConnection,
-    onSetView,
-    showAddConnectionModal = $bindable(false)
-  }: Props = $props()
+    onStartInstall: (options?: { installLlamaCpp?: boolean; installDir?: string }) => void
+    onOpenWebUI: () => void
+    onOpenTerminal: () => void
+  } = $props()
 
   let showGetStartedModal = $state(false)
 
   const isInitializing = $derived($appState === 'initializing')
   const insufficientStorage = $derived(
-    $appState?.startsWith('insufficient-storage:')
-      ? $appState.split(':')[1]
-      : null
+    $appState?.startsWith('insufficient-storage:') ? $appState.split(':')[1] : null
   )
   const installFailed = $derived(
-    $appState?.startsWith('install-failed:')
-      ? $appState.substring('install-failed:'.length)
-      : null
+    $appState?.startsWith('install-failed:') ? $appState.substring('install-failed:'.length) : null
   )
 
+  let webviewLoading = $state(false)
+  let webviewBackground = $state<string | null>(null)
+  let webviewTitle = $state('')
+  let webviewError = $state<{ code: number; description: string; url: string } | null>(null)
+  let contentPreloadPath = $state('')
+  let webview: WebviewTag | undefined
+  const activeWebviewError = $derived(serverUrl ? webviewError : null)
+  const isLoading = $derived(connecting || (!!serverUrl && !activeWebviewError && webviewLoading))
+  let startupLine = $state('')
+  const loadingStatus = $derived(startupLine || installStatus)
 
-  // Track webview loading per connection
-  let webviewLoading: Map<string, boolean> = $state(new Map())
-
-  // Track webview load errors per connection
-  let webviewErrors: Map<string, { code: number; description: string; url: string }> = $state(new Map())
-
-  // Content preload path for webview bridge
-  let contentPreloadPath: string = $state('')
-
-  // Server is starting up (local)
-  const serverStarting = $derived(
-    localInstalled && (
-      $serverInfo?.status === 'starting' ||
-      ($serverInfo?.status === 'running' && !$serverInfo?.reachable)
-    )
-  )
-
-  const activeWebviewError = $derived(
-    view === 'connected' && activeConnectionId
-      ? webviewErrors.get(activeConnectionId) ?? null
-      : null
-  )
-
-  const isLoading = $derived(
-    connectingId !== '' ||
-    (serverStarting && activeConnectionId === 'local') ||
-    (view === 'connected' && !activeWebviewError && webviewLoading.get(activeConnectionId) === true)
-  )
-
-  const retryActiveWebview = () => {
-    const wv = document.querySelector(
-      `webview[partition="persist:connection-${activeConnectionId}"]`
-    ) as any
-    if (wv?.reload) {
-      webviewErrors.delete(activeConnectionId)
-      webviewErrors = new Map(webviewErrors)
-      wv.reload()
-    }
-  }
-
-  const openActiveInBrowser = () => {
-    const connUrl = openConnections.get(activeConnectionId)
-    if (connUrl) {
-      window.electronAPI.openInBrowser(connUrl)
-    }
-  }
-
-  // Attach load event listeners and IPC forwarding to webviews
-  onMount(async () => {
-    // Fetch the content preload path once
-    contentPreloadPath = await window.electronAPI.getContentPreloadPath()
-
-    const observer = new MutationObserver(() => {
-      const container = document.querySelector('.content-webview-container')
-      if (!container) return
-      const webviews = container.querySelectorAll('webview')
-      webviews.forEach((wv: any) => {
-        if (wv._loadListenerAttached) return
-        wv._loadListenerAttached = true
-        const connId = wv.getAttribute('partition')?.replace('persist:connection-', '') ?? ''
-        if (!connId) return
-
-        // Mark loading when navigation starts
-        wv.addEventListener('did-start-loading', () => {
-          webviewLoading.set(connId, true)
-          webviewLoading = new Map(webviewLoading)
-        })
-
-        // Clear loading when done
-        wv.addEventListener('did-stop-loading', () => {
-          webviewLoading.set(connId, false)
-          webviewLoading = new Map(webviewLoading)
-        })
-
-        // Track load failures so we can show an error overlay
-        wv.addEventListener('did-fail-load', (event: any) => {
-          // Ignore sub-resource failures and aborted navigations (-3)
-          if (event.errorCode === -3 || event.isMainFrame === false) return
-          webviewErrors.set(connId, {
-            code: event.errorCode,
-            description: event.errorDescription || 'Unknown error',
-            url: event.validatedURL || ''
-          })
-          webviewErrors = new Map(webviewErrors)
-        })
-
-        // Clear error when a navigation succeeds (retry, redirect, etc.)
-        wv.addEventListener('did-navigate', () => {
-          if (webviewErrors.has(connId)) {
-            webviewErrors.delete(connId)
-            webviewErrors = new Map(webviewErrors)
-          }
-        })
-
-        // Renderer process crash
-        wv.addEventListener('crashed', () => {
-          webviewErrors.set(connId, {
-            code: -1,
-            description: 'crashed',
-            url: ''
-          })
-          webviewErrors = new Map(webviewErrors)
-        })
-
-        // Log guest page console messages for debugging blank-page issues (#124)
-        wv.addEventListener('console-message', (event: any) => {
-          if (event.level >= 2) { // warnings and errors only
-            console.warn(`[webview:${connId}]`, event.message)
-          }
-        })
-
-        // If this webview was created before the preload path resolved
-        // (race between auto-connect and async IPC), the preload didn't
-        // attach.  Force a reload now so it picks up the correct preload.
-        if (contentPreloadPath && wv.getAttribute('preload') !== contentPreloadPath) {
-          wv.setAttribute('preload', contentPreloadPath)
-          wv.reload()
-        }
-
-        // Handle IPC messages from the webview guest (Open WebUI → desktop)
-        wv.addEventListener('ipc-message', async (event: any) => {
-          if (event.channel === 'webview:send') {
-            const requestData = event.args?.[0]
-            if (!requestData) return
-
-            // Handle auth token relay from webview
-            if (requestData.type === 'token:update' && requestData.token) {
-              window.electronAPI.setAuthToken?.(requestData.token)
-              return
-            }
-
-            try {
-              const response = await window.electronAPI[requestData.type]?.(requestData)
-              if (requestData._requestId) {
-                wv.send('desktop:response', {
-                  _responseId: requestData._requestId,
-                  data: response
-                })
-              }
-            } catch (e) {
-              console.error('webview:send handler error:', e)
-            }
-          } else if (event.channel === 'webview:load') {
-            const page = event.args?.[0]
-            if (page) onSetView(page === 'home' ? 'welcome' : page)
-          } else if (event.channel === 'webview:event') {
-            const payload = event.args?.[0]
-            if (!payload?.type) return
-
-            if (payload.type === 'theme:update') {
-              const webuiTheme = payload.data?.theme ?? 'system'
-
-              // Map Open WebUI theme names to desktop-compatible values
-              let desktopTheme: string
-              if (webuiTheme === 'system') {
-                desktopTheme = 'system'
-              } else if (webuiTheme.includes('dark')) {
-                desktopTheme = 'dark'
-              } else {
-                desktopTheme = 'light'
-              }
-
-              // Resolve and apply CSS class
-              let resolved = desktopTheme
-              if (desktopTheme === 'system') {
-                resolved = window.matchMedia('(prefers-color-scheme: dark)').matches ? 'dark' : 'light'
-              }
-              document.documentElement.classList.remove('light', 'dark')
-              document.documentElement.classList.add(resolved)
-
-              // Persist to desktop config
-              await window.electronAPI.setConfig({ theme: desktopTheme })
-              config.set(await window.electronAPI.getConfig())
-            }
-          }
-        })
-      })
+  $effect(() => {
+    startupLine = ''
+    if (!isLoading) return
+    return window.electronAPI.onTerminalLine('server', (line: string) => {
+      startupLine = line
     })
-
-    const target = document.querySelector('.content-webview-container')
-    if (target) {
-      observer.observe(target, { childList: true, subtree: true })
-    }
-
-    return () => observer.disconnect()
   })
+
+  export const refresh = (): void => {
+    if (!canRefresh || !webview) return
+    webviewError = null
+    webview.reload()
+  }
+  const openActiveInBrowser = (): void => window.electronAPI.openInBrowser(serverUrl)
+
+  onMount(() => {
+    let disposed = false
+    window.electronAPI.getContentPreloadPath().then((path: string) => {
+      if (!disposed) contentPreloadPath = path
+    })
+    return () => {
+      disposed = true
+    }
+  })
+
+  function attachWebview(wv: WebviewTag): { destroy: () => void } {
+    webview = wv
+    webviewBackground = null
+    webviewTitle = ''
+    canRefresh = false
+    webviewError = null
+    webviewLoading = true
+    let disposed = false
+    const listeners: [string, (event: Event) => void][] = []
+    const listen = <E extends Event>(name: string, callback: (event: E) => void): void => {
+      const listener = callback as (event: Event) => void
+      wv.addEventListener(name, listener)
+      listeners.push([name, listener])
+    }
+    const send = (event: unknown): void => {
+      try {
+        wv.send('desktop:event', event)
+      } catch {
+        /* Webview is navigating. */
+      }
+    }
+    // Only local model events cross into WebUI; replay state when its listener is ready.
+    const unsubscribe = window.electronAPI.onData((event) => {
+      if (event.type === 'connections:openai' || event.type === 'models:refresh') send(event)
+    })
+    listen('did-start-loading', () => {
+      webviewLoading = true
+    })
+    listen('dom-ready', () => {
+      canRefresh = true
+      webviewTitle = wv.getTitle()
+    })
+    listen('page-title-updated', (event: PageTitleUpdatedEvent) => {
+      webviewTitle = event.title
+    })
+    listen('did-stop-loading', () => {
+      webviewLoading = false
+    })
+    listen('did-fail-load', (event: DidFailLoadEvent) => {
+      if (event.errorCode === -3 || event.isMainFrame === false) return
+      canRefresh = true
+      webviewError = {
+        code: event.errorCode,
+        description: event.errorDescription || $i18n.t('error.unknown'),
+        url: event.validatedURL || ''
+      }
+    })
+    listen('did-navigate', () => {
+      webviewError = null
+    })
+    listen('render-process-gone', () => {
+      webviewError = { code: -1, description: 'crashed', url: '' }
+    })
+    listen('console-message', (event: ConsoleMessageEvent) => {
+      if (event.level >= 2) console.warn('[webview]', event.message)
+    })
+    listen('ipc-message', async (event: IpcMessageEvent) => {
+      if (event.channel === 'webview:ready') {
+        const info = await window.electronAPI.getLlamaCppInfo()
+        if (!disposed && info?.reachable && info.url) {
+          send({
+            type: 'connections:openai',
+            data: {
+              action: 'add',
+              url: `${info.url}/v1`,
+              config: { provider: 'llama.cpp', connection_type: 'local' }
+            }
+          })
+        }
+      } else if (event.channel === 'webview:send') {
+        const request = event.args?.[0]
+        if (!request) return
+        let response: unknown
+        try {
+          response = await handleGuestRequest(window.electronAPI, request)
+        } catch {
+          response = { error: 'Desktop request rejected' }
+        }
+        if (!disposed && request._requestId) {
+          try {
+            wv.send('desktop:response', { _responseId: request._requestId, data: response })
+          } catch {
+            /* Webview is navigating. */
+          }
+        }
+      } else if (event.channel === 'webview:event') {
+        const payload = event.args?.[0]
+        if (payload?.type !== 'theme:update') return
+        const webuiTheme = typeof payload.data?.theme === 'string' ? payload.data.theme : 'system'
+        const theme =
+          webuiTheme === 'system' ? 'system' : webuiTheme.includes('dark') ? 'dark' : 'light'
+        const resolved = ['dark', 'light'].includes(payload.data?.resolvedTheme)
+          ? payload.data.resolvedTheme
+          : theme === 'system'
+            ? window.matchMedia('(prefers-color-scheme: dark)').matches
+              ? 'dark'
+              : 'light'
+            : theme
+        const background = payload.data?.background
+        if (typeof background === 'string' && CSS.supports('color', background)) {
+          webviewBackground = background
+        }
+        document.documentElement.classList.remove('light', 'dark')
+        document.documentElement.classList.add(resolved)
+        if ($config?.theme !== theme) {
+          config.update((current) => ({ ...current, theme }))
+          await window.electronAPI.setConfig({ theme })
+        }
+      }
+    })
+    return {
+      destroy() {
+        disposed = true
+        unsubscribe()
+        for (const [name, callback] of listeners) wv.removeEventListener(name, callback)
+        webview = undefined
+        webviewTitle = ''
+        canRefresh = false
+      }
+    }
+  }
 </script>
 
 <div
-  class="flex-1 flex flex-col min-w-0 overflow-clip bg-[#eee] dark:bg-[#111] border-t relative content-webview-container {sidebarOpen
-    ? 'border-l border-black/[0.08] dark:border-white/[0.08] rounded-tl-xl'
-    : 'border-black/[0.08] dark:border-white/[0.10]'}"
+  class="flex-1 flex flex-col min-h-0 min-w-0 overflow-clip bg-[#eee] dark:bg-[#111] relative content-webview-container"
 >
-  <!-- Webviews — all open connections stay alive, only active one visible -->
-  {#each [...openConnections] as [connId, connUrl] (connId)}
+  {#if serverUrl && contentPreloadPath}
+    <div
+      class="webview-inset flex shrink-0 items-center justify-center bg-white dark:bg-[#171717]"
+      style:height="var(--window-drag-height)"
+      style:padding-inline="var(--window-title-padding)"
+      style:background-color={webviewBackground}
+    >
+      <span class="truncate text-[11px] font-medium opacity-60" title={webviewTitle}>{webviewTitle}</span>
+    </div>
     <webview
-      src={connUrl}
+      src={serverUrl}
       class="flex-1 min-h-0 border-none"
-      style="display: {view === 'connected' && activeConnectionId === connId ? 'flex' : 'none'}"
-      partition="persist:connection-{connId}"
+      style="display: flex"
+      partition="persist:connection-local"
       preload={contentPreloadPath}
+      use:attachWebview
       allowpopups
     ></webview>
-  {/each}
+  {/if}
 
   <!-- Error overlay when webview fails to load -->
   {#if activeWebviewError}
-    <div class="absolute inset-0 z-20 flex items-center justify-center bg-[#eee] dark:bg-[#111]" transition:fade={{ duration: 200 }}>
+    <div
+      class="absolute inset-0 z-20 flex items-center justify-center bg-[#eee] dark:bg-[#111]"
+      transition:fade={{ duration: 200 }}
+    >
       <div class="text-center max-w-sm px-6">
-        <div class="mx-auto mb-4 w-10 h-10 rounded-full bg-black/[0.04] dark:bg-white/[0.06] flex items-center justify-center">
+        <div
+          class="mx-auto mb-4 w-10 h-10 rounded-full bg-black/[0.04] dark:bg-white/[0.06] flex items-center justify-center"
+        >
           {#if activeWebviewError.code === -1}
-            <svg class="w-5 h-5 opacity-30" fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="1.5">
-              <path stroke-linecap="round" stroke-linejoin="round" d="M12 9v3.75m9-.75a9 9 0 11-18 0 9 9 0 0118 0zm-9 3.75h.008v.008H12v-.008z" />
-            </svg>
+            <span aria-hidden="true" class="inline-flex shrink-0 [&>svg]:size-full w-5 h-5 opacity-30">{@html WarningCircleIcon}</span>
           {:else}
-            <svg class="w-5 h-5 opacity-30" fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="1.5">
-              <path stroke-linecap="round" stroke-linejoin="round" d="M12 21a9.004 9.004 0 008.716-6.747M12 21a9.004 9.004 0 01-8.716-6.747M12 21c2.485 0 4.5-4.03 4.5-9S14.485 3 12 3m0 18c-2.485 0-4.5-4.03-4.5-9S9.515 3 12 3m0 0a8.997 8.997 0 017.843 4.582M12 3a8.997 8.997 0 00-7.843 4.582m15.686 0A11.953 11.953 0 0112 10.5c-2.998 0-5.74-1.1-7.843-2.918m15.686 0A8.959 8.959 0 0121 12c0 .778-.099 1.533-.284 2.253m0 0A17.919 17.919 0 0112 16.5a17.92 17.92 0 01-8.716-2.247m0 0A9.015 9.015 0 013 12c0-1.605.42-3.113 1.157-4.418" />
-            </svg>
+            <span aria-hidden="true" class="inline-flex shrink-0 [&>svg]:size-full w-5 h-5 opacity-30">{@html GlobeIcon}</span>
           {/if}
         </div>
         <div class="text-[14px] font-medium mb-1 opacity-80">
-          {activeWebviewError.code === -1 ? $i18n.t('setup.pageCrashed') : $i18n.t('setup.couldNotLoadPage')}
+          {activeWebviewError.code === -1
+            ? $i18n.t('setup.pageCrashed')
+            : $i18n.t('setup.couldNotLoadPage')}
         </div>
         <div class="text-[12px] opacity-30 mb-1">{activeWebviewError.description}</div>
         {#if activeWebviewError.url}
-          <div class="text-[11px] opacity-20 mb-6 break-all font-mono">{activeWebviewError.url}</div>
+          <div class="text-[11px] opacity-20 mb-6 break-all font-mono">
+            {activeWebviewError.url}
+          </div>
         {:else}
           <div class="mb-6"></div>
         {/if}
         <div class="flex gap-2 justify-center">
           <button
             class="px-4 py-2 rounded-xl text-[13px] font-medium bg-black dark:bg-white text-white dark:text-black border-none cursor-pointer transition hover:bg-gray-800 dark:hover:bg-gray-100 active:scale-[0.98]"
-            onclick={retryActiveWebview}
+            onclick={refresh}
           >
             {$i18n.t('common.retry')}
           </button>
@@ -318,19 +282,38 @@
 
   <!-- Loading overlay for webview -->
   {#if isLoading}
-    <div class="absolute inset-0 z-10 flex items-center justify-center bg-[#eee] dark:bg-[#111]" transition:fade={{ duration: 200 }}>
-      <div class="flex flex-col items-center gap-3">
-        <div class="w-6 h-6 rounded-full border-2 border-black/10 dark:border-white/15 border-t-black/50 dark:border-t-white/50 animate-spin"></div>
-        <span class="text-[11px] opacity-30">{$i18n.t('common.loading')}</span>
+    <div
+      class="absolute inset-0 z-10 flex items-center justify-center bg-[#eee] dark:bg-[#111]"
+      transition:fade={{ duration: 200 }}
+    >
+      <div class="flex w-full min-w-0 flex-col items-center gap-3 px-6">
+        <div
+          class="w-6 h-6 rounded-full border-2 border-black/10 dark:border-white/15 border-t-black/50 dark:border-t-white/50 animate-spin"
+        ></div>
+        <div class="flex w-full min-w-0 flex-col items-center gap-1.5" role="status">
+          <span class="text-[12px] opacity-90">{$i18n.t('common.loading')}</span>
+          {#if loadingStatus}
+            <button
+              type="button"
+              class="max-w-[min(240px,100%)] truncate font-mono text-[11px] opacity-25 hover:opacity-40 focus-visible:opacity-40"
+              title={loadingStatus}
+              aria-label={$i18n.t('logs.expand')}
+              onclick={onOpenTerminal}
+              >{loadingStatus}</button
+            >
+          {/if}
+        </div>
       </div>
     </div>
   {/if}
 
-  {#if view !== 'connected'}
+  {#if !serverUrl}
     {#if insufficientStorage}
       <div class="px-5 py-2.5 flex items-center gap-3 bg-red-500/[0.06] border-b border-red-500/10">
         <div class="flex-1">
-          <div class="text-[12px] text-red-400 font-medium">{$i18n.t('main.notEnoughDiskSpace')}</div>
+          <div class="text-[12px] text-red-400 font-medium">
+            {$i18n.t('main.notEnoughDiskSpace')}
+          </div>
           <div class="text-[11px] opacity-40 mt-0.5">
             {$i18n.t('main.diskSpaceRequired', { available: insufficientStorage })}
           </div>
@@ -346,9 +329,14 @@
               return
             }
             appState.set('initializing')
-            window.electronAPI.installPython().then(() => appState.set('ready')).catch((e: any) => {
-              appState.set(`install-failed:${e?.message || 'Python installation failed. Please try again.'}`)
-            })
+            window.electronAPI
+              .installPython()
+              .then(() => appState.set('ready'))
+              .catch((e) => {
+                appState.set(
+                  `install-failed:${e?.message || $i18n.t('error.pythonInstallFailed')}`
+                )
+              })
           }}
         >
           {$i18n.t('common.retry')}
@@ -357,7 +345,9 @@
     {:else if installFailed}
       <div class="px-5 py-2.5 flex items-center gap-3 bg-red-500/[0.06] border-b border-red-500/10">
         <div class="flex-1">
-          <div class="text-[12px] text-red-400 font-medium">{$i18n.t('error.installFailedGeneric')}</div>
+          <div class="text-[12px] text-red-400 font-medium">
+            {$i18n.t('error.installFailedGeneric')}
+          </div>
           <div class="text-[11px] opacity-40 mt-0.5 line-clamp-2">
             {installFailed}
           </div>
@@ -373,9 +363,14 @@
               return
             }
             appState.set('initializing')
-            window.electronAPI.installPython().then(() => appState.set('ready')).catch((e: any) => {
-              appState.set(`install-failed:${e?.message || 'Python installation failed. Please try again.'}`)
-            })
+            window.electronAPI
+              .installPython()
+              .then(() => appState.set('ready'))
+              .catch((e) => {
+                appState.set(
+                  `install-failed:${e?.message || $i18n.t('error.pythonInstallFailed')}`
+                )
+              })
           }}
         >
           {$i18n.t('common.retry')}
@@ -383,114 +378,119 @@
       </div>
     {:else if isInitializing}
       <div class="px-5 py-1.5 text-[11px] opacity-25">
-        {$i18n.t('setup.settingUp')}{$serverInfo?.status ? ` ${$serverInfo.status}` : ''}
+        {$i18n.t('setup.settingUp')}{#if $serverInfo?.status}
+          {$i18n.t(`common.${$serverInfo.status === 'started' ? 'running' : $serverInfo.status}`)}
+        {/if}
       </div>
     {/if}
 
     <div class="flex-1 flex items-center justify-center px-6 relative overflow-hidden">
-      {#if view === 'welcome'}
-        {#if remoteConnections.length > 0 || localInstalled}
-          <div class="text-center max-w-[320px]" in:fade={{ duration: 200 }}>
-            <div class="text-lg opacity-80 mb-1.5">{$i18n.t('app.name')}</div>
-            <div class="text-[12px] opacity-30 mb-6">
-              {$i18n.t('main.selectConnection')}
-            </div>
+      {#if localInstalled}
+        <div class="text-center max-w-[320px]" in:fade={{ duration: 200 }}>
+          <div class="text-lg opacity-80 mb-1.5">{$i18n.t('app.name')}</div>
+          <div class="text-[12px] opacity-30 mb-6">
+            {$i18n.t('main.localReady')}
           </div>
-        {:else}
-          <!-- Theme-responsive hero section -->
-          <div class="absolute inset-0 bg-[#fafafa] dark:bg-[#111]">
-            <!-- Video background -->
-            <video
-              autoplay
-              muted
-              loop
-              playsinline
-              class="absolute inset-0 w-full h-full object-cover opacity-30 dark:opacity-40 pointer-events-none"
-            >
-              <source src={landingVideo} type="video/mp4" />
-            </video>
-
-            <!-- Gradient overlay -->
-            <div class="absolute inset-0 bg-gradient-to-t from-[#fafafa] dark:from-[#111] via-[#fafafa]/30 dark:via-[#111]/30 to-transparent pointer-events-none"></div>
-
-            <!-- Content positioned bottom-left -->
-            <div class="absolute bottom-0 left-0 right-0 p-10" in:fade={{ duration: 300 }}>
-              <div class="max-w-sm">
-                <div class="text-3xl font-medium mb-3 tracking-tight text-[#1d1d1f] dark:text-[#fafafa]">{$i18n.t('app.name')}</div>
-                <div class="text-base opacity-50 mb-8 leading-relaxed text-[#1d1d1f] dark:text-[#fafafa]">
-                  {$i18n.t('main.heroDescription')}
-                </div>
-
-                {#if !localInstalled}
-                  <button
-                    class="inline-flex items-center gap-2 bg-black dark:bg-white px-6 py-2 rounded-xl text-white dark:text-black text-[13px] transition hover:bg-gray-800 dark:hover:bg-gray-100 border-none disabled:opacity-50"
-                    onclick={() => {
-                      if (installPhase === 'error') {
-                        onStartInstall()
-                      } else {
-                        showGetStartedModal = true
-                      }
-                    }}
-                    disabled={installPhase === 'working'}
-                  >
-                    {#if installPhase === 'working'}
-                      <div class="w-3.5 h-3.5 rounded-full border-2 border-white/30 dark:border-black/30 border-t-white dark:border-t-black animate-spin"></div>
-                      {$i18n.t('common.installing')}
-                    {:else if installPhase === 'error'}
-                      {$i18n.t('common.retry')}
-                      <svg class="h-3.5 w-3.5" fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="1.5">
-                        <path stroke-linecap="round" stroke-linejoin="round" d="M16.023 9.348h4.992v-.001M2.985 19.644v-4.992m0 0h4.992m-4.993 0l3.181 3.183a8.25 8.25 0 0013.803-3.7M20.015 4.356v4.992m0 0h-4.992m4.993 0l-3.181-3.183a8.25 8.25 0 00-13.803 3.7" />
-                      </svg>
-                    {:else}
-                      {$i18n.t('main.getStarted')}
-                      <svg class="h-3.5 w-3.5" fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="1.5">
-                        <path stroke-linecap="round" stroke-linejoin="round" d="M17 8l4 4m0 0l-4 4m4-4H3" />
-                      </svg>
-                    {/if}
-                  </button>
-
-                  {#if installPhase === 'working' && installStatus}
-                    <div class="mt-3 text-[12px] opacity-40 font-mono line-clamp-1" in:fade={{ duration: 200 }}>
-                      {installStatus}
-                    </div>
-                  {/if}
-                {/if}
-
-                {#if installPhase !== 'working'}
-                <div class="mt-6">
-                  <button
-                    class="text-sm opacity-40 hover:opacity-70 transition bg-transparent border-none text-[#1d1d1f] dark:text-[#fafafa]"
-                    onclick={() => { showAddConnectionModal = true }}
-                  >
-                    {$i18n.t('setup.connectToServer')}
-                  </button>
-                </div>
-                {/if}
-              </div>
-            </div>
-          </div>
-        {/if}
-
-        <!-- Error toast -->
-        {#if toastVisible && installError}
-          <div
-            class="absolute top-4 left-1/2 -translate-x-1/2 z-50 bg-red-500/90 backdrop-blur-sm text-white text-[12px] px-4 py-2 rounded-xl shadow-lg"
-            in:fly={{ y: -10, duration: 200 }}
-            out:fade={{ duration: 150 }}
+          <button
+            class="px-4 py-2 rounded-xl text-[13px] bg-black dark:bg-white text-white dark:text-black border-none disabled:opacity-40"
+            onclick={onOpenWebUI}
+            disabled={connecting || installPhase === 'working'}>{$i18n.t('main.openWebUI')}</button
           >
-            {installError}
-          </div>
-        {/if}
-      {:else if view === 'install'}
-        <div class="w-full max-w-[260px]">
-          <LocalInstall
-            autoStart={autoInstall}
-            onBack={() => { autoInstall = false; onSetView('welcome') }}
-            onComplete={async () => {
-              config.set(await window.electronAPI.getConfig())
-              onSetView('welcome')
-            }}
+          {#if launchError}<div class="mt-3 text-[12px] opacity-60" role="alert">
+              {launchError}
+            </div>{/if}
+          {#if installPhase === 'working' && installStatus}<div class="mt-3 text-[12px] opacity-40">
+              {installStatus}
+            </div>{/if}
+        </div>
+      {:else}
+        <!-- Theme-responsive hero section -->
+        <div class="absolute inset-0 bg-white dark:bg-black">
+          <!-- Video background -->
+          <video
+            autoplay
+            muted
+            loop
+            playsinline
+            class="absolute inset-0 w-full h-full object-cover pointer-events-none"
+          >
+            <source src={landingVideo} type="video/mp4" />
+          </video>
+
+          <!-- Gradient overlay -->
+          <div
+            class="absolute inset-0 bg-gradient-to-b from-white/10 via-white/90 via-75% to-white dark:from-black/10 dark:via-black/90 dark:to-black pointer-events-none"
+          ></div>
+
+          <img
+            src={logoImage}
+            alt=""
+            draggable="false"
+            class="absolute left-[34px] top-[48px] w-[30px] h-[30px] dark:invert pointer-events-none"
           />
+
+          <!-- Content positioned bottom-left -->
+          <div class="absolute bottom-0 left-0 right-0 px-[40px] py-[56px]" in:fade={{ duration: 300 }}>
+            <div class="max-w-[440px]">
+              <div
+                class="text-3xl font-medium mb-3 tracking-tight text-black dark:text-white"
+              >
+                {$i18n.t('app.name')}
+              </div>
+              <div
+                class="text-base opacity-60 mb-8 leading-relaxed text-black dark:text-white"
+              >
+                {$i18n.t('main.localDescription')}
+              </div>
+
+              {#if !localInstalled}
+                <button
+                  class="inline-flex items-center {installPhase === 'working' ? 'justify-start' : 'justify-between'} gap-2.5 w-[220px] max-w-full h-[36px] bg-black dark:bg-white px-4 rounded-none text-white dark:text-black text-[13px] border-none disabled:opacity-50"
+                  onclick={() => {
+                    if (installPhase === 'error') {
+                      onStartInstall()
+                    } else {
+                      showGetStartedModal = true
+                    }
+                  }}
+                  disabled={installPhase === 'working'}
+                >
+                  {#if installPhase === 'working'}
+                    <div
+                      class="w-3.5 h-3.5 rounded-full border-2 border-white/30 dark:border-black/30 border-t-white dark:border-t-black animate-spin"
+                    ></div>
+                    {$i18n.t('common.installing')}
+                  {:else if installPhase === 'error'}
+                    {$i18n.t('common.retry')}
+                    <span aria-hidden="true" class="inline-flex shrink-0 [&>svg]:size-full h-3.5 w-3.5">{@html RestartIcon}</span>
+                  {:else}
+                    {$i18n.t('main.getStarted')}
+                    <span aria-hidden="true" class="inline-flex shrink-0 [&>svg]:size-full h-3.5 w-3.5">{@html ArrowRightIcon}</span>
+                  {/if}
+                </button>
+
+                {#if installPhase === 'working' && installStatus}
+                  <div
+                    class="mt-3 text-[12px] opacity-40 font-mono line-clamp-1"
+                    in:fade={{ duration: 200 }}
+                  >
+                    {installStatus}
+                  </div>
+                {/if}
+              {/if}
+            </div>
+          </div>
+        </div>
+      {/if}
+
+      <!-- Error toast -->
+      {#if toastVisible && installError}
+        <div
+          class="absolute top-4 left-1/2 -translate-x-1/2 z-50 bg-red-500/90 backdrop-blur-sm text-white text-[12px] px-4 py-2 rounded-xl shadow-lg"
+          in:fly={{ y: -10, duration: 200 }}
+          out:fade={{ duration: 150 }}
+        >
+          {installError}
         </div>
       {/if}
     </div>
@@ -502,21 +502,8 @@
         showGetStartedModal = false
         onStartInstall(options)
       }}
-      onCancel={() => { showGetStartedModal = false }}
-    />
-  {/if}
-
-  {#if showAddConnectionModal}
-    <AddConnectionModal
-      bind:url
-      bind:connecting
-      bind:error
-      onConnect={() => {
-        onAddConnection()
-      }}
       onCancel={() => {
-        showAddConnectionModal = false
-        error = ''
+        showGetStartedModal = false
       }}
     />
   {/if}

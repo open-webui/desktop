@@ -1,6 +1,10 @@
 <script lang="ts">
+  import NavArrowDownIcon from 'iconoir/icons/nav-arrow-down.svg?raw'
+  import NavArrowRightIcon from 'iconoir/icons/nav-arrow-right.svg?raw'
+  import RefreshIcon from 'iconoir/icons/refresh.svg?raw'
+  import XmarkIcon from 'iconoir/icons/xmark.svg?raw'
   import { onMount } from 'svelte'
-  import { connections, config } from '../../../stores'
+  import { config } from '../../../stores'
   import i18n, { getLanguages, changeLanguage } from '../../../i18n'
   import Switch from '../../common/Switch.svelte'
 
@@ -65,11 +69,6 @@
     }
   }
 
-  const setDefault = async (id: string) => {
-    await window.electronAPI.setDefaultConnection(id)
-    config.set(await window.electronAPI.getConfig())
-  }
-
   const saveEnvVars = async () => {
     const envVars: Record<string, string> = {}
     for (const entry of envEntries) {
@@ -94,57 +93,10 @@
   let recording = $state(false)
   let shortcutInputEl = $state<HTMLButtonElement | null>(null)
 
-  // Spotlight shortcut recorder
-  let spotlightShortcutValue = $state('')
-  let spotlightRecording = $state(false)
-  let spotlightShortcutInputEl = $state<HTMLButtonElement | null>(null)
-
-  // Voice input shortcut recorder
-  let voiceInputShortcutValue = $state('')
-  let voiceInputRecording = $state(false)
-  let voiceInputShortcutInputEl = $state<HTMLButtonElement | null>(null)
-  let voiceInputEnabled = $state(true)
-
-  // Call shortcut recorder
-  let callShortcutValue = $state('')
-  let callRecording = $state(false)
-  let callShortcutInputEl = $state<HTMLButtonElement | null>(null)
-  let callEnabled = $state(true)
-
-  // Spotlight clipboard paste
-  let spotlightClipboardPaste = $state(true)
-
   // Keep shortcut value in sync with config store
   $effect(() => {
     if ($config?.globalShortcut !== undefined) {
       shortcutValue = $config.globalShortcut ?? ''
-    }
-  })
-
-  $effect(() => {
-    if ($config?.spotlightShortcut !== undefined) {
-      spotlightShortcutValue = $config.spotlightShortcut ?? ''
-    }
-    if ($config?.spotlightClipboardPaste !== undefined) {
-      spotlightClipboardPaste = $config.spotlightClipboardPaste ?? true
-    }
-  })
-
-  $effect(() => {
-    if ($config?.voiceInputShortcut !== undefined) {
-      voiceInputShortcutValue = $config.voiceInputShortcut ?? ''
-    }
-    if ($config?.voiceInputEnabled !== undefined) {
-      voiceInputEnabled = $config.voiceInputEnabled ?? true
-    }
-  })
-
-  $effect(() => {
-    if ($config?.callShortcut !== undefined) {
-      callShortcutValue = $config.callShortcut ?? ''
-    }
-    if ($config?.callEnabled !== undefined) {
-      callEnabled = $config.callEnabled ?? true
     }
   })
 
@@ -232,163 +184,85 @@
     }
   }
 
-  const handleSpotlightShortcutKeydown = async (e: KeyboardEvent) => {
-    e.preventDefault()
-    e.stopPropagation()
-
-    if (e.key === 'Escape') {
-      spotlightRecording = false
-      return
-    }
-
-    if (e.key === 'Backspace' || e.key === 'Delete') {
-      spotlightShortcutValue = ''
-      spotlightRecording = false
-      await window.electronAPI.setConfig({ spotlightShortcut: '' })
-      config.set(await window.electronAPI.getConfig())
-      return
-    }
-
-    const accel = keyToElectron(e)
-    if (accel) {
-      spotlightShortcutValue = accel
-      spotlightRecording = false
-      await window.electronAPI.setConfig({ spotlightShortcut: accel })
-      config.set(await window.electronAPI.getConfig())
-    }
-  }
-
-  const handleVoiceInputShortcutKeydown = async (e: KeyboardEvent) => {
-    e.preventDefault()
-    e.stopPropagation()
-
-    if (e.key === 'Escape') {
-      voiceInputRecording = false
-      return
-    }
-
-    if (e.key === 'Backspace' || e.key === 'Delete') {
-      voiceInputShortcutValue = ''
-      voiceInputRecording = false
-      await window.electronAPI.setConfig({ voiceInputShortcut: '' })
-      config.set(await window.electronAPI.getConfig())
-      return
-    }
-
-    const accel = keyToElectron(e)
-    if (accel) {
-      voiceInputShortcutValue = accel
-      voiceInputRecording = false
-      await window.electronAPI.setConfig({ voiceInputShortcut: accel })
-      config.set(await window.electronAPI.getConfig())
-    }
-  }
-
-  const handleCallShortcutKeydown = async (e: KeyboardEvent) => {
-    e.preventDefault()
-    e.stopPropagation()
-
-    if (e.key === 'Escape') {
-      callRecording = false
-      return
-    }
-
-    if (e.key === 'Backspace' || e.key === 'Delete') {
-      callShortcutValue = ''
-      callRecording = false
-      await window.electronAPI.setConfig({ callShortcut: '' })
-      config.set(await window.electronAPI.getConfig())
-      return
-    }
-
-    const accel = keyToElectron(e)
-    if (accel) {
-      callShortcutValue = accel
-      callRecording = false
-      await window.electronAPI.setConfig({ callShortcut: accel })
-      config.set(await window.electronAPI.getConfig())
-    }
-  }
 </script>
 
-<div class="flex flex-col divide-y divide-white/[0.04]">
-  <div class="py-4 flex items-center justify-between">
+<div class="flex flex-col">
+  <div
+    class="flex min-w-0 items-center justify-between gap-[16px] py-[7px] max-sm:gap-[12px] [&>:first-child]:min-w-0 [&>:last-child]:shrink-0 max-sm:[&>:last-child:not([role=switch])]:max-w-[65%]"
+  >
     <div>
-      <div class="text-[13px] opacity-70">{$i18n.t('settings.general.language')}</div>
-      <div class="text-[11px] opacity-25 mt-0.5">{$i18n.t('settings.general.languageDesc')}</div>
+      <div class="text-[12px] leading-[16px] font-normal text-[#171717] dark:text-white">
+        {$i18n.t('settings.general.language')}
+      </div>
+      <div class="text-[11px] leading-[16px] text-[oklch(0.51_0_0)] dark:text-[oklch(0.77_0_0)] mt-0.5">
+        {$i18n.t('settings.general.languageDesc')}
+      </div>
     </div>
-    <select
-      class="bg-black/[0.04] dark:bg-white/[0.06] text-[12px] text-[#1d1d1f] dark:text-[#fafafa] px-3 py-1.5 border-none outline-none rounded-xl opacity-60"
-      onchange={async (e) => {
-        const lang = (e.target as HTMLSelectElement).value
-        selectedLanguage = lang
-        localStorage.setItem('locale', lang)
-        changeLanguage(lang)
-        await window.electronAPI.setConfig({ language: lang })
-        config.set(await window.electronAPI.getConfig())
-      }}
-    >
-      {#each languages as lang}
-        <option value={lang.code} selected={selectedLanguage === lang.code}>{lang.title}</option>
-      {/each}
-    </select>
-  </div>
-
-  <div class="py-4 flex items-center justify-between">
-    <div>
-      <div class="text-[13px] opacity-70">{$i18n.t('settings.general.appearance')}</div>
-      <div class="text-[11px] opacity-25 mt-0.5">{$i18n.t('settings.general.appearanceDesc')}</div>
-    </div>
-    <div class="grid grid-cols-3 items-center gap-0.5 rounded-2xl bg-black/[0.04] dark:bg-white/[0.06] p-1 text-[11px]">
-      <button
-        class="flex h-6 w-16 items-center justify-center rounded-xl border-none transition {theme === 'system' ? 'bg-black/[0.08] dark:bg-white/[0.12] text-[#1d1d1f] dark:text-[#fafafa]' : 'bg-transparent text-[#1d1d1f] dark:text-[#fafafa] opacity-40 hover:opacity-70'}"
-        onclick={() => applyTheme('system')}
+    <div class="relative inline-flex max-w-full [&>span]:right-[8px] [&>span]:size-[14px] [&>span]:text-[oklch(0.77_0_0)] dark:[&>span]:text-[oklch(0.69_0_0)]">
+      <select
+        class="w-full min-w-[100px] appearance-none text-ellipsis ps-[10px] pe-[32px] [field-sizing:content] h-[28px] min-h-[28px] max-w-full rounded-[8px] border border-[oklch(0.94_0_0/0.5)] outline-hidden! bg-[oklch(0.98_0_0/0.4)] px-[8px] py-0 text-[12px] leading-[16px] font-normal text-[oklch(0.42_0_0)] transition-colors duration-150 placeholder:text-[oklch(0.85_0_0)] focus:border-blue-400 disabled:cursor-not-allowed disabled:opacity-50 dark:border-white/[0.04] dark:bg-white/[0.03] dark:text-[oklch(0.85_0_0)] dark:placeholder:text-[oklch(0.42_0_0)] dark:focus:border-blue-500 [&::-webkit-outer-spin-button]:appearance-none [&::-webkit-outer-spin-button]:m-0 [&::-webkit-inner-spin-button]:appearance-none [&::-webkit-inner-spin-button]:m-0 [&[type=number]]:[-moz-appearance:textfield]"
+        aria-label={$i18n.t('settings.general.language')}
+        onchange={async (e) => {
+          const lang = (e.target as HTMLSelectElement).value
+          selectedLanguage = lang
+          localStorage.setItem('locale', lang)
+          changeLanguage(lang)
+          await window.electronAPI.setConfig({ language: lang })
+          config.set(await window.electronAPI.getConfig())
+        }}
       >
-        {$i18n.t('common.auto')}
-      </button>
-      <button
-        class="flex h-6 w-16 items-center justify-center rounded-xl border-none transition {theme === 'light' ? 'bg-black/[0.08] dark:bg-white/[0.12] text-[#1d1d1f] dark:text-[#fafafa]' : 'bg-transparent text-[#1d1d1f] dark:text-[#fafafa] opacity-40 hover:opacity-70'}"
-        onclick={() => applyTheme('light')}
-        aria-label={$i18n.t('settings.general.light')}
+        {#each languages as lang}
+          <option value={lang.code} selected={selectedLanguage === lang.code}>{lang.title}</option>
+        {/each}
+      </select>
+      <span
+        aria-hidden="true"
+        class="inline-flex shrink-0 [&>svg]:size-full pointer-events-none absolute right-2 top-1/2 size-[14px] -translate-y-1/2 text-gray-600 dark:text-gray-400"
+        >{@html NavArrowDownIcon}</span
       >
-        <svg class="w-3.5 h-3.5" fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="1.5">
-          <path stroke-linecap="round" stroke-linejoin="round" d="M12 3v2.25m6.364.386-1.591 1.591M21 12h-2.25m-.386 6.364-1.591-1.591M12 18.75V21m-4.773-4.227-1.591 1.591M5.25 12H3m4.227-4.773L5.636 5.636M15.75 12a3.75 3.75 0 1 1-7.5 0 3.75 3.75 0 0 1 7.5 0Z" />
-        </svg>
-      </button>
-      <button
-        class="flex h-6 w-16 items-center justify-center rounded-xl border-none transition {theme === 'dark' ? 'bg-black/[0.08] dark:bg-white/[0.12] text-[#1d1d1f] dark:text-[#fafafa]' : 'bg-transparent text-[#1d1d1f] dark:text-[#fafafa] opacity-40 hover:opacity-70'}"
-        onclick={() => applyTheme('dark')}
-        aria-label={$i18n.t('settings.general.dark')}
-      >
-        <svg class="w-3.5 h-3.5" fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="1.5">
-          <path stroke-linecap="round" stroke-linejoin="round" d="M21.752 15.002A9.72 9.72 0 0 1 18 15.75c-5.385 0-9.75-4.365-9.75-9.75 0-1.33.266-2.597.748-3.752A9.753 9.753 0 0 0 3 11.25C3 16.635 7.365 21 12.75 21a9.753 9.753 0 0 0 9.002-5.998Z" />
-        </svg>
-      </button>
     </div>
   </div>
 
-  <div class="py-4 flex items-center justify-between">
+  <div
+    class="flex min-w-0 items-center justify-between gap-[16px] py-[7px] max-sm:gap-[12px] [&>:first-child]:min-w-0 [&>:last-child]:shrink-0 max-sm:[&>:last-child:not([role=switch])]:max-w-[65%]"
+  >
     <div>
-      <div class="text-[13px] opacity-70">{$i18n.t('settings.general.defaultConnection')}</div>
-      <div class="text-[11px] opacity-25 mt-0.5">{$i18n.t('settings.general.defaultConnectionDesc')}</div>
+      <div class="text-[12px] leading-[16px] font-normal text-[#171717] dark:text-white">
+        {$i18n.t('settings.general.appearance')}
+      </div>
+      <div class="text-[11px] leading-[16px] text-[oklch(0.51_0_0)] dark:text-[oklch(0.77_0_0)] mt-0.5">
+        {$i18n.t('settings.general.appearanceDesc')}
+      </div>
     </div>
-    <select
-      class="bg-black/[0.04] dark:bg-white/[0.06] text-[12px] text-[#1d1d1f] dark:text-[#fafafa] px-3 py-1.5 border-none outline-none rounded-xl opacity-60"
-      onchange={(e) => setDefault((e.target as HTMLSelectElement).value)}
-    >
-      <option value="">{$i18n.t('common.none')}</option>
-      {#each $connections as conn}
-        <option value={conn.id} selected={$config?.defaultConnectionId === conn.id}
-          >{conn.name}</option
-        >
-      {/each}
-    </select>
+    <div class="relative inline-flex max-w-full [&>span]:right-[8px] [&>span]:size-[14px] [&>span]:text-[oklch(0.77_0_0)] dark:[&>span]:text-[oklch(0.69_0_0)]">
+      <select
+        class="w-full min-w-[100px] appearance-none text-ellipsis ps-[10px] pe-[32px] [field-sizing:content] h-[28px] min-h-[28px] max-w-full rounded-[8px] border border-[oklch(0.94_0_0/0.5)] outline-hidden! bg-[oklch(0.98_0_0/0.4)] px-[8px] py-0 text-[12px] leading-[16px] font-normal text-[oklch(0.42_0_0)] transition-colors duration-150 placeholder:text-[oklch(0.85_0_0)] focus:border-blue-400 disabled:cursor-not-allowed disabled:opacity-50 dark:border-white/[0.04] dark:bg-white/[0.03] dark:text-[oklch(0.85_0_0)] dark:placeholder:text-[oklch(0.42_0_0)] dark:focus:border-blue-500 [&::-webkit-outer-spin-button]:appearance-none [&::-webkit-outer-spin-button]:m-0 [&::-webkit-inner-spin-button]:appearance-none [&::-webkit-inner-spin-button]:m-0 [&[type=number]]:[-moz-appearance:textfield]"
+        aria-label={$i18n.t('settings.general.appearance')}
+        value={theme}
+        onchange={(e) => applyTheme(e.currentTarget.value)}
+      >
+        <option value="system">{$i18n.t('common.auto')}</option>
+        <option value="light">{$i18n.t('settings.general.light')}</option>
+        <option value="dark">{$i18n.t('settings.general.dark')}</option>
+      </select>
+      <span
+        aria-hidden="true"
+        class="inline-flex shrink-0 [&>svg]:size-full pointer-events-none absolute right-2 top-1/2 size-[14px] -translate-y-1/2 text-gray-600 dark:text-gray-400"
+        >{@html NavArrowDownIcon}</span
+      >
+    </div>
   </div>
 
-  <div class="py-4 flex items-center justify-between">
+  <div
+    class="flex min-w-0 items-center justify-between gap-[16px] py-[7px] max-sm:gap-[12px] [&>:first-child]:min-w-0 [&>:last-child]:shrink-0 max-sm:[&>:last-child:not([role=switch])]:max-w-[65%]"
+  >
     <div>
-      <div class="text-[13px] opacity-70">{$i18n.t('settings.general.launchAtLogin')}</div>
-      <div class="text-[11px] opacity-25 mt-0.5">{$i18n.t('settings.general.launchAtLoginDesc')}</div>
+      <div class="text-[12px] leading-[16px] font-normal text-[#171717] dark:text-white">
+        {$i18n.t('settings.general.launchAtLogin')}
+      </div>
+      <div class="text-[11px] leading-[16px] text-[oklch(0.51_0_0)] dark:text-[oklch(0.77_0_0)] mt-0.5">
+        {$i18n.t('settings.general.launchAtLoginDesc')}
+      </div>
     </div>
     <Switch
       checked={launchAtLogin}
@@ -400,10 +274,16 @@
     />
   </div>
 
-  <div class="py-4 flex items-center justify-between">
+  <div
+    class="flex min-w-0 items-center justify-between gap-[16px] py-[7px] max-sm:gap-[12px] [&>:first-child]:min-w-0 [&>:last-child]:shrink-0 max-sm:[&>:last-child:not([role=switch])]:max-w-[65%]"
+  >
     <div>
-      <div class="text-[13px] opacity-70">{$i18n.t('settings.general.runInBackground')}</div>
-      <div class="text-[11px] opacity-25 mt-0.5">{$i18n.t('settings.general.runInBackgroundDesc')}</div>
+      <div class="text-[12px] leading-[16px] font-normal text-[#171717] dark:text-white">
+        {$i18n.t('settings.general.runInBackground')}
+      </div>
+      <div class="text-[11px] leading-[16px] text-[oklch(0.51_0_0)] dark:text-[oklch(0.77_0_0)] mt-0.5">
+        {$i18n.t('settings.general.runInBackgroundDesc')}
+      </div>
     </div>
     <Switch
       checked={runInBackground}
@@ -416,10 +296,14 @@
     />
   </div>
 
-  <div class="py-4 flex items-center justify-between">
+  <div
+    class="flex min-w-0 items-center justify-between gap-[16px] py-[7px] max-sm:gap-[12px] [&>:first-child]:min-w-0 [&>:last-child]:shrink-0 max-sm:[&>:last-child:not([role=switch])]:max-w-[65%]"
+  >
     <div>
-      <div class="text-[13px] opacity-70">{$i18n.t('settings.general.globalShortcut')}</div>
-      <div class="text-[11px] opacity-25 mt-0.5">
+      <div class="text-[12px] leading-[16px] font-normal text-[#171717] dark:text-white">
+        {$i18n.t('settings.general.globalShortcut')}
+      </div>
+      <div class="text-[11px] leading-[16px] text-[oklch(0.51_0_0)] dark:text-[oklch(0.77_0_0)] mt-0.5">
         {#if recording}
           {$i18n.t('settings.general.globalShortcutRecording')}
         {:else}
@@ -427,13 +311,13 @@
         {/if}
       </div>
     </div>
-    <div class="flex items-center gap-1.5">
+    <div class="flex items-center gap-[6px]">
       <button
         bind:this={shortcutInputEl}
-        class="text-[12px] px-3 py-1.5 border-none outline-none rounded-xl transition min-w-[80px] text-center
-          {recording
-            ? 'bg-black/[0.08] dark:bg-white/[0.10] text-[#1d1d1f] dark:text-[#fafafa] opacity-80 animate-pulse'
-            : 'bg-black/[0.04] dark:bg-white/[0.06] text-[#1d1d1f] dark:text-[#fafafa] opacity-60 hover:opacity-80'}"
+        class="inline-flex max-w-full shrink-0 items-center justify-center gap-[6px] whitespace-nowrap border-none bg-transparent p-0 text-[12px] leading-[16px] text-[oklch(0.69_0_0)] transition-colors duration-150 hover:text-[oklch(0.2_0_0)] disabled:cursor-not-allowed disabled:opacity-50 dark:hover:text-white [&>span[aria-hidden]]:size-[12px] min-w-[80px] text-center {recording
+          ? 'animate-pulse'
+          : ''}"
+        aria-label={$i18n.t('settings.general.globalShortcut')}
         onclick={() => {
           recording = true
           shortcutInputEl?.focus()
@@ -446,273 +330,74 @@
         }}
       >
         {#if recording}
-          <span class="text-[11px]">{$i18n.t('settings.general.pressShortcut')}</span>
+          <span class="text-[11px] leading-[16px] text-[oklch(0.51_0_0)] dark:text-[oklch(0.77_0_0)]"
+            >{$i18n.t('settings.general.pressShortcut')}</span
+          >
         {:else if shortcutValue}
           {displayShortcut(shortcutValue)}
         {:else}
-          <span class="opacity-40">{$i18n.t('common.disabled')}</span>
+          <span class="">{$i18n.t('common.disabled')}</span>
         {/if}
       </button>
       {#if shortcutValue && !recording}
         <button
-          class="opacity-20 hover:opacity-50 transition bg-transparent border-none text-[#1d1d1f] dark:text-[#fafafa] p-0.5 shrink-0"
+          class="inline-flex max-w-full shrink-0 items-center justify-center gap-[6px] whitespace-nowrap border-none bg-transparent p-0 text-[12px] leading-[16px] text-[oklch(0.69_0_0)] transition-colors duration-150 hover:text-[oklch(0.2_0_0)] disabled:cursor-not-allowed disabled:opacity-50 dark:hover:text-white [&>span[aria-hidden]]:size-[12px] size-[28px]"
+          aria-label={$i18n.t('common.remove')}
           onclick={async () => {
             shortcutValue = ''
             await window.electronAPI.setConfig({ globalShortcut: '' })
             config.set(await window.electronAPI.getConfig())
           }}
         >
-          <svg class="w-3 h-3" fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="1.5">
-            <path stroke-linecap="round" stroke-linejoin="round" d="M6 18L18 6M6 6l12 12" />
-          </svg>
+          <span aria-hidden="true" class="inline-flex shrink-0 [&>svg]:size-full size-[12px]"
+            >{@html XmarkIcon}</span
+          >
         </button>
       {/if}
     </div>
   </div>
-
-  <div class="py-4 flex items-center justify-between">
-    <div>
-      <div class="text-[13px] opacity-70">{$i18n.t('settings.general.spotlightShortcut')}</div>
-      <div class="text-[11px] opacity-25 mt-0.5">
-        {#if spotlightRecording}
-          {$i18n.t('settings.general.globalShortcutRecording')}
-        {:else}
-          {$i18n.t('settings.general.spotlightShortcutDesc')}
-        {/if}
-      </div>
-    </div>
-    <div class="flex items-center gap-1.5">
-      <button
-        bind:this={spotlightShortcutInputEl}
-        class="text-[12px] px-3 py-1.5 border-none outline-none rounded-xl transition min-w-[80px] text-center
-          {spotlightRecording
-            ? 'bg-black/[0.08] dark:bg-white/[0.10] text-[#1d1d1f] dark:text-[#fafafa] opacity-80 animate-pulse'
-            : 'bg-black/[0.04] dark:bg-white/[0.06] text-[#1d1d1f] dark:text-[#fafafa] opacity-60 hover:opacity-80'}"
-        onclick={() => {
-          spotlightRecording = true
-          spotlightShortcutInputEl?.focus()
-        }}
-        onkeydown={(e) => {
-          if (spotlightRecording) handleSpotlightShortcutKeydown(e)
-        }}
-        onblur={() => {
-          spotlightRecording = false
-        }}
-      >
-        {#if spotlightRecording}
-          <span class="text-[11px]">{$i18n.t('settings.general.pressShortcut')}</span>
-        {:else if spotlightShortcutValue}
-          {displayShortcut(spotlightShortcutValue)}
-        {:else}
-          <span class="opacity-40">{$i18n.t('common.disabled')}</span>
-        {/if}
-      </button>
-      {#if spotlightShortcutValue && !spotlightRecording}
-        <button
-          class="opacity-20 hover:opacity-50 transition bg-transparent border-none text-[#1d1d1f] dark:text-[#fafafa] p-0.5 shrink-0"
-          onclick={async () => {
-            spotlightShortcutValue = ''
-            await window.electronAPI.setConfig({ spotlightShortcut: '' })
-            config.set(await window.electronAPI.getConfig())
-          }}
-        >
-          <svg class="w-3 h-3" fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="1.5">
-            <path stroke-linecap="round" stroke-linejoin="round" d="M6 18L18 6M6 6l12 12" />
-          </svg>
-        </button>
-      {/if}
-    </div>
-  </div>
-
-  <div class="py-4 flex items-center justify-between">
-    <div>
-      <div class="text-[13px] opacity-70">Clipboard Auto-Paste</div>
-      <div class="text-[11px] opacity-25 mt-0.5">Automatically paste clipboard contents into Spotlight</div>
-    </div>
-    <Switch
-      checked={spotlightClipboardPaste}
-      label="Toggle clipboard auto-paste"
-      onchange={async (value) => {
-        spotlightClipboardPaste = value
-        await window.electronAPI.setConfig({ spotlightClipboardPaste: value })
-        config.set(await window.electronAPI.getConfig())
-      }}
-    />
-  </div>
-
-  <div class="py-4 flex items-center justify-between">
-    <div>
-      <div class="text-[13px] opacity-70">Voice Input</div>
-      <div class="text-[11px] opacity-25 mt-0.5">Enable global push-to-talk voice transcription</div>
-    </div>
-    <Switch
-      checked={voiceInputEnabled}
-      label="Toggle voice input"
-      onchange={async (value) => {
-        voiceInputEnabled = value
-        await window.electronAPI.setConfig({ voiceInputEnabled: value })
-        config.set(await window.electronAPI.getConfig())
-      }}
-    />
-  </div>
-
-  {#if voiceInputEnabled}
-  <div class="py-4 flex items-center justify-between">
-    <div>
-      <div class="text-[13px] opacity-70">Voice Input Shortcut</div>
-      <div class="text-[11px] opacity-25 mt-0.5">
-        {#if voiceInputRecording}
-          Press a key combination…
-        {:else}
-          Toggle microphone recording from anywhere
-        {/if}
-      </div>
-    </div>
-    <div class="flex items-center gap-1.5">
-      <button
-        bind:this={voiceInputShortcutInputEl}
-        class="text-[12px] px-3 py-1.5 border-none outline-none rounded-xl transition min-w-[80px] text-center
-          {voiceInputRecording
-            ? 'bg-black/[0.08] dark:bg-white/[0.10] text-[#1d1d1f] dark:text-[#fafafa] opacity-80 animate-pulse'
-            : 'bg-black/[0.04] dark:bg-white/[0.06] text-[#1d1d1f] dark:text-[#fafafa] opacity-60 hover:opacity-80'}"
-        onclick={() => {
-          voiceInputRecording = true
-          voiceInputShortcutInputEl?.focus()
-        }}
-        onkeydown={(e) => {
-          if (voiceInputRecording) handleVoiceInputShortcutKeydown(e)
-        }}
-        onblur={() => {
-          voiceInputRecording = false
-        }}
-      >
-        {#if voiceInputRecording}
-          <span class="text-[11px]">Press keys…</span>
-        {:else if voiceInputShortcutValue}
-          {displayShortcut(voiceInputShortcutValue)}
-        {:else}
-          <span class="opacity-40">Disabled</span>
-        {/if}
-      </button>
-      {#if voiceInputShortcutValue && !voiceInputRecording}
-        <button
-          class="opacity-20 hover:opacity-50 transition bg-transparent border-none text-[#1d1d1f] dark:text-[#fafafa] p-0.5 shrink-0"
-          onclick={async () => {
-            voiceInputShortcutValue = ''
-            await window.electronAPI.setConfig({ voiceInputShortcut: '' })
-            config.set(await window.electronAPI.getConfig())
-          }}
-        >
-          <svg class="w-3 h-3" fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="1.5">
-            <path stroke-linecap="round" stroke-linejoin="round" d="M6 18L18 6M6 6l12 12" />
-          </svg>
-        </button>
-      {/if}
-    </div>
-  </div>
-  {/if}
-
-  <div class="py-4 flex items-center justify-between">
-    <div>
-      <div class="text-[13px] opacity-70">Call</div>
-      <div class="text-[11px] opacity-25 mt-0.5">Enable global shortcut to start a voice/video call</div>
-    </div>
-    <Switch
-      checked={callEnabled}
-      label="Toggle call shortcut"
-      onchange={async (value) => {
-        callEnabled = value
-        await window.electronAPI.setConfig({ callEnabled: value })
-        config.set(await window.electronAPI.getConfig())
-      }}
-    />
-  </div>
-
-  {#if callEnabled}
-  <div class="py-4 flex items-center justify-between">
-    <div>
-      <div class="text-[13px] opacity-70">Call Shortcut</div>
-      <div class="text-[11px] opacity-25 mt-0.5">
-        {#if callRecording}
-          Press a key combination…
-        {:else}
-          Start a call from anywhere
-        {/if}
-      </div>
-    </div>
-    <div class="flex items-center gap-1.5">
-      <button
-        bind:this={callShortcutInputEl}
-        class="text-[12px] px-3 py-1.5 border-none outline-none rounded-xl transition min-w-[80px] text-center
-          {callRecording
-            ? 'bg-black/[0.08] dark:bg-white/[0.10] text-[#1d1d1f] dark:text-[#fafafa] opacity-80 animate-pulse'
-            : 'bg-black/[0.04] dark:bg-white/[0.06] text-[#1d1d1f] dark:text-[#fafafa] opacity-60 hover:opacity-80'}"
-        onclick={() => {
-          callRecording = true
-          callShortcutInputEl?.focus()
-        }}
-        onkeydown={(e) => {
-          if (callRecording) handleCallShortcutKeydown(e)
-        }}
-        onblur={() => {
-          callRecording = false
-        }}
-      >
-        {#if callRecording}
-          <span class="text-[11px]">Press keys…</span>
-        {:else if callShortcutValue}
-          {displayShortcut(callShortcutValue)}
-        {:else}
-          <span class="opacity-40">Disabled</span>
-        {/if}
-      </button>
-      {#if callShortcutValue && !callRecording}
-        <button
-          class="opacity-20 hover:opacity-50 transition bg-transparent border-none text-[#1d1d1f] dark:text-[#fafafa] p-0.5 shrink-0"
-          onclick={async () => {
-            callShortcutValue = ''
-            await window.electronAPI.setConfig({ callShortcut: '' })
-            config.set(await window.electronAPI.getConfig())
-          }}
-        >
-          <svg class="w-3 h-3" fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="1.5">
-            <path stroke-linecap="round" stroke-linejoin="round" d="M6 18L18 6M6 6l12 12" />
-          </svg>
-        </button>
-      {/if}
-    </div>
-  </div>
-  {/if}
 
   <!-- Advanced (collapsed by default) -->
-  <div class="py-4">
+  <div class="pt-1">
     <button
-      class="flex items-center gap-1.5 bg-transparent border-none text-[#1d1d1f] dark:text-[#fafafa] p-0 cursor-pointer"
-      onclick={() => { advancedOpen = !advancedOpen }}
+      class="inline-flex max-w-full shrink-0 items-center justify-center gap-[6px] whitespace-nowrap border-none bg-transparent p-0 text-[12px] leading-[16px] text-[oklch(0.69_0_0)] transition-colors duration-150 hover:text-[oklch(0.2_0_0)] disabled:cursor-not-allowed disabled:opacity-50 dark:hover:text-white [&>span[aria-hidden]]:size-[12px]"
+      aria-expanded={advancedOpen}
+      onclick={() => {
+        advancedOpen = !advancedOpen
+      }}
     >
-      <svg
-        class="w-3 h-3 opacity-30 transition-transform duration-200 {advancedOpen ? 'rotate-90' : ''}"
-        fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="2"
+      <span
+        aria-hidden="true"
+        class="inline-flex shrink-0 [&>svg]:size-full size-[12px] transition-transform duration-200 {advancedOpen
+          ? 'rotate-90'
+          : ''}">{@html NavArrowRightIcon}</span
       >
-        <path stroke-linecap="round" stroke-linejoin="round" d="M9 5l7 7-7 7" />
-      </svg>
-      <span class="text-[13px] opacity-50">{$i18n.t('common.advanced')}</span>
+      <span class="text-[12px] leading-[16px] font-normal text-[#171717] dark:text-white">{$i18n.t('common.advanced')}</span>
     </button>
 
     {#if advancedOpen}
-        <div class="flex flex-col divide-y divide-white/[0.04] mt-1">
+      <div class="mt-[16px] flex flex-col">
         <!-- Install location -->
-        <div class="py-4 flex items-center justify-between gap-4">
-          <div class="shrink-0">
-            <div class="text-[13px] opacity-70">{$i18n.t('settings.general.installLocation')}</div>
-            <div class="text-[11px] opacity-25 mt-0.5">{$i18n.t('settings.general.installLocationDesc')}</div>
-            <div class="text-[10px] opacity-15 mt-0.5">{$i18n.t('settings.general.installLocationNote')}</div>
+        <div
+          class="flex min-w-0 items-center justify-between gap-[16px] py-[7px] max-sm:gap-[12px] [&>:first-child]:min-w-0 [&>:last-child]:shrink-0 max-sm:[&>:last-child:not([role=switch])]:max-w-[65%]"
+        >
+          <div class="min-w-0">
+            <div class="text-[12px] leading-[16px] font-normal text-[#171717] dark:text-white">
+              {$i18n.t('settings.general.installLocation')}
+            </div>
+            <div class="text-[11px] leading-[16px] text-[oklch(0.51_0_0)] dark:text-[oklch(0.77_0_0)] mt-0.5">
+              {$i18n.t('settings.general.installLocationDesc')}
+            </div>
+            <div class="text-[11px] leading-[16px] text-[oklch(0.51_0_0)] dark:text-[oklch(0.77_0_0)] mt-0.5">
+              {$i18n.t('settings.general.installLocationNote')}
+            </div>
           </div>
-          <div class="flex items-center gap-1.5 min-w-0 flex-1 max-w-[280px] justify-end">
+          <div class="flex min-w-[140px] flex-[0_1_280px] max-w-[280px] shrink! items-center justify-end gap-[6px]">
             <input
               type="text"
-              class="bg-black/[0.04] dark:bg-white/[0.06] text-[12px] text-[#1d1d1f] dark:text-[#fafafa] px-3 py-1.5 border-none outline-none rounded-xl opacity-60 min-w-0 flex-1 text-right font-mono"
-              placeholder={defaultInstallDir || 'Default'}
+              aria-label={$i18n.t('settings.general.installLocation')}
+              class="h-[28px] min-h-[28px] max-w-full rounded-[8px] border border-[oklch(0.94_0_0/0.5)] outline-hidden! bg-[oklch(0.98_0_0/0.4)] px-[8px] py-0 text-[12px] leading-[16px] font-normal text-[oklch(0.42_0_0)] transition-colors duration-150 placeholder:text-[oklch(0.85_0_0)] focus:border-blue-400 disabled:cursor-not-allowed disabled:opacity-50 dark:border-white/[0.04] dark:bg-white/[0.03] dark:text-[oklch(0.85_0_0)] dark:placeholder:text-[oklch(0.42_0_0)] dark:focus:border-blue-500 [&::-webkit-outer-spin-button]:appearance-none [&::-webkit-outer-spin-button]:m-0 [&::-webkit-inner-spin-button]:appearance-none [&::-webkit-inner-spin-button]:m-0 [&[type=number]]:[-moz-appearance:textfield] min-w-0 flex-1"
+              placeholder={defaultInstallDir || $i18n.t('common.default')}
               value={installDirPath === defaultInstallDir ? '' : installDirPath}
               onchange={async (e) => {
                 const val = (e.target as HTMLInputElement).value.trim()
@@ -722,7 +407,7 @@
               }}
             />
             <button
-              class="shrink-0 text-[12px] opacity-40 hover:opacity-70 px-2.5 py-1.5 bg-black/[0.04] dark:bg-white/[0.06] transition border-none text-[#1d1d1f] dark:text-[#fafafa] rounded-xl"
+              class="inline-flex max-w-full shrink-0 items-center justify-center gap-[6px] whitespace-nowrap border-none bg-transparent p-0 text-[12px] leading-[16px] text-[oklch(0.69_0_0)] transition-colors duration-150 hover:text-[oklch(0.2_0_0)] disabled:cursor-not-allowed disabled:opacity-50 dark:hover:text-white [&>span[aria-hidden]]:size-[12px]"
               onclick={async () => {
                 const folder = await window.electronAPI.selectFolder()
                 if (folder) {
@@ -738,14 +423,18 @@
         </div>
 
         <!-- Environment variables -->
-        <div class="py-4">
+        <div class="pt-1">
           <div class="flex items-center justify-between mb-3">
             <div>
-              <div class="text-[13px] opacity-70">{$i18n.t('settings.general.environmentVariables')}</div>
-              <div class="text-[11px] opacity-25 mt-0.5">{$i18n.t('settings.general.environmentVariablesDesc')}</div>
+              <div class="text-[12px] leading-[16px] font-normal text-[#171717] dark:text-white">
+                {$i18n.t('settings.general.environmentVariables')}
+              </div>
+              <div class="text-[11px] leading-[16px] text-[oklch(0.51_0_0)] dark:text-[oklch(0.77_0_0)] mt-0.5">
+                {$i18n.t('settings.general.environmentVariablesDesc')}
+              </div>
             </div>
             <button
-              class="text-[11px] opacity-30 hover:opacity-60 transition bg-transparent border-none text-[#1d1d1f] dark:text-[#fafafa]"
+              class="inline-flex max-w-full shrink-0 items-center justify-center gap-[6px] whitespace-nowrap border-none bg-transparent p-0 text-[12px] leading-[16px] text-[oklch(0.69_0_0)] transition-colors duration-150 hover:text-[oklch(0.2_0_0)] disabled:cursor-not-allowed disabled:opacity-50 dark:hover:text-white [&>span[aria-hidden]]:size-[12px]"
               onclick={addEnvVar}
             >
               {$i18n.t('common.add')}
@@ -759,52 +448,61 @@
                   <input
                     type="text"
                     placeholder={$i18n.t('settings.general.keyPlaceholder')}
-                    class="bg-black/[0.04] dark:bg-white/[0.06] text-[12px] text-[#1d1d1f] dark:text-[#fafafa] px-2.5 py-1.5 border-none outline-none rounded-lg opacity-60 flex-1 min-w-0 font-mono"
+                    class="h-[28px] min-h-[28px] max-w-full rounded-[8px] border border-[oklch(0.94_0_0/0.5)] outline-hidden! bg-[oklch(0.98_0_0/0.4)] px-[8px] py-0 text-[12px] leading-[16px] font-normal text-[oklch(0.42_0_0)] transition-colors duration-150 placeholder:text-[oklch(0.85_0_0)] focus:border-blue-400 disabled:cursor-not-allowed disabled:opacity-50 dark:border-white/[0.04] dark:bg-white/[0.03] dark:text-[oklch(0.85_0_0)] dark:placeholder:text-[oklch(0.42_0_0)] dark:focus:border-blue-500 [&::-webkit-outer-spin-button]:appearance-none [&::-webkit-outer-spin-button]:m-0 [&::-webkit-inner-spin-button]:appearance-none [&::-webkit-inner-spin-button]:m-0 [&[type=number]]:[-moz-appearance:textfield] flex-1 min-w-0"
                     value={entry.key}
-                    oninput={(e) => { envEntries[i].key = (e.target as HTMLInputElement).value }}
+                    oninput={(e) => {
+                      envEntries[i].key = (e.target as HTMLInputElement).value
+                    }}
                     onblur={saveEnvVars}
                   />
-                  <span class="text-[11px] opacity-20">=</span>
+                  <span class="text-[11px] leading-[16px] text-[oklch(0.51_0_0)] dark:text-[oklch(0.77_0_0)]">=</span>
                   <input
                     type="text"
-                    placeholder="value"
-                    class="bg-black/[0.04] dark:bg-white/[0.06] text-[12px] text-[#1d1d1f] dark:text-[#fafafa] px-2.5 py-1.5 border-none outline-none rounded-lg opacity-60 flex-[2] min-w-0 font-mono"
+                    placeholder={$i18n.t('settings.general.valuePlaceholder')}
+                    class="h-[28px] min-h-[28px] max-w-full rounded-[8px] border border-[oklch(0.94_0_0/0.5)] outline-hidden! bg-[oklch(0.98_0_0/0.4)] px-[8px] py-0 text-[12px] leading-[16px] font-normal text-[oklch(0.42_0_0)] transition-colors duration-150 placeholder:text-[oklch(0.85_0_0)] focus:border-blue-400 disabled:cursor-not-allowed disabled:opacity-50 dark:border-white/[0.04] dark:bg-white/[0.03] dark:text-[oklch(0.85_0_0)] dark:placeholder:text-[oklch(0.42_0_0)] dark:focus:border-blue-500 [&::-webkit-outer-spin-button]:appearance-none [&::-webkit-outer-spin-button]:m-0 [&::-webkit-inner-spin-button]:appearance-none [&::-webkit-inner-spin-button]:m-0 [&[type=number]]:[-moz-appearance:textfield] flex-[2] min-w-0"
                     value={entry.value}
-                    oninput={(e) => { envEntries[i].value = (e.target as HTMLInputElement).value }}
+                    oninput={(e) => {
+                      envEntries[i].value = (e.target as HTMLInputElement).value
+                    }}
                     onblur={saveEnvVars}
                   />
                   <button
-                    class="opacity-20 hover:opacity-50 transition bg-transparent border-none text-[#1d1d1f] dark:text-[#fafafa] p-0.5 shrink-0"
+                    class="inline-flex max-w-full shrink-0 items-center justify-center gap-[6px] whitespace-nowrap border-none bg-transparent p-0 text-[12px] leading-[16px] text-[oklch(0.69_0_0)] transition-colors duration-150 hover:text-[oklch(0.2_0_0)] disabled:cursor-not-allowed disabled:opacity-50 dark:hover:text-white [&>span[aria-hidden]]:size-[12px] p-[2px]"
+                    aria-label={$i18n.t('common.remove')}
                     onclick={() => removeEnvVar(i)}
                   >
-                    <svg class="w-3 h-3" fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="1.5">
-                      <path stroke-linecap="round" stroke-linejoin="round" d="M6 18L18 6M6 6l12 12" />
-                    </svg>
+                    <span aria-hidden="true" class="inline-flex shrink-0 [&>svg]:size-full size-[12px]"
+                      >{@html XmarkIcon}</span
+                    >
                   </button>
                 </div>
               {/each}
             </div>
           {:else}
-            <div class="text-[11px] opacity-15">{$i18n.t('settings.general.noEnvVars')}</div>
+            <div class="text-[11px] leading-[16px] text-[oklch(0.51_0_0)] dark:text-[oklch(0.77_0_0)]">
+              {$i18n.t('settings.general.noEnvVars')}
+            </div>
           {/if}
         </div>
 
-        <div class="py-4 flex items-center justify-between">
+        <div
+          class="flex min-w-0 items-center justify-between gap-[16px] py-[7px] max-sm:gap-[12px] [&>:first-child]:min-w-0 [&>:last-child]:shrink-0 max-sm:[&>:last-child:not([role=switch])]:max-w-[65%]"
+        >
           <div>
-            <div class="text-[13px] opacity-70">{$i18n.t('settings.general.factoryReset')}</div>
-            <div class="text-[11px] opacity-25 mt-0.5">
+            <div class="text-[12px] leading-[16px] font-normal text-[#171717] dark:text-white">
+              {$i18n.t('settings.general.factoryReset')}
+            </div>
+            <div class="text-[11px] leading-[16px] text-[oklch(0.51_0_0)] dark:text-[oklch(0.77_0_0)] mt-0.5">
               {$i18n.t('settings.general.factoryResetDesc')}
             </div>
           </div>
           <button
-            class="text-[12px] opacity-40 hover:opacity-70 px-3 py-1.5 bg-black/[0.04] dark:bg-white/[0.06] transition border-none text-[#1d1d1f] dark:text-[#fafafa] rounded-xl flex items-center gap-1.5 {resetting ? 'pointer-events-none opacity-30' : ''}"
+            class="inline-flex max-w-full shrink-0 items-center justify-center gap-[6px] whitespace-nowrap border-none bg-transparent p-0 text-[12px] leading-[16px] text-[oklch(0.69_0_0)] transition-colors duration-150 hover:text-[oklch(0.2_0_0)] disabled:cursor-not-allowed disabled:opacity-50 dark:hover:text-white [&>span[aria-hidden]]:size-[12px] {resetting
+              ? 'pointer-events-none opacity-50'
+              : ''}"
             disabled={resetting}
             onclick={async () => {
-              if (
-                confirm(
-                  $i18n.t('settings.general.factoryResetConfirm')
-                )
-              ) {
+              if (confirm($i18n.t('settings.general.factoryResetConfirm'))) {
                 resetting = true
                 await window.electronAPI.resetApp()
                 window.location.reload()
@@ -812,9 +510,11 @@
             }}
           >
             {#if resetting}
-              <svg class="w-3 h-3 animate-spin" viewBox="0 0 24 24" fill="none">
-                <circle cx="12" cy="12" r="10" stroke="currentColor" stroke-width="3" stroke-dasharray="31.4 31.4" stroke-linecap="round" />
-              </svg>
+              <span
+                aria-hidden="true"
+                class="inline-flex shrink-0 [&>svg]:size-full size-[12px] animate-spin"
+                >{@html RefreshIcon}</span
+              >
               {$i18n.t('common.resetting')}
             {:else}
               {$i18n.t('common.reset')}

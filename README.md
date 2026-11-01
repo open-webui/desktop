@@ -7,10 +7,7 @@
 
 ![Open WebUI Desktop](./demo.png)
 
-Your AI, right on your desktop. [Open WebUI](https://github.com/open-webui/open-webui) as a native app. Run models locally or connect to any server. No Docker, no terminal, no setup. Download, launch, chat.
-
-> [!WARNING]
-> **Early Alpha.** Things move fast and stuff might break. [Report bugs](https://github.com/open-webui/desktop/issues) or [come hang out on Discord](https://discord.gg/open-webui).
+[Open WebUI](https://github.com/open-webui/open-webui), up and running in a few clicks. Desktop installs it on your computer, keeps it up to date, and opens it whenever you need it.
 
 ## Download
 
@@ -27,41 +24,24 @@ Your AI, right on your desktop. [Open WebUI](https://github.com/open-webui/open-
 | Linux ARM64 (AppImage) | [**Download .AppImage**](https://github.com/open-webui/desktop/releases/latest/download/open-webui_arm64.AppImage) |
 | Linux ARM64 (Debian/Ubuntu) | [**Download .deb**](https://github.com/open-webui/desktop/releases/latest/download/open-webui_arm64.deb) |
 
-Internet required on first launch. After that, everything works offline. [All releases →](https://github.com/open-webui/desktop/releases)
+Internet is required for installation and updates. [All releases →](https://github.com/open-webui/desktop/releases)
 
 ## How It Works
 
-🖥️ **Run locally.** The app runs Open WebUI on your machine. You can optionally enable the built-in llama.cpp engine to download and run models offline. Nothing leaves your computer.
+Open the app and click **Get Started**. Desktop installs Open WebUI on your computer, starts it for you, and opens it in the app. You use the same Open WebUI you know, with setup and updates handled through Desktop.
 
-☁️ **Connect remotely.** Point the app at any Open WebUI server. Switch between multiple connections from the sidebar.
-
-Use both at the same time.
-
-## Highlights
-
-- ⚡ **Spotlight.** Hit `Shift+Cmd+I` (macOS) or `Shift+Ctrl+I` (Windows/Linux) to summon a floating chat bar over whatever you're doing. Drag to screenshot anything on screen.
-- 🎙️ **Voice input.** System-wide push-to-talk. Press the shortcut from any app to record, and your speech is transcribed and sent to your chat automatically.
-- 🧠 **Local inference.** Optionally run models entirely on your hardware via the built-in llama.cpp engine. Your data never leaves your machine.
-- 🎯 **One-click setup.** Launch and connect to a server in seconds. Local models can be enabled from the settings.
-- 🔌 **Multiple connections.** Juggle servers and switch between them instantly.
-- 🔄 **Auto-updates.** New releases land in the background.
-- 📡 **Offline-ready.** No internet needed after initial setup.
-- 💻 **Cross-platform.** macOS, Windows, and Linux.
+Desktop runs your own local copy of Open WebUI. If you already use Open WebUI on another server, [Open WebUI Tether](https://github.com/open-webui/tether) is a companion app that extends what you can do with it.
 
 ## System Requirements
 
-|  | Local Models | Remote Only |
-|--|-------------|-------------|
-| **Disk** | 5 GB+ | ~500 MB |
-| **RAM** | 16 GB+ | 4 GB |
-| **OS** | macOS 12+, Windows 10+, modern Linux (glibc 2.28+) | Same |
-
-> [!NOTE]
-> Local models need serious RAM (7B ≈ 8 GB, 13B ≈ 16 GB). Lighter machine? Connect to a remote server instead.
+| | Requirements |
+|--|-------------|
+| **Disk** | 5 GB+ |
+| **OS** | macOS 12+, Windows 10+, modern Linux (glibc 2.28+) |
 
 ## Privacy
 
-No telemetry. No tracking. No phone-home. Your conversations stay on your machine. Period.
+Desktop does not collect usage data. If you connect Open WebUI to an external AI provider, that provider's privacy policy applies.
 
 ## Community
 

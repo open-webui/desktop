@@ -1,12 +1,14 @@
 import tippy, { type Props } from 'tippy.js'
 import 'tippy.js/dist/tippy.css'
-import 'tippy.js/themes/translucent.css'
 
 export function tooltip(node: HTMLElement, content: string | Partial<Props>) {
-  const options: Partial<Props> =
-    typeof content === 'string'
-      ? { content, placement: 'bottom', theme: 'translucent', delay: [500, 0] }
-      : { placement: 'bottom', theme: 'translucent', delay: [500, 0], ...content }
+  const options: Partial<Props> = {
+    placement: 'top',
+    theme: 'dark',
+    arrow: false,
+    offset: [0, 4],
+    ...(typeof content === 'string' ? { content } : content)
+  }
 
   const instance = tippy(node, options)
 

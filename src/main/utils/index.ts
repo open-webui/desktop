@@ -9,7 +9,9 @@ import crypto from 'crypto'
 import * as tar from 'tar'
 
 import { app, shell, Notification, net as electronNet } from 'electron'
-import { execFileSync, exec, spawn, execSync, execFile } from 'child_process'
+import { execFileSync, spawn, execFile } from 'child_process'
+import { ManagedService, waitForReady } from '../process/managedService'
+import { spawnPty } from '../process/nativePty'
 
 import log from 'electron-log'
 log.transports.file.resolvePathFn = () => getLogFilePath('main')
@@ -127,24 +129,38 @@ export const getSecretKey = (keyPath?: string, key?: string): string => {
 
 // ─── Port Utils ─────────────────────────────────────────
 
-export const portInUse = async (port: number, host: string = '0.0.0.0'): Promise<boolean> => {
-  return new Promise((resolve) => {
-    const client = new net.Socket()
-    client
-      .setTimeout(1000)
-      .once('connect', () => {
-        client.destroy()
-        resolve(true)
+const portInUse = async (port: number, host: string): Promise<boolean> => {
+  return new Promise((resolve, reject) => {
+    // Probe the bind address; connecting to 0.0.0.0 fails on Windows even for occupied ports.
+    const server = net.createServer((socket) => socket.destroy())
+    server.once('error', (error: NodeJS.ErrnoException) => {
+      if (error.code === 'EADDRINUSE' || error.code === 'EACCES') resolve(true)
+      else reject(error)
+    })
+    server.listen({ port, host, exclusive: true }, () => {
+      server.close((error) => {
+        if (error) reject(error)
+        else resolve(false)
       })
-      .once('timeout', () => {
-        client.destroy()
-        resolve(false)
-      })
-      .once('error', () => {
-        resolve(false)
-      })
-      .connect(port, host)
+    })
   })
+}
+
+export const findAvailablePort = async (
+  preferred: number,
+  host: string,
+  signal: AbortSignal
+): Promise<number> => {
+  if (!Number.isInteger(preferred) || preferred < 1 || preferred > 65535) {
+    throw new RangeError('Server port must be an integer between 1 and 65535')
+  }
+  for (let port = preferred; port <= Math.min(preferred + 100, 65535); port++) {
+    signal.throwIfAborted()
+    const occupied = await portInUse(port, host)
+    signal.throwIfAborted()
+    if (!occupied) return port
+  }
+  throw new Error('No available ports found')
 }
 
 // ─── Python Download & Install ──────────────────────────
@@ -177,9 +193,9 @@ const generateDownloadUrl = () => {
   return `${baseUrl}/${releaseDate}/${filename}`
 }
 
-export const downloadFileWithProgress = async (url, downloadPath, onProgress) => {
+export const downloadFileWithProgress = async (url, downloadPath, onProgress, signal?: AbortSignal) => {
   try {
-    const response = await fetch(url)
+    const response = await fetch(url, { signal })
     if (!response || !response.ok) {
       throw new Error(`HTTP error! status: ${response?.status}`)
     }
@@ -262,7 +278,7 @@ const checkInternet = async () => {
   }
 }
 
-export const installPython = async (installationDir?: string, onStatus?: (status: string) => void): Promise<boolean> => {
+export const installPython = async (installationDir?: string, onStatus?: (status: string) => void, signal?: AbortSignal): Promise<boolean> => {
   const pythonDownloadPath = getPythonDownloadPath()
   if (!fs.existsSync(pythonDownloadPath)) {
     if (!(await checkInternet())) {
@@ -435,13 +451,13 @@ export const uninstallPython = (installationDir?: string): boolean => {
 
 // ─── Package Management ─────────────────────────────────
 
-export const installPackage = (packageName: string, version?: string, onStatus?: (status: string) => void): Promise<boolean> => {
+export const installPackage = (packageName: string, version?: string, onStatus?: (status: string) => void, signal?: AbortSignal): Promise<boolean> => {
   return new Promise((resolve, reject) => {
     if (!isPythonInstalled()) {
       return reject(new Error('Python is not installed. Please reinstall the app or run setup again.'))
     }
     const pythonPath = getPythonPath()
-    const commandProcess = execFile(
+    const commandProcess = spawn(
       pythonPath,
       [
         '-m',
@@ -451,7 +467,7 @@ export const installPackage = (packageName: string, version?: string, onStatus?:
         ...(version ? [`${packageName}==${version}`] : [packageName, '-U'])
       ],
       {
-        env: pythonEnv()
+        env: pythonEnv(), signal, windowsHide: true
       }
     )
 
@@ -472,9 +488,11 @@ export const installPackage = (packageName: string, version?: string, onStatus?:
         onStatus?.(line)
       }
     })
-    commandProcess.on('exit', (code) => {
+    commandProcess.on('close', (code) => {
       log.info(`Package install exited with code ${code}`)
-      if (code === 0) {
+      if (signal?.aborted) {
+        reject(signal.reason)
+      } else if (code === 0) {
         resolve(true)
       } else {
         reject(new Error(
@@ -484,7 +502,7 @@ export const installPackage = (packageName: string, version?: string, onStatus?:
     })
     commandProcess.on('error', (error) => {
       log.error(`Package install error: ${error.message}`)
-      reject(new Error(`Failed to run package installer: ${error.message}`))
+      lastLine = `Failed to run package installer: ${error.message}`
     })
   })
 }
@@ -547,26 +565,30 @@ export const uninstallPackage = (packageName: string): boolean => {
 
 // ─── Server Management ──────────────────────────────────
 
-import * as pty from 'node-pty'
+export const webuiService = new ManagedService(spawnPty, true)
+webuiService.subscribe((event) => {
+  if (event.type === 'output') serverLogger.info(event.data.trimEnd())
+})
 
-const serverPIDs: Set<number> = new Set()
-const serverLogs: Map<number, string[]> = new Map()
-let serverPtyProcesses: Map<number, pty.IPty> = new Map()
-
-export const getServerPIDs = (): number[] => Array.from(serverPIDs)
-export const getServerPty = (pid: number): pty.IPty | undefined => serverPtyProcesses.get(pid)
-
-export const startServer = async (
-  expose = false,
-  port = null
-): Promise<{ url: string; pid: number }> => {
-  await stopAllServers()
+export const startServer = (onStatus?: (status: string) => void) => webuiService.start(async (signal) => {
   const config = await getConfig()
   const configEnvVars = config.envVars ?? {}
+  const expose = config.localServer?.serveOnLocalNetwork ?? false
+  const port = config.localServer?.port
   const host = expose ? '0.0.0.0' : '127.0.0.1'
   if (!isPythonInstalled()) throw new Error('Python is not installed')
   if (!isPackageInstalled('open-webui')) throw new Error('open-webui package is not installed')
 
+  if (config.localServer?.autoUpdate !== false && !config.localServer?.version) {
+    try {
+      onStatus?.('Updating Open WebUI…')
+      await installPackage('open-webui', undefined, onStatus, signal)
+    } catch (error) {
+      signal.throwIfAborted()
+      log.warn('Auto-update failed, starting existing version:', error)
+    } finally { onStatus?.('') }
+  }
+  signal.throwIfAborted()
   const pythonPath = getPythonPath()
   log.info(`Using Python at: ${pythonPath}`)
 
@@ -581,240 +603,25 @@ export const startServer = async (
     fs.mkdirSync(dataDir, { recursive: true })
   }
 
-  // Find available port
-  let desiredPort = port || 8080
-  let availablePort = desiredPort
-  while (await portInUse(availablePort, host)) {
-    availablePort++
-    if (availablePort > desiredPort + 100) {
-      throw new Error('No available ports found')
-    }
-  }
+  const availablePort = await findAvailablePort(port || 8080, host, signal)
   commandArgs.push('--port', availablePort.toString())
   log.info('Starting Open-WebUI server...', pythonPath, commandArgs.join(' '))
 
-  let ptyProcess: pty.IPty
-  try {
-    ptyProcess = pty.spawn(pythonPath, commandArgs, {
-      name: 'xterm-256color',
-      cols: 200,
-      rows: 50,
-      env: pythonEnv({
-        ...(configEnvVars ?? {}),
-        DATA_DIR: dataDir,
-        WEBUI_SECRET_KEY: secretKey,
-        PYTHONUNBUFFERED: '1'
-      })
-    })
-  } catch (error) {
-    throw new Error(
-      `Failed to spawn PTY with ${pythonPath}: ${error?.message ?? error}`
-    )
-  }
-
-  const pid = ptyProcess.pid
-  const rawBuffer: string[] = []
-  serverPIDs.add(pid)
-  serverLogs.set(pid, rawBuffer)
-  serverPtyProcesses.set(pid, ptyProcess)
-
-  ptyProcess.onData((data: string) => {
-    rawBuffer.push(data)
-    serverLogger.info(`[PID:${pid}] ${data.replace(/[\r\n]+/g, ' ').trim()}`)
-  })
-
-  ptyProcess.onExit(({ exitCode, signal }) => {
-    const exitMsg = `\r\n[Process exited with code ${exitCode}${signal ? ` signal ${signal}` : ''}]\r\n`
-    rawBuffer.push(exitMsg)
-    serverLogger.info(`[PID:${pid}] Exited code=${exitCode} signal=${signal}`)
-    serverPIDs.delete(pid)
-    serverPtyProcesses.delete(pid)
-  })
-
-  let effectiveHost = host
-  if (!expose && host === '0.0.0.0') effectiveHost = '127.0.0.1'
-  const url = `http://${effectiveHost}:${availablePort}`
-  log.info(`Server started with PID: ${pid}, URL: ${url}`)
-
-  return { url, pid }
-}
-
-
-export async function stopAllServers(): Promise<void> {
-  log.info('Stopping all servers...')
-  const pidsToStop = Array.from(serverPIDs)
-  if (pidsToStop.length === 0) return
-
-  // Kill PTY processes directly — cleaner than process tree termination
-  for (const pid of pidsToStop) {
-    const ptyProc = serverPtyProcesses.get(pid)
-    if (ptyProc) {
-      try {
-        ptyProc.kill()
-      } catch (e) {
-        log.warn(`Failed to kill PTY process ${pid}:`, e)
-      }
-    } else {
-      // Fallback for any non-PTY processes
-      await terminateProcessTree(pid, false)
-    }
-  }
-
-  await sleep(2000)
-
-  // Force kill anything still running
-  for (const pid of pidsToStop) {
-    if (isProcessRunning(pid)) {
-      await terminateProcessTree(pid, true)
-    }
-  }
-
-  for (const pid of pidsToStop) {
-    if (!isProcessRunning(pid)) {
-      serverPIDs.delete(pid)
-      serverLogs.delete(pid)
-      serverPtyProcesses.delete(pid)
-    } else {
-      log.warn(`Process ${pid} may still be running after termination attempts`)
-    }
-  }
-}
-
-export const clearServerLog = (pid: number): void => {
-  const logs = serverLogs.get(pid)
-  if (logs) logs.length = 0
-}
-
-export const clearAllServerLogs = (): void => {
-  for (const logs of serverLogs.values()) {
-    logs.length = 0
-  }
-}
-
-async function terminateProcessTree(pid: number, forceKill: boolean = false): Promise<void> {
-  const maxRetries = 3
-  for (let attempt = 1; attempt <= maxRetries; attempt++) {
-    try {
-      if (process.platform === 'win32') {
-        await terminateWindows(pid, forceKill)
-      } else {
-        await terminateUnix(pid, forceKill)
-      }
-      if (!isProcessRunning(pid)) {
-        log.info(`Successfully terminated process tree (PID: ${pid})`)
-        return
-      }
-    } catch (error) {
-      log.warn(`Attempt ${attempt}/${maxRetries} failed for PID ${pid}:`, error)
-    }
-    if (attempt < maxRetries) await sleep(1000)
-  }
-  log.error(`Failed to terminate process tree (PID: ${pid}) after ${maxRetries} attempts`)
-}
-
-async function terminateWindows(pid: number, forceKill: boolean): Promise<void> {
-  const commands = forceKill
-    ? [`taskkill /PID ${pid} /T /F`]
-    : [`taskkill /PID ${pid} /T`, `taskkill /PID ${pid} /T /F`]
-  for (const cmd of commands) {
-    try {
-      execSync(cmd, { timeout: 5000, stdio: 'ignore' })
-      await sleep(500)
-    } catch {}
-  }
-}
-
-async function terminateUnix(pid: number, forceKill: boolean): Promise<void> {
-  const signals = forceKill ? ['SIGKILL'] : ['SIGTERM', 'SIGKILL']
-  for (const signal of signals) {
-    try {
-      process.kill(-pid, signal)
-      await sleep(500)
-      if (isProcessRunning(pid)) {
-        process.kill(pid, signal)
-        await sleep(500)
-      }
-    } catch {}
-  }
-}
-
-function isProcessRunning(pid: number): boolean {
-  try {
-    process.kill(pid, 0)
-    return true
-  } catch {
-    return false
-  }
-}
-
-function sleep(ms: number): Promise<void> {
-  return new Promise((resolve) => setTimeout(resolve, ms))
-}
-
-export function getServerLog(pid: number): string[] {
-  return serverLogs.get(pid) || []
-}
-
-// ─── URL Validation ─────────────────────────────────────
-
-export const checkUrlAndOpen = async (url: string, callback: Function = async () => {}) => {
-  const maxAttempts = 1800
-  const interval = 2000
-  let attempts = 0
-
-  const checkUrl = async (): Promise<boolean> => {
-    try {
-      const response = await electronNet.fetch(url, { method: 'HEAD' })
+  const url = `http://127.0.0.1:${availablePort}`
+  return {
+    file: pythonPath, args: commandArgs, url,
+    env: pythonEnv({ ...configEnvVars, DATA_DIR: dataDir, WEBUI_SECRET_KEY: secretKey, PYTHONUNBUFFERED: '1' }),
+    ready: (signal) => waitForReady(async (probeSignal) => {
+      const response = await electronNet.fetch(url, { method: 'HEAD', signal: probeSignal })
       return response.ok
-    } catch {
-      return false
-    }
+    }, signal)
   }
-
-  const pollUrl = async () => {
-    while (attempts < maxAttempts) {
-      attempts++
-      const isAvailable = await checkUrl()
-      if (isAvailable) {
-        log.info('URL is now available')
-        await callback()
-        return
-      }
-      await new Promise((resolve) => setTimeout(resolve, interval))
-    }
-    log.info('URL check timed out')
-  }
-
-  pollUrl().catch((error) => {
-    log.error('Error in URL polling:', error)
-  })
-}
-
-export const validateRemoteUrl = async (url: string): Promise<boolean> => {
-  try {
-    const response = await electronNet.fetch(url, { method: 'HEAD', signal: AbortSignal.timeout(5000) })
-    return response.ok
-  } catch {
-    return false
-  }
-}
-
-// ─── Config ─────────────────────────────────────────────
-
-export interface Connection {
-  id: string
-  name: string
-  type: 'local' | 'remote'
-  url: string
-}
+})
 
 export interface AppConfig {
   version: number
-  defaultConnectionId: string | null
-  connections: Connection[]
   runInBackground: boolean
   globalShortcut: string
-  spotlightShortcut: string
   installDir: string
   dataDir: string
   localServer: {
@@ -822,49 +629,29 @@ export interface AppConfig {
     serveOnLocalNetwork: boolean
     autoUpdate: boolean
   }
-  openTerminal: {
-    enabled: boolean
-    port: number
-    cwd: string
-    apiKey: string
-  }
   llamaCpp: {
     enabled: boolean
     port: number
     version: string
     variant: string
+    assetName?: string
     extraArgs: string[]
   }
   envVars: Record<string, string>
-  showSidebar: boolean
-  spotlightPosition: { x: number; y: number } | null
-  spotlightClipboardPaste: boolean
-  voiceInputShortcut: string
-  voiceInputEnabled: boolean
-  callShortcut: string
-  callEnabled: boolean
   windowBounds: { x: number; y: number; width: number; height: number } | null
   windowMaximized: boolean
 }
 
 const DEFAULT_CONFIG: AppConfig = {
   version: 1,
-  defaultConnectionId: null,
-  connections: [],
   runInBackground: true,
-  globalShortcut: 'Alt+CommandOrControl+O',
-  spotlightShortcut: 'Shift+CommandOrControl+I',
+  globalShortcut: 'CommandOrControl+Shift+O',
   installDir: '',
   dataDir: '',
   localServer: {
     port: 8080,
     serveOnLocalNetwork: false,
     autoUpdate: true
-  },
-  openTerminal: {
-    enabled: false,
-    cwd: '',
-    apiKey: ''
   },
   llamaCpp: {
     enabled: false,
@@ -873,13 +660,6 @@ const DEFAULT_CONFIG: AppConfig = {
     extraArgs: []
   },
   envVars: {},
-  showSidebar: false,
-  spotlightPosition: null,
-  spotlightClipboardPaste: true,
-  voiceInputShortcut: 'Shift+CommandOrControl+Space',
-  voiceInputEnabled: true,
-  callShortcut: 'Shift+CommandOrControl+C',
-  callEnabled: true,
   windowBounds: null,
   windowMaximized: false
 }

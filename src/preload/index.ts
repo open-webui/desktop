@@ -1,51 +1,27 @@
 import { ipcRenderer, contextBridge } from 'electron'
 import { electronAPI } from '@electron-toolkit/preload'
+import { stripVTControlCharacters } from 'node:util'
+import type { ServiceId } from '../shared/terminal'
 
-// ─── PTY MessagePort ────────────────────────────────────
-// MessagePorts stay in the preload (cannot cross contextBridge).
-// We expose simple functions so the renderer never touches the port.
-let activePtyPort: MessagePort | null = null
-let ptyOutputCallback: ((data: string) => void) | null = null
+import { createTerminalClient } from './terminalClient'
 
-ipcRenderer.on('pty:port', (event, _data) => {
+if (process.platform !== 'darwin') {
+  window.addEventListener('DOMContentLoaded', () => {
+    const syncWindowTheme = (): void => {
+      ipcRenderer.send('window:theme', document.documentElement.classList.contains('dark'))
+    }
+    const observer = new MutationObserver(syncWindowTheme)
+    observer.observe(document.documentElement, { attributes: true, attributeFilter: ['class'] })
+    syncWindowTheme()
+    window.addEventListener('unload', () => observer.disconnect(), { once: true })
+  }, { once: true })
+}
+
+const terminals = createTerminalClient((service, id) => ipcRenderer.send('terminal:connect', service, id))
+window.addEventListener('unload', () => terminals.dispose())
+ipcRenderer.on('terminal:port', (event, id: number) => {
   const [port] = event.ports
-  if (!port) return
-  if (activePtyPort) activePtyPort.close()
-  activePtyPort = port
-  port.onmessage = (ev: MessageEvent) => {
-    if (ev.data?.type === 'output' && ptyOutputCallback) ptyOutputCallback(ev.data.data)
-  }
-  port.start()
-})
-
-// ─── Open Terminal PTY MessagePort ──────────────────────
-let activeOtPtyPort: MessagePort | null = null
-let otPtyOutputCallback: ((data: string) => void) | null = null
-
-ipcRenderer.on('open-terminal:pty:port', (event, _data) => {
-  const [port] = event.ports
-  if (!port) return
-  if (activeOtPtyPort) activeOtPtyPort.close()
-  activeOtPtyPort = port
-  port.onmessage = (ev: MessageEvent) => {
-    if (ev.data?.type === 'output' && otPtyOutputCallback) otPtyOutputCallback(ev.data.data)
-  }
-  port.start()
-})
-
-// ─── llama.cpp PTY MessagePort ──────────────────────────
-let activeLsCppPtyPort: MessagePort | null = null
-let lsCppPtyOutputCallback: ((data: string) => void) | null = null
-
-ipcRenderer.on('llamacpp:pty:port', (event, _data) => {
-  const [port] = event.ports
-  if (!port) return
-  if (activeLsCppPtyPort) activeLsCppPtyPort.close()
-  activeLsCppPtyPort = port
-  port.onmessage = (ev: MessageEvent) => {
-    if (ev.data?.type === 'output' && lsCppPtyOutputCallback) lsCppPtyOutputCallback(ev.data.data)
-  }
-  port.start()
+  if (port) terminals.accept(id, port)
 })
 
 const api = {
@@ -90,41 +66,20 @@ const api = {
   getServerLogs: () => ipcRenderer.invoke('server:logs'),
   clearServerLogs: () => ipcRenderer.invoke('server:logs:clear'),
 
-  // PTY — MessagePort stays in preload, renderer uses these functions
-  listPtys: () => ipcRenderer.invoke('pty:list'),
-  connectPty: (onOutput: (data: string) => void, pid?: number) => {
-    ptyOutputCallback = onOutput
-    ipcRenderer.invoke('pty:connect', pid)
-  },
-  writePty: (data: string) => {
-    activePtyPort?.postMessage({ type: 'input', data })
-  },
-  resizePty: (cols: number, rows: number) => {
-    activePtyPort?.postMessage({ type: 'resize', cols, rows })
-  },
-  disconnectPty: () => {
-    ptyOutputCallback = null
-    if (activePtyPort) {
-      activePtyPort.close()
-      activePtyPort = null
-    }
-  },
-
-  // Open Terminal
-  startOpenTerminal: () => ipcRenderer.invoke('open-terminal:start'),
-  stopOpenTerminal: () => ipcRenderer.invoke('open-terminal:stop'),
-  getOpenTerminalInfo: () => ipcRenderer.invoke('open-terminal:info'),
-  getOpenTerminalStatus: () => ipcRenderer.invoke('open-terminal:status'),
-  connectOpenTerminalPty: (onOutput: (data: string) => void) => {
-    otPtyOutputCallback = onOutput
-    ipcRenderer.invoke('open-terminal:pty:connect')
-  },
-  disconnectOpenTerminalPty: () => {
-    otPtyOutputCallback = null
-    if (activeOtPtyPort) {
-      activeOtPtyPort.close()
-      activeOtPtyPort = null
-    }
+  connectTerminal: terminals.connect,
+  disconnectTerminal: terminals.disconnect,
+  writeTerminal: terminals.write,
+  resizeTerminal: terminals.resize,
+  onTerminalLine: (service: ServiceId, callback: (line: string) => void) => {
+    let tail = ''
+    const id = terminals.connect(service, (message, consumed) => {
+      tail = message.type === 'reset' ? '' : (tail + message.data).slice(-16384)
+      // Keep split escape sequences in the buffer, but don't show an unfinished color code.
+      const plain = stripVTControlCharacters(tail.replace(/\x1b(?:\[[0-?]*[ -/]*)?$/, ''))
+      callback(plain.split(/[\r\n]/).findLast((line) => line.trim())?.trim() ?? '')
+      consumed()
+    })
+    return () => terminals.disconnect(id)
   },
 
   // llama.cpp
@@ -132,18 +87,8 @@ const api = {
   startLlamaCpp: () => ipcRenderer.invoke('llamacpp:start'),
   stopLlamaCpp: () => ipcRenderer.invoke('llamacpp:stop'),
   getLlamaCppInfo: () => ipcRenderer.invoke('llamacpp:info'),
+  getLlamaCppAssetName: (variant?: string) => ipcRenderer.invoke('llamacpp:asset-name', variant),
   getLlamaCppLogs: () => ipcRenderer.invoke('llamacpp:logs'),
-  connectLlamaCppPty: (onOutput: (data: string) => void) => {
-    lsCppPtyOutputCallback = onOutput
-    ipcRenderer.invoke('llamacpp:pty:connect')
-  },
-  disconnectLlamaCppPty: () => {
-    lsCppPtyOutputCallback = null
-    if (activeLsCppPtyPort) {
-      activeLsCppPtyPort.close()
-      activeLsCppPtyPort = null
-    }
-  },
   checkLlamaCppUpdate: () => ipcRenderer.invoke('llamacpp:check-update'),
   updateLlamaCpp: () => ipcRenderer.invoke('llamacpp:update'),
   uninstallLlamaCpp: () => ipcRenderer.invoke('llamacpp:uninstall'),
@@ -166,15 +111,7 @@ const api = {
   getPackageVersion: (packageName: string) => ipcRenderer.invoke('package:version', packageName),
   uninstallPackage: (packageName: string) => ipcRenderer.invoke('package:uninstall', packageName),
 
-  // Connections
-  getConnections: () => ipcRenderer.invoke('connections:list'),
-  addConnection: (connection: any) => ipcRenderer.invoke('connections:add', connection),
-  removeConnection: (id: string) => ipcRenderer.invoke('connections:remove', id),
-  updateConnection: (id: string, updates: any) => ipcRenderer.invoke('connections:update', id, updates),
-  setDefaultConnection: (id: string) => ipcRenderer.invoke('connections:setDefault', id),
-  connectTo: (id: string) => ipcRenderer.invoke('connections:connect', id),
-  validateUrl: (url: string) => ipcRenderer.invoke('validate:url', url),
-  selectFolder: () => ipcRenderer.invoke('dialog:selectFolder'),
+  openLocalWebUI: () => ipcRenderer.invoke('server:open'),
 
   // Updater
   checkForUpdates: () => ipcRenderer.invoke('updater:check'),
@@ -182,10 +119,7 @@ const api = {
   installUpdate: () => ipcRenderer.invoke('updater:install'),
 
   // Changelog
-  getChangelog: () => ipcRenderer.invoke('app:changelog'),
-
-  // Auth token relay from webview
-  setAuthToken: (token: string) => ipcRenderer.invoke('app:setAuthToken', token)
+  getChangelog: () => ipcRenderer.invoke('app:changelog')
 }
 
 if (process.contextIsolated) {

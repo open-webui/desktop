@@ -1,11 +1,13 @@
 <script lang="ts">
+  import NavArrowRightIcon from 'iconoir/icons/nav-arrow-right.svg?raw'
+  import RefreshIcon from 'iconoir/icons/refresh.svg?raw'
   import { onMount, onDestroy } from 'svelte'
+  import { fade, scale } from 'svelte/transition'
   import { appInfo } from '../../../stores'
   import i18n from '../../../i18n'
   import logoImage from '../../../assets/images/splash-dark.png'
 
   let openWebuiVersion = $state<string | null>(null)
-  let openTerminalVersion = $state<string | null>(null)
   let llamaCppVersion = $state<string | null>(null)
 
   // Update state
@@ -57,10 +59,10 @@
     // Full Matrix intro sequence
     const username = $appInfo?.username ?? 'Neo'
     const lines = [
-      `Wake up, ${username}...`,
-      'The Matrix has you...',
-      'Follow the white rabbit.',
-      `Knock, knock, ${username}.`
+      $i18n.t('settings.about.wakeUp', { username }),
+      $i18n.t('settings.about.matrixHasYou'),
+      $i18n.t('settings.about.followWhiteRabbit'),
+      $i18n.t('settings.about.knockKnock', { username })
     ]
 
     let lineIdx = 0
@@ -127,7 +129,6 @@
 
   onMount(async () => {
     openWebuiVersion = await window.electronAPI.getPackageVersion('open-webui')
-    openTerminalVersion = await window.electronAPI.getPackageVersion('open-terminal')
 
     try {
       const info = await window.electronAPI.getLlamaCppInfo()
@@ -158,7 +159,7 @@
           break
         case 'update:error':
           updateStatus = 'error'
-          updateError = data.data?.message ?? 'Unknown error'
+          updateError = data.data?.message ?? $i18n.t('error.unknown')
           break
       }
     })
@@ -186,7 +187,7 @@
       await window.electronAPI.checkForUpdates()
     } catch (e: any) {
       updateStatus = 'error'
-      updateError = e?.message ?? 'Check failed'
+      updateError = e?.message ?? $i18n.t('error.checkFailed')
     }
   }
 
@@ -197,7 +198,7 @@
       await window.electronAPI.downloadUpdate()
     } catch (e: any) {
       updateStatus = 'error'
-      updateError = e?.message ?? 'Download failed'
+      updateError = e?.message ?? $i18n.t('error.downloadFailed')
     }
   }
 
@@ -235,113 +236,127 @@
 
   const renderMarkdown = (md: string): string => {
     return md
-      .replace(/^### (.+)$/gm, '<div class="text-[11px] opacity-50 font-semibold mt-3 mb-1">$1</div>')
-      .replace(/^- (.+)$/gm, '<div class="text-[11px] opacity-40 pl-2 leading-relaxed">• $1</div>')
+      .replace(/^### (.+)$/gm, '<div class="text-[11px] font-semibold mt-3 mb-1">$1</div>')
+      .replace(/^- (.+)$/gm, '<div class="text-[11px] pl-2 leading-relaxed">• $1</div>')
       .replace(/\*\*(.+?)\*\*/g, '<strong>$1</strong>')
       .replace(/`(.+?)`/g, '<code class="text-[10px] bg-white/[0.06] px-1 py-0.5 rounded">$1</code>')
   }
 </script>
 
-<div class="flex flex-col divide-y divide-white/[0.04]">
+<div class="flex flex-col">
   <button
-    class="w-full py-4 flex items-center justify-between bg-transparent border-none cursor-default text-[#1d1d1f] dark:text-[#fafafa]"
+    class="w-full flex min-w-0 items-center justify-between gap-[16px] py-[7px] max-sm:gap-[12px] [&>:first-child]:min-w-0 [&>:last-child]:shrink-0 max-sm:[&>:last-child:not([role=switch])]:max-w-[65%] bg-transparent border-none cursor-default text-gray-900 dark:text-gray-100"
     onclick={handleVersionClick}
   >
-    <div class="text-[13px] opacity-70">{$i18n.t('settings.about.desktopVersion')}</div>
-    <div class="text-[12px] opacity-30">{$appInfo?.version ?? $i18n.t('common.unknown')}</div>
+    <div class="text-[12px] leading-[16px] font-normal text-[#171717] dark:text-white">
+      {$i18n.t('settings.about.desktopVersion')}
+    </div>
+    <div class="text-[12px]">{$appInfo?.version ?? $i18n.t('common.unknown')}</div>
   </button>
 
   {#if openWebuiVersion}
     <button
-      class="w-full py-4 flex items-center justify-between bg-transparent border-none cursor-pointer group"
+      class="w-full flex min-w-0 items-center justify-between gap-[16px] py-[7px] max-sm:gap-[12px] [&>:first-child]:min-w-0 [&>:last-child]:shrink-0 max-sm:[&>:last-child:not([role=switch])]:max-w-[65%] bg-transparent border-none cursor-pointer group"
       onclick={() => openRelease('open-webui/open-webui', openWebuiVersion!)}
     >
-      <div class="text-[13px] opacity-70">{$i18n.t('settings.about.openWebuiVersion')}</div>
-      <div class="text-[12px] opacity-30 group-hover:opacity-50 transition">{openWebuiVersion}</div>
-    </button>
-  {/if}
-
-  {#if openTerminalVersion}
-    <button
-      class="w-full py-4 flex items-center justify-between bg-transparent border-none cursor-pointer group"
-      onclick={() => openRelease('open-webui/open-terminal', openTerminalVersion!)}
-    >
-      <div class="text-[13px] opacity-70">{$i18n.t('settings.about.openTerminalVersion')}</div>
-      <div class="text-[12px] opacity-30 group-hover:opacity-50 transition">{openTerminalVersion}</div>
+      <div class="text-[12px] leading-[16px] font-normal text-[#171717] dark:text-white">
+        {$i18n.t('settings.about.openWebuiVersion')}
+      </div>
+      <div class="text-[12px] transition">{openWebuiVersion}</div>
     </button>
   {/if}
 
   {#if llamaCppVersion}
     <button
-      class="w-full py-4 flex items-center justify-between bg-transparent border-none cursor-pointer group"
+      class="w-full flex min-w-0 items-center justify-between gap-[16px] py-[7px] max-sm:gap-[12px] [&>:first-child]:min-w-0 [&>:last-child]:shrink-0 max-sm:[&>:last-child:not([role=switch])]:max-w-[65%] bg-transparent border-none cursor-pointer group"
       onclick={() => openRelease('ggml-org/llama.cpp', llamaCppVersion!, '')}
     >
-      <div class="text-[13px] opacity-70">{$i18n.t('settings.about.llamaCppVersion')}</div>
-      <div class="text-[12px] opacity-30 group-hover:opacity-50 transition">{llamaCppVersion}</div>
+      <div class="text-[12px] leading-[16px] font-normal text-[#171717] dark:text-white">
+        {$i18n.t('settings.about.llamaCppVersion')}
+      </div>
+      <div class="text-[12px] transition">{llamaCppVersion}</div>
     </button>
   {/if}
 
-  <div class="py-4 flex items-center justify-between">
-    <div class="text-[13px] opacity-70">{$i18n.t('settings.about.platform')}</div>
-    <div class="text-[12px] opacity-30">{$appInfo?.platform ?? $i18n.t('common.unknown')}</div>
+  <div
+    class="flex min-w-0 items-center justify-between gap-[16px] py-[7px] max-sm:gap-[12px] [&>:first-child]:min-w-0 [&>:last-child]:shrink-0 max-sm:[&>:last-child:not([role=switch])]:max-w-[65%]"
+  >
+    <div class="text-[12px] leading-[16px] font-normal text-[#171717] dark:text-white">
+      {$i18n.t('settings.about.platform')}
+    </div>
+    <div class="text-[12px]">{$appInfo?.platform ?? $i18n.t('common.unknown')}</div>
   </div>
 
   <!-- Update section -->
-  <div class="py-4">
+  <div class="pt-1">
     <div class="flex items-center justify-between">
       <div>
-        <div class="text-[13px] opacity-70">{$i18n.t('settings.about.softwareUpdate')}</div>
+        <div class="text-[12px] leading-[16px] font-normal text-[#171717] dark:text-white">
+          {$i18n.t('settings.about.softwareUpdate')}
+        </div>
         {#if updateStatus === 'up-to-date'}
-          <div class="text-[11px] opacity-25 mt-0.5">{$i18n.t('settings.about.upToDate')}</div>
+          <div class="text-[11px] leading-[16px] text-[oklch(0.51_0_0)] dark:text-[oklch(0.77_0_0)] mt-0.5">
+            {$i18n.t('settings.about.upToDate')}
+          </div>
         {:else if updateStatus === 'available' && updateVersion}
-          <div class="text-[11px] opacity-40 mt-0.5">{$i18n.t('settings.about.versionAvailable', { version: updateVersion })}</div>
+          <div class="text-[11px] leading-[16px] text-[oklch(0.51_0_0)] dark:text-[oklch(0.77_0_0)] mt-0.5">
+            {$i18n.t('settings.about.versionAvailable', { version: updateVersion })}
+          </div>
         {:else if updateStatus === 'downloading'}
-          <div class="text-[11px] opacity-25 mt-0.5">{$i18n.t('settings.about.downloadingPercent', { percent: downloadPercent })}</div>
+          <div class="text-[11px] leading-[16px] text-[oklch(0.51_0_0)] dark:text-[oklch(0.77_0_0)] mt-0.5">
+            {$i18n.t('settings.about.downloadingPercent', { percent: downloadPercent })}
+          </div>
         {:else if updateStatus === 'downloaded'}
-          <div class="text-[11px] opacity-40 mt-0.5">{$i18n.t('settings.about.updateReady')}</div>
+          <div class="text-[11px] leading-[16px] text-[oklch(0.51_0_0)] dark:text-[oklch(0.77_0_0)] mt-0.5">
+            {$i18n.t('settings.about.updateReady')}
+          </div>
         {:else if updateStatus === 'error'}
-          <div class="text-[11px] text-red-400/60 mt-0.5">{updateError}</div>
+          <div class="text-[11px] text-red-600 dark:text-red-400 mt-0.5">{updateError}</div>
         {/if}
       </div>
 
       <div>
         {#if updateStatus === 'idle' || updateStatus === 'up-to-date' || updateStatus === 'error'}
           <button
-            class="text-[12px] opacity-40 hover:opacity-70 px-3 py-1.5 bg-black/[0.04] dark:bg-white/[0.06] transition border-none text-[#1d1d1f] dark:text-[#fafafa] rounded-xl"
+            class="inline-flex max-w-full shrink-0 items-center justify-center gap-[6px] whitespace-nowrap border-none bg-transparent p-0 text-[12px] leading-[16px] text-[oklch(0.69_0_0)] transition-colors duration-150 hover:text-[oklch(0.2_0_0)] disabled:cursor-not-allowed disabled:opacity-50 dark:hover:text-white [&>span[aria-hidden]]:size-[12px]"
             onclick={handleCheck}
           >
             {$i18n.t('settings.about.checkForUpdates')}
           </button>
         {:else if updateStatus === 'checking'}
           <button
-            class="text-[12px] opacity-30 px-3 py-1.5 bg-black/[0.04] dark:bg-white/[0.06] border-none text-[#1d1d1f] dark:text-[#fafafa] rounded-xl pointer-events-none flex items-center gap-1.5"
+            class="inline-flex max-w-full shrink-0 items-center justify-center gap-[6px] whitespace-nowrap border-none bg-transparent p-0 text-[12px] leading-[16px] text-[oklch(0.69_0_0)] transition-colors duration-150 hover:text-[oklch(0.2_0_0)] disabled:cursor-not-allowed disabled:opacity-50 dark:hover:text-white [&>span[aria-hidden]]:size-[12px] pointer-events-none"
             disabled
           >
-            <svg class="w-3 h-3 animate-spin" viewBox="0 0 24 24" fill="none">
-              <circle cx="12" cy="12" r="10" stroke="currentColor" stroke-width="3" stroke-dasharray="31.4 31.4" stroke-linecap="round" />
-            </svg>
+            <span
+              aria-hidden="true"
+              class="inline-flex shrink-0 [&>svg]:size-full size-[12px] animate-spin"
+              >{@html RefreshIcon}</span
+            >
             {$i18n.t('settings.about.checking')}
           </button>
         {:else if updateStatus === 'available'}
           <button
-            class="text-[12px] opacity-50 hover:opacity-80 px-3 py-1.5 bg-black/[0.06] dark:bg-white/[0.08] transition border-none text-[#1d1d1f] dark:text-[#fafafa] rounded-xl"
+            class="inline-flex max-w-full shrink-0 items-center justify-center gap-[6px] whitespace-nowrap border-none bg-transparent p-0 text-[12px] leading-[16px] text-[oklch(0.69_0_0)] transition-colors duration-150 hover:text-[oklch(0.2_0_0)] disabled:cursor-not-allowed disabled:opacity-50 dark:hover:text-white [&>span[aria-hidden]]:size-[12px]"
             onclick={handleDownload}
           >
             {$i18n.t('settings.about.downloadUpdate')}
           </button>
         {:else if updateStatus === 'downloading'}
           <div class="flex items-center gap-2">
-            <div class="w-24 h-1.5 bg-black/[0.06] dark:bg-white/[0.06] rounded-full overflow-hidden">
+            <div
+              class="w-24 h-1.5 bg-black/[0.06] dark:bg-white/[0.06] rounded-full overflow-hidden"
+            >
               <div
                 class="h-full bg-black/[0.15] dark:bg-white/30 rounded-full transition-all duration-300"
                 style="width: {downloadPercent}%"
               ></div>
             </div>
-            <span class="text-[11px] opacity-30">{downloadPercent}%</span>
+            <span class="text-[11px] leading-[16px] text-[oklch(0.51_0_0)] dark:text-[oklch(0.77_0_0)]">{downloadPercent}%</span>
           </div>
         {:else if updateStatus === 'downloaded'}
           <button
-            class="text-[12px] opacity-50 hover:opacity-80 px-3 py-1.5 bg-black/[0.06] dark:bg-white/[0.08] transition border-none text-[#1d1d1f] dark:text-[#fafafa] rounded-xl"
+            class="inline-flex max-w-full shrink-0 items-center justify-center gap-[6px] whitespace-nowrap border-none bg-transparent p-0 text-[12px] leading-[16px] text-[oklch(0.69_0_0)] transition-colors duration-150 hover:text-[oklch(0.2_0_0)] disabled:cursor-not-allowed disabled:opacity-50 dark:hover:text-white [&>span[aria-hidden]]:size-[12px]"
             onclick={handleInstall}
           >
             {$i18n.t('settings.about.restartToUpdate')}
@@ -352,36 +367,39 @@
   </div>
 
   <!-- Changelog section -->
-  <div class="py-4">
+  <div class="pt-1">
     <button
-      class="text-[12px] opacity-40 hover:opacity-70 transition bg-transparent border-none text-[#1d1d1f] dark:text-[#fafafa] flex items-center gap-1.5"
+      class="inline-flex max-w-full shrink-0 items-center justify-center gap-[6px] whitespace-nowrap border-none bg-transparent p-0 text-[12px] leading-[16px] text-[oklch(0.69_0_0)] transition-colors duration-150 hover:text-[oklch(0.2_0_0)] disabled:cursor-not-allowed disabled:opacity-50 dark:hover:text-white [&>span[aria-hidden]]:size-[12px]"
+      aria-expanded={changelogOpen}
       onclick={toggleChangelog}
     >
-      <svg
-        class="w-3 h-3 transition-transform {changelogOpen ? 'rotate-90' : ''}"
-        fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="2"
+      <span
+        aria-hidden="true"
+        class="inline-flex shrink-0 [&>svg]:size-full size-[12px] transition-transform {changelogOpen
+          ? 'rotate-90'
+          : ''}">{@html NavArrowRightIcon}</span
       >
-        <path stroke-linecap="round" stroke-linejoin="round" d="M9 5l7 7-7 7" />
-      </svg>
-       {$i18n.t('settings.about.whatsNew')}
+      {$i18n.t('settings.about.whatsNew')}
     </button>
 
     {#if changelogOpen}
       <div class="mt-3 max-h-64 overflow-y-auto pr-1">
         {#if changelogLoading}
-          <div class="text-[11px] opacity-25">{$i18n.t('common.loading')}</div>
+          <div class="text-[11px] leading-[16px] text-[oklch(0.51_0_0)] dark:text-[oklch(0.77_0_0)]">{$i18n.t('common.loading')}</div>
         {:else if changelogEntries.length === 0}
-          <div class="text-[11px] opacity-25">{$i18n.t('settings.about.noChangelog')}</div>
+          <div class="text-[11px] leading-[16px] text-[oklch(0.51_0_0)] dark:text-[oklch(0.77_0_0)]">
+            {$i18n.t('settings.about.noChangelog')}
+          </div>
         {:else}
           {#each changelogEntries as entry, i}
             {#if i > 0}
-              <div class="border-t border-white/[0.04] my-3"></div>
+              <div class="my-[12px]"></div>
             {/if}
             <div>
               <div class="flex items-baseline gap-2">
-                <span class="text-[12px] opacity-60 font-medium">{entry.version}</span>
+                <span class="text-[12px] font-medium">{entry.version}</span>
                 {#if entry.date}
-                  <span class="text-[10px] opacity-20">{entry.date}</span>
+                  <span class="text-[11px] leading-[16px] text-[oklch(0.51_0_0)] dark:text-[oklch(0.77_0_0)]">{entry.date}</span>
                 {/if}
               </div>
               {#if entry.body}
@@ -396,9 +414,9 @@
     {/if}
   </div>
 
-  <div class="py-4">
+  <div class="pt-1">
     <button
-      class="text-[12px] opacity-40 hover:opacity-70 transition bg-transparent border-none text-[#1d1d1f] dark:text-[#fafafa]"
+      class="inline-flex max-w-full shrink-0 items-center justify-center gap-[6px] whitespace-nowrap border-none bg-transparent p-0 text-[12px] leading-[16px] text-[oklch(0.69_0_0)] transition-colors duration-150 hover:text-[oklch(0.2_0_0)] disabled:cursor-not-allowed disabled:opacity-50 dark:hover:text-white [&>span[aria-hidden]]:size-[12px]"
       onclick={openGithub}
     >
       {$i18n.t('settings.about.viewOnGithub')}
@@ -406,135 +424,25 @@
   </div>
 </div>
 
-<div class="text-[10px] opacity-15 mt-4 leading-relaxed">{$i18n.t('settings.about.copyright')}<br />{$i18n.t('settings.about.createdBy')}</div>
+<div class="text-[11px] leading-[16px] text-[oklch(0.51_0_0)] dark:text-[oklch(0.77_0_0)] mt-4 leading-relaxed">
+  {$i18n.t('settings.about.copyright')}<br />{$i18n.t('settings.about.createdBy')}
+</div>
 
 <!-- Easter Egg: Matrix Rain Overlay -->
 {#if easterEggActive}
   <!-- svelte-ignore a11y_no_static_element_interactions -->
   <!-- svelte-ignore a11y_click_events_have_key_events -->
-  <div class="matrix-overlay" onclick={dismissEasterEgg}>
-
+  <div class="fixed inset-0 z-[9999] cursor-pointer bg-black" in:fade={{ duration: 1500 }} onclick={dismissEasterEgg}>
     {#if showTypewriter}
-      <div class="matrix-typewriter">
-        <span>{typewriterText}</span><span class="cursor">▌</span>
+      <div class="pointer-events-none absolute left-[60px] top-[80px] font-mono text-[15px] tracking-[1px] text-[#15b800]">
+        <span>{typewriterText}</span><span class="animate-pulse opacity-80 [animation-duration:800ms] motion-reduce:animate-none">▌</span>
       </div>
     {/if}
 
     {#if showReveal}
-      <div class="matrix-reveal">
-        <img src={logoImage} alt="Open WebUI" class="matrix-logo-img" />
+      <div class="pointer-events-none absolute inset-0 flex flex-col items-center justify-center" in:scale={{ duration: 3000, start: 0.95 }}>
+        <img src={logoImage} alt="Open WebUI" class="size-[100px] animate-pulse object-contain brightness-[0.8] sepia saturate-[3] hue-rotate-[70deg] drop-shadow-[0_0_20px_rgba(57,200,20,0.3)] [animation-duration:4s] motion-reduce:animate-none" />
       </div>
     {/if}
   </div>
 {/if}
-
-<style>
-  .matrix-overlay {
-    position: fixed;
-    inset: 0;
-    z-index: 9999;
-    background: #000;
-    cursor: pointer;
-    animation: matrixFadeIn 1.5s ease-out;
-  }
-
-
-
-
-  .matrix-typewriter {
-    position: absolute;
-    top: 80px;
-    left: 60px;
-    pointer-events: none;
-    font-family: 'SF Mono', 'Fira Code', 'Cascadia Code', Menlo, monospace;
-    font-size: 15px;
-    color: #15b800;
-    letter-spacing: 1px;
-  }
-
-  .matrix-typewriter .cursor {
-    animation: blink 0.8s step-end infinite;
-    opacity: 0.8;
-  }
-
-  .matrix-reveal {
-    position: absolute;
-    inset: 0;
-    display: flex;
-    flex-direction: column;
-    align-items: center;
-    justify-content: center;
-    pointer-events: none;
-    animation: ghostReveal 3s ease-out both;
-  }
-
-  .matrix-logo-img {
-    width: 100px;
-    height: 100px;
-    object-fit: contain;
-    filter: drop-shadow(0 0 20px rgba(57, 200, 20, 0.3)) drop-shadow(0 0 40px rgba(57, 200, 20, 0.15))
-           brightness(0.8) sepia(1) saturate(3) hue-rotate(70deg);
-    animation: ghostPulse 4s ease-in-out infinite, glitch 8s ease-in-out infinite;
-  }
-
-  @keyframes matrixFadeIn {
-    from { opacity: 0; }
-    to { opacity: 1; }
-  }
-
-  @keyframes ghostReveal {
-    0% {
-      opacity: 0;
-      transform: scale(0.95);
-      filter: blur(8px);
-    }
-    60% {
-      opacity: 0.6;
-      filter: blur(2px);
-    }
-    100% {
-      opacity: 1;
-      transform: scale(1);
-      filter: blur(0);
-    }
-  }
-
-  @keyframes ghostPulse {
-    0%, 100% {
-      filter: drop-shadow(0 0 20px rgba(57, 200, 20, 0.3)) drop-shadow(0 0 40px rgba(57, 200, 20, 0.15))
-             brightness(0.8) sepia(1) saturate(3) hue-rotate(70deg);
-      opacity: 0.8;
-    }
-    50% {
-      filter: drop-shadow(0 0 30px rgba(57, 200, 20, 0.5)) drop-shadow(0 0 60px rgba(57, 200, 20, 0.25))
-             brightness(0.9) sepia(1) saturate(3) hue-rotate(70deg);
-      opacity: 1;
-    }
-  }
-
-  @keyframes glitch {
-    0%, 94%, 100% {
-      transform: translate(0);
-    }
-    95% {
-      transform: translate(-2px, 1px);
-    }
-    96% {
-      transform: translate(2px, -1px);
-    }
-    97% {
-      transform: translate(0);
-    }
-  }
-
-  @keyframes blink {
-    0%, 100% { opacity: 0.8; }
-    50% { opacity: 0; }
-  }
-
-  @keyframes typewriterFade {
-    from { opacity: 0; }
-    to { opacity: 1; }
-  }
-
-</style>
