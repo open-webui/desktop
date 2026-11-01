@@ -65,7 +65,7 @@ import {
 
 import { attachTerminal } from './process/terminalChannel'
 
-import { initUpdater, checkForUpdates, downloadUpdate, installUpdate } from './updater'
+import { initUpdater, checkForUpdates, downloadUpdate, installUpdate, getUpdateState, setAutomaticUpdates } from './updater'
 
 import log from 'electron-log'
 log.transports.file.resolvePathFn = () => getLogFilePath('main')
@@ -334,7 +334,17 @@ function createMainWindow(show = true): void {
 // ─── Tray ───────────────────────────────────────────────
 
 const updateTray = () => {
-  if (!tray || !CONFIG) return
+  if (!CONFIG) return
+  if (process.platform === 'darwin' && CONFIG.showMenuBarIcon === false) {
+    tray?.destroy()
+    tray = null
+    return
+  }
+  if (!tray) {
+    const trayIcon = nativeImage.createFromPath(icon)
+    tray = new Tray(trayIcon.resize({ width: 16, height: 16 }))
+    tray.setToolTip('Open WebUI Desktop')
+  }
 
   const canOpenInBrowser = webuiService.info.reachable && !!webuiService.info.url
 
@@ -743,9 +753,13 @@ if (!gotTheLock) {
       mainWindow.setTitleBarOverlay({ symbolColor: dark ? '#ffffff' : '#000000' })
     })
     ipcMain.handle('set:config', async (_event, config) => {
+      if ('automaticUpdates' in config && typeof config.automaticUpdates !== 'boolean') {
+        throw new Error('automaticUpdates must be a boolean')
+      }
       await setConfig(config)
       CONFIG = await getConfig()
       updateTray()
+      setAutomaticUpdates(CONFIG.automaticUpdates)
       registerShortcuts(CONFIG.globalShortcut)
     })
 
@@ -816,6 +830,7 @@ if (!gotTheLock) {
     ipcMain.handle('server:open', () => openLocalWebUI())
 
     // Updater
+    ipcMain.handle('updater:state', () => getUpdateState())
     ipcMain.handle('updater:check', () => checkForUpdates())
     ipcMain.handle('updater:download', () => downloadUpdate())
     ipcMain.handle('updater:install', () => installUpdate())
@@ -989,10 +1004,6 @@ if (!gotTheLock) {
 
     // ─── Startup ──────────────────────────────────────
 
-    // Create tray
-    const trayIcon = nativeImage.createFromPath(icon)
-    tray = new Tray(trayIcon.resize({ width: 16, height: 16 }))
-    tray.setToolTip('Open WebUI Desktop')
     updateTray()
 
 
@@ -1009,9 +1020,7 @@ if (!gotTheLock) {
     }
 
     // Initialize auto-updater
-    if (mainWindow) {
-      initUpdater(mainWindow)
-    }
+    initUpdater(sendToRenderer, CONFIG.automaticUpdates)
 
     app.on('activate', () => {
       if (BrowserWindow.getAllWindows().length === 0) createMainWindow()

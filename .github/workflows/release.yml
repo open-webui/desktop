@@ -270,32 +270,11 @@ jobs:
                     ls -la macos-latest-*/latest-mac.yml 2>/dev/null || true
                   fi
 
-            - name: Merge Linux latest-linux.yml (x64 + arm64)
+            - name: Verify Linux update manifests
               run: |
-                  X64_YML="ubuntu-latest-x64/latest-linux.yml"
-                  # electron-builder names the arm64 Linux manifest "latest-linux-arm64.yml"
-                  ARM_YML="ubuntu-24.04-arm-arm64/latest-linux-arm64.yml"
-
-                  if [ -f "$X64_YML" ] && [ -f "$ARM_YML" ]; then
-                    echo "Merging latest-linux.yml from both architectures"
-                    node -e "
-                      const fs = require('fs');
-                      const yaml = require('js-yaml');
-                      const x64 = yaml.load(fs.readFileSync('$X64_YML', 'utf8'));
-                      const arm = yaml.load(fs.readFileSync('$ARM_YML', 'utf8'));
-                      const all = [...(x64.files || []), ...(arm.files || [])];
-                      const map = new Map();
-                      for (const f of all) map.set(f.url, f);
-                      x64.files = [...map.values()];
-                      const out = yaml.dump(x64, { lineWidth: -1 });
-                      fs.writeFileSync('$X64_YML', out);
-                      console.log(out);
-                    "
-                    rm -f "$ARM_YML"
-                  else
-                    echo "Skipping merge — need both $X64_YML and $ARM_YML"
-                    ls -la ubuntu-*-*/latest-linux*.yml 2>/dev/null || true
-                  fi
+                  # Linux updaters request a separate channel file for each architecture.
+                  test -f ubuntu-22.04-x64/latest-linux.yml
+                  test -f ubuntu-24.04-arm-arm64/latest-linux-arm64.yml
 
             - name: Merge Windows latest.yml (x64 + arm64)
               run: |
@@ -336,6 +315,7 @@ jobs:
                     const manifests = [
                       { prefix: 'macos-latest-', file: 'latest-mac.yml' },
                       { prefix: 'ubuntu-',        file: 'latest-linux.yml' },
+                      { prefix: 'ubuntu-',        file: 'latest-linux-arm64.yml' },
                       { prefix: 'windows-',       file: 'latest.yml' },
                     ];
 

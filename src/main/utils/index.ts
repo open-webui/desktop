@@ -659,8 +659,10 @@ export const startServer = (onStatus?: (status: string) => void) => webuiService
 
 export interface AppConfig {
   version: number
+  automaticUpdates: boolean
   runInBackground: boolean
   startMinimized: boolean
+  showMenuBarIcon: boolean
   globalShortcut: string
   installDir: string
   dataDir: string
@@ -684,8 +686,10 @@ export interface AppConfig {
 
 const DEFAULT_CONFIG: AppConfig = {
   version: 1,
+  automaticUpdates: false,
   runInBackground: true,
   startMinimized: false,
+  showMenuBarIcon: true,
   globalShortcut: 'CommandOrControl+Shift+O',
   installDir: '',
   dataDir: '',

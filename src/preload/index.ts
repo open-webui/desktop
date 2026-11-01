@@ -113,6 +113,7 @@ const api = {
   openLocalWebUI: () => ipcRenderer.invoke('server:open'),
 
   // Updater
+  getUpdateState: () => ipcRenderer.invoke('updater:state'),
   checkForUpdates: () => ipcRenderer.invoke('updater:check'),
   downloadUpdate: () => ipcRenderer.invoke('updater:download'),
   installUpdate: () => ipcRenderer.invoke('updater:install'),

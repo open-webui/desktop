@@ -1,7 +1,7 @@
 <script lang="ts">
   import { onMount, onDestroy } from 'svelte'
   import { fade } from 'svelte/transition'
-  import { appInfo, config, serverInfo, appState } from './lib/stores'
+  import { appInfo, config, serverInfo, appState, desktopUpdate } from './lib/stores'
 
   import Main from './lib/components/Main.svelte'
 
@@ -39,10 +39,18 @@
     }
     themeMediaQuery.addEventListener('change', themeChangeHandler)
 
+    let receivedUpdate = false
     unsubscribe = api.onData((data: any) => {
       if (data.type === 'server:info') serverInfo.set(data.data)
+      if (data.type === 'update:state') {
+        receivedUpdate = true
+        desktopUpdate.set(data.data)
+      }
 
     })
+
+    const update = await api.getUpdateState()
+    if (!receivedUpdate) desktopUpdate.set(update)
 
     // Don't auto-install anything — the user must explicitly choose
     // "Get Started" (local install) which handles Python/uv as a prerequisite.

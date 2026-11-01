@@ -4,12 +4,13 @@
   import RefreshIcon from 'iconoir/icons/refresh.svg?raw'
   import XmarkIcon from 'iconoir/icons/xmark.svg?raw'
   import { onMount } from 'svelte'
-  import { config } from '../../../stores'
+  import { appInfo, config } from '../../../stores'
   import i18n, { getLanguages, changeLanguage } from '../../../i18n'
   import Switch from '../../common/Switch.svelte'
 
   let launchAtLogin = $state(false)
   let startMinimized = $state(false)
+  let showMenuBarIcon = $state(true)
   let runInBackground = $state(true)
   let resetting = $state(false)
   let theme = $state<string>('system')
@@ -28,6 +29,7 @@
     launchAtLogin = await window.electronAPI.getLaunchAtLogin()
     const cfg = await window.electronAPI.getConfig()
     startMinimized = cfg?.startMinimized ?? false
+    showMenuBarIcon = cfg?.showMenuBarIcon ?? true
     runInBackground = cfg?.runInBackground ?? true
     const vars = cfg?.envVars ?? {}
     envEntries = Object.entries(vars).map(([key, value]) => ({ key, value: value as string }))
@@ -319,6 +321,30 @@
       }}
     />
   </div>
+
+  {#if $appInfo?.platform === 'darwin'}
+    <div
+      class="flex min-w-0 items-center justify-between gap-[16px] py-[7px] max-sm:gap-[12px] [&>:first-child]:min-w-0 [&>:last-child]:shrink-0 max-sm:[&>:last-child:not([role=switch])]:max-w-[65%]"
+    >
+      <div>
+        <div class="text-[12px] leading-[16px] font-normal text-[#171717] dark:text-white">
+          {$i18n.t('settings.general.showMenuBarIcon')}
+        </div>
+        <div class="text-[11px] leading-[16px] text-[oklch(0.51_0_0)] dark:text-[oklch(0.77_0_0)] mt-0.5">
+          {$i18n.t('settings.general.showMenuBarIconDesc')}
+        </div>
+      </div>
+      <Switch
+        checked={showMenuBarIcon}
+        label={$i18n.t('settings.general.toggleShowMenuBarIcon')}
+        onchange={async (value) => {
+          showMenuBarIcon = value
+          await window.electronAPI.setConfig({ showMenuBarIcon })
+          config.set(await window.electronAPI.getConfig())
+        }}
+      />
+    </div>
+  {/if}
 
   <div
     class="flex min-w-0 items-center justify-between gap-[16px] py-[7px] max-sm:gap-[12px] [&>:first-child]:min-w-0 [&>:last-child]:shrink-0 max-sm:[&>:last-child:not([role=switch])]:max-w-[65%]"
