@@ -25,6 +25,7 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ### Fixed
 
+- **Custom ports and local network sharing.** Desktop follows the running server's actual port after a restart and connects through loopback when LAN sharing is enabled. Port selection now checks whether the server can bind, including on Windows (#250, #207).
 - **Open WebUI stuck on its splash screen.** Fixed loading inside Desktop and kept Open WebUI's regular interface without the extra server selector.
 - **Starting, stopping, and restarting.** Repeated starts no longer launch duplicate copies of Open WebUI or llama.cpp. Stopping during startup cancels the pending start, and an older copy exiting no longer marks a newer copy as stopped. Quitting Desktop waits for both to shut down.
 - **Incorrect running status.** A failed start or unexpected exit now updates the controls and shows the failure instead of continuing to report that everything is running.

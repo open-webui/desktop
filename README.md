@@ -7,7 +7,7 @@
 
 ![Open WebUI Desktop](./demo.png)
 
-Open WebUI Desktop sets up [Open WebUI](https://github.com/open-webui/open-webui) on your computer and opens it whenever you need it.
+[Open WebUI](https://github.com/open-webui/open-webui), up and running in a few clicks. Desktop installs it on your computer, keeps it up to date, and opens it whenever you need it.
 
 ## Download
 

@@ -130,22 +130,19 @@ export const getSecretKey = (keyPath?: string, key?: string): string => {
 // ─── Port Utils ─────────────────────────────────────────
 
 const portInUse = async (port: number, host: string): Promise<boolean> => {
-  return new Promise((resolve) => {
-    const client = new net.Socket()
-    client
-      .setTimeout(1000)
-      .once('connect', () => {
-        client.destroy()
-        resolve(true)
+  return new Promise((resolve, reject) => {
+    // Probe the bind address; connecting to 0.0.0.0 fails on Windows even for occupied ports.
+    const server = net.createServer((socket) => socket.destroy())
+    server.once('error', (error: NodeJS.ErrnoException) => {
+      if (error.code === 'EADDRINUSE' || error.code === 'EACCES') resolve(true)
+      else reject(error)
+    })
+    server.listen({ port, host, exclusive: true }, () => {
+      server.close((error) => {
+        if (error) reject(error)
+        else resolve(false)
       })
-      .once('timeout', () => {
-        client.destroy()
-        resolve(false)
-      })
-      .once('error', () => {
-        resolve(false)
-      })
-      .connect(port, host)
+    })
   })
 }
 
@@ -154,6 +151,9 @@ export const findAvailablePort = async (
   host: string,
   signal: AbortSignal
 ): Promise<number> => {
+  if (!Number.isInteger(preferred) || preferred < 1 || preferred > 65535) {
+    throw new RangeError('Server port must be an integer between 1 and 65535')
+  }
   for (let port = preferred; port <= Math.min(preferred + 100, 65535); port++) {
     signal.throwIfAborted()
     const occupied = await portInUse(port, host)
