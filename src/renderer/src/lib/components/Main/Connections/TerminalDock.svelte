@@ -59,21 +59,21 @@
       service.status === 'setting-up'
     )
   }
-  const statusText = $derived(
-    $i18n.t(
-      active?.status === 'started'
+  function getStatusText(service: Service): string {
+    return $i18n.t(
+      service.status === 'started'
         ? 'common.running'
-        : active?.status === 'starting'
+        : service.status === 'starting'
           ? 'common.starting'
-          : active?.status === 'setting-up'
+          : service.status === 'setting-up'
             ? 'setup.settingUp'
-            : active?.status === 'stopping'
+            : service.status === 'stopping'
               ? 'common.stopping'
-              : active?.status === 'failed'
+              : service.status === 'failed'
                 ? 'common.failed'
                 : 'common.stopped'
     )
-  )
+  }
   const toggleLabel = $derived($i18n.t(expanded ? 'logs.collapse' : 'logs.expand'))
   const error = $derived(
     active && (errors[active?.id] || (active.status === 'failed' ? active.detail : ''))
@@ -203,6 +203,7 @@
     >
     <div class="terminal-tabs" role="tablist" aria-label={$i18n.t('logs.terminal')}>
       {#each services as service, index (service.id)}
+        {@const statusText = getStatusText(service)}
         {@const actionLabel = `${$i18n.t(canStop(service) ? `common.${service.runningAction}` : 'common.start')} ${service.label}`}
         <div
           class="terminal-tab-group"
@@ -221,8 +222,17 @@
               if (expanded && active?.id === service.id) toggle()
               else select(service.id)
             }}
-            onkeydown={(event) => navigate(event, index)}>{service.label}</button
+            onkeydown={(event) => navigate(event, index)}
           >
+            {service.label}
+            <span
+              class="terminal-status ml-2 mr-0.5"
+              data-status={service.status}
+              role="status"
+              use:tooltip={service.detail || statusText}
+              ><span class="sr-only">{statusText}</span></span
+            >
+          </button>
           {#if !expanded && service.browserUrl}
             <button
               type="button"
@@ -265,15 +275,6 @@
       ></button>
     {:else}
       <div class="terminal-spacer"></div>
-    {/if}
-    {#if active}
-      <span
-        class="terminal-status"
-        data-status={active.status}
-        role="status"
-        use:tooltip={active.detail || statusText}
-        ><span class="sr-only">{statusText}</span></span
-      >
     {/if}
     {#if $appInfo?.version}<span class="app-version drag-region">v{$appInfo.version}</span>{/if}
     <button

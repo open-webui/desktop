@@ -445,7 +445,7 @@
 
               {#if !localInstalled}
                 <button
-                  class="inline-flex items-center {installPhase === 'working' ? 'justify-start' : 'justify-between'} gap-2 w-[220px] max-w-full h-[36px] bg-black dark:bg-white px-4 rounded-none text-white dark:text-black text-[13px] border-none disabled:opacity-50"
+                  class="inline-flex items-center {installPhase === 'working' ? 'justify-start' : 'justify-between'} gap-2.5 w-[220px] max-w-full h-[36px] bg-black dark:bg-white px-4 rounded-none text-white dark:text-black text-[13px] border-none disabled:opacity-50"
                   onclick={() => {
                     if (installPhase === 'error') {
                       onStartInstall()
