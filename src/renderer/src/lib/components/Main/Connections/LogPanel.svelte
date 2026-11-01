@@ -237,20 +237,19 @@
         aria-label={toggleLabel}
         aria-expanded={expanded}
         onclick={toggle}
-      >
-        <span
-          class="terminal-status"
-          data-status={active.status}
-          role="status"
-          use:tooltip={active.detail || statusText}
-          ><span class="sr-only">{statusText}</span></span
-        >
-      </button>
+      ></button>
     {:else}
       <div class="terminal-spacer"></div>
     {/if}
     {#if $appInfo?.version}<span class="app-version drag-region">v{$appInfo.version}</span>{/if}
     {#if active}
+      <span
+        class="terminal-status"
+        data-status={active.status}
+        role="status"
+        use:tooltip={active.detail || statusText}
+        ><span class="sr-only">{statusText}</span></span
+      >
       <button
         type="button"
         class="terminal-chevron-toggle"
@@ -400,17 +399,15 @@
     flex: 1;
     min-width: 28px;
     height: 100%;
-    justify-content: flex-end;
-    gap: 8px;
-    padding: 0 8px;
+    padding: 0;
   }
   .app-version {
-    padding: 0 8px;
+    padding: 0 10px;
     white-space: nowrap;
     flex-shrink: 0;
   }
   .terminal-chevron-toggle {
-    width: 28px;
+    width: 32px;
     height: 100%;
     flex-shrink: 0;
     padding: 0;
