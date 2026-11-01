@@ -195,7 +195,7 @@ const registerShortcuts = (globalAccel?: string): void => {
 
 const DEFAULT_WINDOW_WIDTH = 1280
 const DEFAULT_WINDOW_HEIGHT = 800
-const MIN_WINDOW_WIDTH = 480
+const MIN_WINDOW_WIDTH = 360
 const MIN_WINDOW_HEIGHT = 360
 const BOUNDS_SAVE_DEBOUNCE_MS = 500
 const MIN_VISIBLE_OVERLAP_PX = 100

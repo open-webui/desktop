@@ -1,6 +1,6 @@
 <script lang="ts">
   import { fade } from 'svelte/transition'
-  import { appInfo } from '../stores'
+  import { appInfo, serverInfo } from '../stores'
   import Connections from './Main/Connections.svelte'
   import Settings from './Main/Settings.svelte'
 
@@ -15,12 +15,12 @@
 
 <div
   class="h-full w-full flex flex-col bg-[#f5f5f7] dark:bg-[#0a0a0a] text-[#1d1d1f] dark:text-[#fafafa] relative"
+  style:--window-drag-height={$appInfo?.platform === 'darwin' ? ($serverInfo?.reachable ? '28px' : '40px') : '32px'}
   in:fade={{ duration: 200 }}
 >
   <div
-    class="absolute inset-x-0 top-0 z-40 drag-region {$appInfo?.platform === 'darwin'
-      ? 'h-[40px]'
-      : 'h-[32px]'}"
+    class="absolute inset-x-0 top-0 z-40 drag-region"
+    style:height="var(--window-drag-height)"
     aria-hidden="true"
   ></div>
   <!-- Local launcher -->

@@ -9,6 +9,7 @@
 
   let serverUrl = $state('')
   let content: Content | undefined = $state()
+  let logPanel: LogPanel | undefined = $state()
   let canRefresh = $state(false)
   let connecting = $state(false)
   let launchError = $state('')
@@ -158,9 +159,11 @@
     {toastVisible}
     onStartInstall={startInstall}
     onOpenWebUI={() => openWebUI()}
+    onOpenTerminal={() => logPanel?.select('server')}
   />
 
   <LogPanel
+    bind:this={logPanel}
     {onOpenSettings}
     onRefresh={() => content?.refresh()}
     canRefresh={canRefresh && !connecting}

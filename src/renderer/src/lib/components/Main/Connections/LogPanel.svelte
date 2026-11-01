@@ -79,7 +79,7 @@
     active && (errors[active?.id] || (active.status === 'failed' ? active.detail : ''))
   )
 
-  function select(id: ServiceId): void {
+  export function select(id: ServiceId): void {
     activeId = id
     expanded = true
     if (!visited.includes(id)) visited = [...visited, id]
@@ -266,7 +266,6 @@
     {:else}
       <div class="terminal-spacer"></div>
     {/if}
-    {#if $appInfo?.version}<span class="app-version drag-region">v{$appInfo.version}</span>{/if}
     {#if active}
       <span
         class="terminal-status"
@@ -275,6 +274,19 @@
         use:tooltip={active.detail || statusText}
         ><span class="sr-only">{statusText}</span></span
       >
+    {/if}
+    {#if $appInfo?.version}<span class="app-version drag-region">v{$appInfo.version}</span>{/if}
+    <button
+      type="button"
+      class="terminal-refresh"
+      aria-label={$i18n.t('common.refresh')}
+      use:tooltip={$i18n.t('common.refresh')}
+      disabled={!canRefresh}
+      onclick={onRefresh}
+    >
+      <span aria-hidden="true" class="inline-flex size-[10px] [&>svg]:size-full">{@html RefreshIcon}</span>
+    </button>
+    {#if active}
       <button
         type="button"
         class="terminal-chevron-toggle"
@@ -290,16 +302,6 @@
         >
       </button>
     {/if}
-    <button
-      type="button"
-      class="terminal-refresh"
-      aria-label={$i18n.t('common.refresh')}
-      use:tooltip={$i18n.t('common.refresh')}
-      disabled={!canRefresh}
-      onclick={onRefresh}
-    >
-      <span aria-hidden="true" class="inline-flex size-[10px] [&>svg]:size-full">{@html RefreshIcon}</span>
-    </button>
   </div>
   <div
     class="terminal-body"
@@ -437,13 +439,13 @@
     padding: 0;
   }
   .app-version {
-    padding: 0 10px;
+    padding: 0 6px;
     white-space: nowrap;
     flex-shrink: 0;
   }
   .terminal-chevron-toggle,
   .terminal-refresh {
-    width: 24px;
+    width: 18px;
     height: 100%;
     flex-shrink: 0;
     padding: 0;

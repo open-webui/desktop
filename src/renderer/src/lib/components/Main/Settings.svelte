@@ -98,7 +98,7 @@
     </div>
 
     <div
-      class="flex min-h-0 min-w-0 flex-1 gap-px overflow-x-auto p-1 md:flex-col md:overflow-x-hidden md:overflow-y-auto"
+      class="flex min-h-0 min-w-0 flex-1 gap-px overflow-x-auto p-1 max-md:[scrollbar-width:none] max-md:[&::-webkit-scrollbar]:hidden md:flex-col md:overflow-x-hidden md:overflow-y-auto"
     >
       {#each filteredTabs as tab, index (tab.id)}
         {#if tab.group && (index === 0 || filteredTabs[index - 1].group !== tab.group)}

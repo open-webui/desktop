@@ -24,7 +24,8 @@
     installStatus,
     toastVisible,
     onStartInstall,
-    onOpenWebUI
+    onOpenWebUI,
+    onOpenTerminal
   }: {
     serverUrl: string
     connecting: boolean
@@ -37,6 +38,7 @@
     toastVisible: boolean
     onStartInstall: (options?: { installLlamaCpp?: boolean; installDir?: string }) => void
     onOpenWebUI: () => void
+    onOpenTerminal: () => void
   } = $props()
 
   let showGetStartedModal = $state(false)
@@ -50,6 +52,7 @@
   )
 
   let webviewLoading = $state(false)
+  let webviewBackground = $state<string | null>(null)
   let webviewError = $state<{ code: number; description: string; url: string } | null>(null)
   let contentPreloadPath = $state('')
   let webview: WebviewTag | undefined
@@ -85,6 +88,7 @@
 
   function attachWebview(wv: WebviewTag): { destroy: () => void } {
     webview = wv
+    webviewBackground = null
     canRefresh = false
     webviewError = null
     webviewLoading = true
@@ -165,19 +169,26 @@
       } else if (event.channel === 'webview:event') {
         const payload = event.args?.[0]
         if (payload?.type !== 'theme:update') return
-        const webuiTheme = payload.data?.theme ?? 'system'
+        const webuiTheme = typeof payload.data?.theme === 'string' ? payload.data.theme : 'system'
         const theme =
           webuiTheme === 'system' ? 'system' : webuiTheme.includes('dark') ? 'dark' : 'light'
-        const resolved =
-          theme === 'system'
+        const resolved = ['dark', 'light'].includes(payload.data?.resolvedTheme)
+          ? payload.data.resolvedTheme
+          : theme === 'system'
             ? window.matchMedia('(prefers-color-scheme: dark)').matches
               ? 'dark'
               : 'light'
             : theme
+        const background = payload.data?.background
+        if (typeof background === 'string' && CSS.supports('color', background)) {
+          webviewBackground = background
+        }
         document.documentElement.classList.remove('light', 'dark')
         document.documentElement.classList.add(resolved)
-        await window.electronAPI.setConfig({ theme })
-        config.set(await window.electronAPI.getConfig())
+        if ($config?.theme !== theme) {
+          config.update((current) => ({ ...current, theme }))
+          await window.electronAPI.setConfig({ theme })
+        }
       }
     })
     return {
@@ -196,6 +207,12 @@
   class="flex-1 flex flex-col min-h-0 min-w-0 overflow-clip bg-[#eee] dark:bg-[#111] relative content-webview-container"
 >
   {#if serverUrl && contentPreloadPath}
+    <div
+      class="webview-inset shrink-0 bg-white dark:bg-[#171717]"
+      style:height="var(--window-drag-height)"
+      style:background-color={webviewBackground}
+      aria-hidden="true"
+    ></div>
     <webview
       src={serverUrl}
       class="flex-1 min-h-0 border-none"
@@ -265,10 +282,15 @@
           class="w-6 h-6 rounded-full border-2 border-black/10 dark:border-white/15 border-t-black/50 dark:border-t-white/50 animate-spin"
         ></div>
         <div class="flex w-full min-w-0 flex-col items-center gap-1.5" role="status">
-          <span class="text-[12px] opacity-70">{$i18n.t('common.loading')}</span>
+          <span class="text-[12px] opacity-90">{$i18n.t('common.loading')}</span>
           {#if loadingStatus}
-            <span class="max-w-[min(320px,100%)] truncate font-mono text-[11px] opacity-40" title={loadingStatus}
-              >{loadingStatus}</span
+            <button
+              type="button"
+              class="max-w-[min(240px,100%)] truncate font-mono text-[11px] opacity-25 hover:opacity-40 focus-visible:opacity-40"
+              title={loadingStatus}
+              aria-label={$i18n.t('logs.expand')}
+              onclick={onOpenTerminal}
+              >{loadingStatus}</button
             >
           {/if}
         </div>
