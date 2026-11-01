@@ -19,6 +19,8 @@ Debian/Ubuntu, Snap, and Flatpak packages are available on the [releases page](h
 
 Internet is required for installation and updates.
 
+In **Settings → About**, enable **Automatic desktop updates** to download updates in the background and install them when you quit. This option is off by default; you can also check, download, and restart to update manually. Desktop checks at launch and every six hours. Snap and Flatpak installations use their package manager or a newer package from the releases page.
+
 ## How It Works
 
 Open the app and click **Get Started**. Desktop installs Open WebUI on your computer, starts it for you, and opens it in the app. You use the same Open WebUI you know, with setup and updates handled through Desktop.

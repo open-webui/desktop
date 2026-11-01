@@ -490,11 +490,21 @@ export const uninstallPython = (installationDir?: string): boolean => {
 
 // ─── Package Management ─────────────────────────────────
 
+let packageInstall: Promise<boolean> | undefined
+const getIncompleteInstallPath = () => path.join(getPythonInstallationDir(), '.install-incomplete')
+
 export const installPackage = (packageName: string, version?: string, onStatus?: (status: string) => void, signal?: AbortSignal): Promise<boolean> => {
-  return new Promise((resolve, reject) => {
+  if (packageInstall) return Promise.reject(new Error('A package installation is already in progress'))
+  if (webuiService.info.pid !== null) return Promise.reject(new Error('Stop Open WebUI before updating packages'))
+  const marker = getIncompleteInstallPath()
+  const repair = fs.existsSync(marker)
+  packageInstall = new Promise<boolean>((resolve, reject) => {
+    signal?.throwIfAborted()
     if (!isPythonInstalled()) {
       return reject(new Error('Python is not installed. Please reinstall the app or run setup again.'))
     }
+    // uv can remove packages before failing; retain this across crashes until a repair succeeds.
+    fs.writeFileSync(marker, '')
     const pythonPath = getPythonPath()
     const commandProcess = spawn(
       pythonPath,
@@ -503,6 +513,7 @@ export const installPackage = (packageName: string, version?: string, onStatus?:
         'uv',
         'pip',
         'install',
+        ...(repair ? ['--reinstall'] : []),
         ...(version ? [`${packageName}==${version}`] : [packageName, '-U'])
       ],
       {
@@ -543,7 +554,17 @@ export const installPackage = (packageName: string, version?: string, onStatus?:
       log.error(`Package install error: ${error.message}`)
       lastLine = `Failed to run package installer: ${error.message}`
     })
-  })
+  }).then(() => {
+    signal?.throwIfAborted()
+    if (packageName === 'open-webui') {
+      execFileSync(getPythonPath(), ['-c', 'import open_webui, pydantic_core, uvicorn._subprocess'], {
+        env: pythonEnv(), timeout: 30000, windowsHide: true
+      })
+    }
+    fs.unlinkSync(marker)
+    return true
+  }).finally(() => { packageInstall = undefined })
+  return packageInstall
 }
 
 export const installPackages = async (
@@ -587,6 +608,7 @@ export const getPackageVersion = (packageName: string): string | null => {
 }
 
 export const uninstallPackage = (packageName: string): boolean => {
+  if (packageInstall || webuiService.info.pid !== null) return false
   const pythonPath = getPythonPath()
   if (!fs.existsSync(pythonPath)) return false
   try {
@@ -610,6 +632,8 @@ webuiService.subscribe((event) => {
 })
 
 export const startServer = (onStatus?: (status: string) => void) => webuiService.start(async (signal) => {
+  await packageInstall
+  signal.throwIfAborted()
   const config = await getConfig()
   const configEnvVars = config.envVars ?? {}
   const expose = config.localServer?.serveOnLocalNetwork ?? false
@@ -622,12 +646,12 @@ export const startServer = (onStatus?: (status: string) => void) => webuiService
     try {
       onStatus?.('Updating Open WebUI…')
       await installPackage('open-webui', undefined, onStatus, signal)
-    } catch (error) {
-      signal.throwIfAborted()
-      log.warn('Auto-update failed, starting existing version:', error)
     } finally { onStatus?.('') }
   }
   signal.throwIfAborted()
+  if (fs.existsSync(getIncompleteInstallPath())) {
+    throw new Error('A package installation was interrupted. Update or install Open WebUI in Settings to repair it.')
+  }
   const pythonPath = getPythonPath()
   log.info(`Using Python at: ${pythonPath}`)
 

@@ -23,13 +23,19 @@ function unsupportedReason(): UpdateState['reason'] {
   try {
     const type = readFileSync(join(process.resourcesPath, 'package-type'), 'utf8').trim()
     if (['deb', 'rpm', 'pacman'].includes(type)) return undefined
-  } catch {}
+  } catch {
+    // Unpacked Linux builds do not have a package-type marker.
+  }
   return 'unsupported'
 }
 
 function failed(error: unknown): void {
   log.warn('Desktop update failed:', error)
-  setState({ ...state, status: 'error', error: error instanceof Error ? error.message : String(error) })
+  setState({
+    ...state,
+    status: 'error',
+    error: error instanceof Error ? error.message : String(error)
+  })
 }
 
 export function initUpdater(send: typeof publish, automatic: boolean): void {
@@ -40,7 +46,11 @@ export function initUpdater(send: typeof publish, automatic: boolean): void {
 
   autoUpdater.on('checking-for-update', () => setState({ status: 'checking' }))
   autoUpdater.on('update-available', (info: UpdateInfo) => {
-    setState({ status: autoUpdater.autoDownload ? 'downloading' : 'available', version: info.version, percent: 0 })
+    setState({
+      status: autoUpdater.autoDownload ? 'downloading' : 'available',
+      version: info.version,
+      percent: 0
+    })
   })
   autoUpdater.on('update-not-available', () => setState({ status: 'up-to-date' }))
   autoUpdater.on('download-progress', (progress) => {

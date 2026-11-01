@@ -22,6 +22,9 @@ jobs:
             - name: Install Dependencies
               run: npm ci
 
+            - name: Test updater
+              run: node --test tests/updater.test.mjs
+
             - name: Typecheck and Build
               run: npm run build
 
@@ -148,7 +151,8 @@ jobs:
               if: runner.os == 'Linux' && matrix.arch == 'x64'
               run: |
                   sudo apt-get update
-                  sudo apt-get install -y xvfb xdotool dbus-x11
+                  sudo apt-get install -y xvfb xdotool
+                  sudo systemctl start "user@$(id -u).service"
                   sudo snap install gnome-3-28-1804 gtk-common-themes
                   sudo snap install --dangerous dist/*.snap
                   sudo snap connect open-webui:gnome-3-28-1804 gnome-3-28-1804:gnome-3-28-1804

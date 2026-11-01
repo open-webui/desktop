@@ -310,7 +310,15 @@
       </div>
 
       <div class="shrink-0">
-        {#if updateStatus === 'idle' || updateStatus === 'up-to-date' || updateStatus === 'error'}
+        {#if updateStatus === 'unsupported' && $desktopUpdate.reason !== 'development'}
+          <button
+            type="button"
+            class="text-[12px] hover:underline"
+            onclick={() => window.electronAPI.openInBrowser('https://github.com/open-webui/desktop/releases/latest')}
+          >
+            {$i18n.t('settings.about.downloadUpdate')}
+          </button>
+        {:else if updateStatus === 'idle' || updateStatus === 'up-to-date' || updateStatus === 'error'}
           <button
             class="inline-flex max-w-full shrink-0 items-center justify-center gap-[6px] whitespace-nowrap border-none bg-transparent p-0 text-[12px] leading-[16px] text-[oklch(0.69_0_0)] transition-colors duration-150 hover:text-[oklch(0.2_0_0)] disabled:cursor-not-allowed disabled:opacity-50 dark:hover:text-white [&>span[aria-hidden]]:size-[12px]"
             onclick={handleCheck}

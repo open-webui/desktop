@@ -49,8 +49,12 @@
 
     })
 
-    const update = await api.getUpdateState()
-    if (!receivedUpdate) desktopUpdate.set(update)
+    // Update discovery must not delay server status or the rest of startup.
+    api.getUpdateState().then((update) => {
+      if (!receivedUpdate) desktopUpdate.set(update)
+    }).catch((error) => {
+      if (!receivedUpdate) desktopUpdate.set({ status: 'error', error: String(error) })
+    })
 
     // Don't auto-install anything — the user must explicitly choose
     // "Get Started" (local install) which handles Python/uv as a prerequisite.
