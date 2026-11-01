@@ -13,9 +13,12 @@
 
 - **macOS:** [Apple Silicon](https://github.com/open-webui/desktop/releases/latest/download/open-webui-arm64.dmg) · [Intel](https://github.com/open-webui/desktop/releases/latest/download/open-webui-x64.dmg)
 - **Windows:** [Intel / AMD (x64)](https://github.com/open-webui/desktop/releases/latest/download/open-webui-x64-setup.exe) · [ARM64](https://github.com/open-webui/desktop/releases/latest/download/open-webui-arm64-setup.exe)
+- **Linux (Debian / Ubuntu / Mint):** [Intel / AMD (x64)](https://github.com/open-webui/desktop/releases/latest/download/open-webui_amd64.deb) · [ARM64](https://github.com/open-webui/desktop/releases/latest/download/open-webui_arm64.deb)
 - **Linux (AppImage):** [Intel / AMD (x64)](https://github.com/open-webui/desktop/releases/latest/download/open-webui_x86_64.AppImage) · [ARM64](https://github.com/open-webui/desktop/releases/latest/download/open-webui_arm64.AppImage)
 
-Debian/Ubuntu, Snap, and Flatpak packages are available on the [releases page](https://github.com/open-webui/desktop/releases).
+If an AppImage fails to start with a `chrome-sandbox` error on Debian, Ubuntu, or Linux Mint, install the `.deb` package above. Its installer configures the sandbox permissions needed to start the app.
+
+Snap and Flatpak packages are available on the [releases page](https://github.com/open-webui/desktop/releases).
 
 Internet is required for installation and updates.
 
