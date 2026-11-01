@@ -3,7 +3,7 @@
   import GlobeIcon from 'iconoir/icons/globe.svg?raw'
   import RestartIcon from 'iconoir/icons/restart.svg?raw'
   import WarningCircleIcon from 'iconoir/icons/warning-circle.svg?raw'
-  import type { WebviewTag, DidFailLoadEvent, ConsoleMessageEvent, IpcMessageEvent } from 'electron'
+  import type { WebviewTag, DidFailLoadEvent, ConsoleMessageEvent, IpcMessageEvent, PageTitleUpdatedEvent } from 'electron'
   import { handleGuestRequest } from '../../../guest-requests'
   import { onMount } from 'svelte'
   import { fade, fly } from 'svelte/transition'
@@ -53,6 +53,7 @@
 
   let webviewLoading = $state(false)
   let webviewBackground = $state<string | null>(null)
+  let webviewTitle = $state('')
   let webviewError = $state<{ code: number; description: string; url: string } | null>(null)
   let contentPreloadPath = $state('')
   let webview: WebviewTag | undefined
@@ -89,6 +90,7 @@
   function attachWebview(wv: WebviewTag): { destroy: () => void } {
     webview = wv
     webviewBackground = null
+    webviewTitle = ''
     canRefresh = false
     webviewError = null
     webviewLoading = true
@@ -115,6 +117,10 @@
     })
     listen('dom-ready', () => {
       canRefresh = true
+      webviewTitle = wv.getTitle()
+    })
+    listen('page-title-updated', (event: PageTitleUpdatedEvent) => {
+      webviewTitle = event.title
     })
     listen('did-stop-loading', () => {
       webviewLoading = false
@@ -197,6 +203,7 @@
         unsubscribe()
         for (const [name, callback] of listeners) wv.removeEventListener(name, callback)
         webview = undefined
+        webviewTitle = ''
         canRefresh = false
       }
     }
@@ -208,11 +215,12 @@
 >
   {#if serverUrl && contentPreloadPath}
     <div
-      class="webview-inset shrink-0 bg-white dark:bg-[#171717]"
+      class="webview-inset flex shrink-0 items-center justify-center bg-white px-[80px] dark:bg-[#171717]"
       style:height="var(--window-drag-height)"
       style:background-color={webviewBackground}
-      aria-hidden="true"
-    ></div>
+    >
+      <span class="truncate text-[11px] font-medium opacity-60" title={webviewTitle}>{webviewTitle}</span>
+    </div>
     <webview
       src={serverUrl}
       class="flex-1 min-h-0 border-none"
