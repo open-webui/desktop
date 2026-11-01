@@ -197,9 +197,7 @@
 {:else}
   <div class="flex flex-col gap-4">
     <!-- Models directory -->
-    <div
-      class="flex min-w-0 items-center justify-between gap-[16px] py-[7px] max-sm:gap-[12px] [&>:first-child]:min-w-0 [&>:last-child]:shrink-0 max-sm:[&>:last-child:not([role=switch])]:max-w-[65%]"
-    >
+    <div class="flex min-w-0 flex-col gap-2 py-[7px]">
       <div class="min-w-0">
         <div class="text-[12px] leading-[16px] font-normal text-[#171717] dark:text-white">
           {$i18n.t('settings.models.modelsDirectory')}
@@ -209,13 +207,15 @@
         </div>
       </div>
       <button
-        class="inline-flex max-w-full shrink-0 items-center justify-center gap-[6px] whitespace-nowrap border-none bg-transparent p-0 text-[12px] leading-[16px] text-[oklch(0.69_0_0)] transition-colors duration-150 hover:text-[oklch(0.2_0_0)] disabled:cursor-not-allowed disabled:opacity-50 dark:hover:text-white [&>span[aria-hidden]]:size-[12px] min-w-0 truncate font-mono"
+        class="flex w-full min-w-0 items-center gap-2 rounded-[8px] border border-black/[0.06] bg-black/[0.02] px-[10px] py-2 text-left text-[11px] leading-[16px] text-[oklch(0.51_0_0)] transition-colors duration-150 hover:bg-black/[0.04] hover:text-[oklch(0.2_0_0)] disabled:cursor-not-allowed disabled:opacity-50 dark:border-white/[0.06] dark:bg-white/[0.03] dark:text-[oklch(0.77_0_0)] dark:hover:bg-white/[0.06] dark:hover:text-white"
+        title={modelsDir}
+        disabled={!modelsDir}
         onclick={() => {
           if (modelsDir) window.electronAPI.openPath(modelsDir)
         }}
       >
-        <span class="truncate">{modelsDir || '…'}</span>
-        <span aria-hidden="true" class="inline-flex shrink-0 [&>svg]:size-full size-[12px] shrink-0"
+        <span class="min-w-0 flex-1 truncate font-mono">{modelsDir || '…'}</span>
+        <span aria-hidden="true" class="inline-flex size-[12px] shrink-0 [&>svg]:size-full"
           >{@html OpenNewWindowIcon}</span
         >
       </button>
