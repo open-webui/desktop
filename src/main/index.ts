@@ -3,7 +3,6 @@
 import {
   app,
   shell,
-  session,
   clipboard,
   nativeImage,
   nativeTheme,
@@ -66,7 +65,7 @@ import {
 
 import { attachTerminal } from './process/terminalChannel'
 
-import { initUpdater, checkForUpdates, downloadUpdate, installUpdate } from './updater'
+import { initUpdater, checkForUpdates, downloadUpdate, installUpdate, getUpdateState, setAutomaticUpdates } from './updater'
 
 import log from 'electron-log'
 log.transports.file.resolvePathFn = () => getLogFilePath('main')
@@ -76,8 +75,6 @@ import icon from '../../resources/icon.png?asset'
 import { existsSync, writeFileSync, unlinkSync } from 'fs'
 
 if (process.platform === 'linux') {
-  app.commandLine.appendSwitch('no-sandbox')
-
   // Work around /dev/shm access failures in AppImage and other containerised
   // environments.  AppImage's FUSE mount can restrict child-process access to
   // /dev/shm even when --no-sandbox is set, causing FATAL crashes in the
@@ -105,9 +102,6 @@ if (process.platform === 'linux') {
   app.commandLine.appendSwitch('use-gl', 'angle')
   app.commandLine.appendSwitch('use-angle', 'swiftshader')
 
-  // Disable the GPU sandbox — the sandbox setup triggers shared-memory
-  // allocation failures in /dev/shm.  The browser process is already
-  // un-sandboxed (--no-sandbox above).
   app.commandLine.appendSwitch('disable-gpu-sandbox')
 }
 
@@ -284,7 +278,8 @@ function createMainWindow(show = true): void {
   mainWindow.setIcon(icon)
 
   if (CONFIG?.windowMaximized) {
-    mainWindow.maximize()
+    // Maximizing also shows the window; wait until it is opened from the tray.
+    mainWindow.once('show', () => mainWindow?.maximize())
   }
 
   if (!app.isPackaged) {
@@ -300,6 +295,10 @@ function createMainWindow(show = true): void {
   mainWindow.webContents.setWindowOpenHandler((details) => {
     openUrl(details.url)
     return { action: 'deny' }
+  })
+  mainWindow.webContents.on('will-navigate', (event, url) => {
+    event.preventDefault()
+    openUrl(url)
   })
 
   if (is.dev && process.env['ELECTRON_RENDERER_URL']) {
@@ -335,7 +334,17 @@ function createMainWindow(show = true): void {
 // ─── Tray ───────────────────────────────────────────────
 
 const updateTray = () => {
-  if (!tray || !CONFIG) return
+  if (!CONFIG) return
+  if (process.platform === 'darwin' && CONFIG.showMenuBarIcon === false) {
+    tray?.destroy()
+    tray = null
+    return
+  }
+  if (!tray) {
+    const trayIcon = nativeImage.createFromPath(icon)
+    tray = new Tray(trayIcon.resize({ width: 16, height: 16 }))
+    tray.setToolTip('Open WebUI Desktop')
+  }
 
   const canOpenInBrowser = webuiService.info.reachable && !!webuiService.info.url
 
@@ -460,6 +469,7 @@ const resetAppHandler = async () => {
     await new Promise((resolve) => setTimeout(resolve, 1000))
     await resetApp()
     CONFIG = await getConfig() // reload from defaults since config.json was deleted
+    setAutomaticUpdates(CONFIG.automaticUpdates)
     new Notification({ title: 'Open WebUI', body: 'Application has been reset.' }).show()
   } catch (error) {
     log.error('Failed to reset:', error)
@@ -549,9 +559,18 @@ if (!gotTheLock) {
       // Grant media / notification permissions for webview partition sessions
       // so that auth flows, media capture, and notifications work correctly.
       newSession.setPermissionRequestHandler((_webContents, permission, callback) => {
-        const allowed = ['media', 'mediaKeySystem', 'notifications', 'clipboard-read', 'clipboard-sanitized-write']
+        const allowed = ['media', 'display-capture', 'mediaKeySystem', 'notifications', 'clipboard-read', 'clipboard-sanitized-write']
         callback(allowed.includes(permission))
       })
+
+      newSession.setDisplayMediaRequestHandler(
+        (request, callback) => {
+          desktopCapturer.getSources({ types: ['screen'] }).then((sources) => {
+            callback({ video: sources[0], audio: 'loopback' })
+          })
+        },
+        { useSystemPicker: true }
+      )
     })
 
     app.on('browser-window-created', (_, window) => {
@@ -572,6 +591,20 @@ if (!gotTheLock) {
     // Log webview guest renderer crashes for diagnostics — the existing
     // 'crashed' listener in Content.svelte surfaces these to the user.
     app.on('web-contents-created', (_event, contents) => {
+      contents.on('will-attach-webview', (event, preferences, params) => {
+        if (!/^https?:\/\//i.test(params.src)) {
+          event.preventDefault()
+          return
+        }
+        preferences.preload = join(__dirname, '../preload/content-preload.js')
+        preferences.nodeIntegration = false
+        preferences.nodeIntegrationInWorker = false
+        preferences.nodeIntegrationInSubFrames = false
+        preferences.contextIsolation = true
+        preferences.sandbox = true
+        preferences.webSecurity = true
+        preferences.allowRunningInsecureContent = false
+      })
       contents.on('render-process-gone', (_e, details) => {
         if (details.reason !== 'clean-exit') {
           log.error(
@@ -608,7 +641,7 @@ if (!gotTheLock) {
         // Electron <webview> guests don't show a context menu by default,
         // which blocks right-click → Paste / Autofill / password-manager
         // integration on login pages.  Build a native menu with standard
-        // editing actions, spell-check suggestions, and link handling.
+        // editing actions, spell-check suggestions, and link/image handling.
         contents.on('context-menu', (_event, params) => {
           const menuItems: Electron.MenuItemConstructorOptions[] = []
 
@@ -651,6 +684,24 @@ if (!gotTheLock) {
             // Non-editable text selection
             menuItems.push(
               { label: 'Copy', role: 'copy', enabled: params.editFlags.canCopy }
+            )
+          }
+
+          if (params.mediaType === 'image') {
+            if (menuItems.length > 0 && menuItems[menuItems.length - 1].type !== 'separator') {
+              menuItems.push({ type: 'separator' })
+            }
+            menuItems.push(
+              {
+                label: 'Copy Image',
+                enabled: params.hasImageContents,
+                click: () => contents.copyImageAt(params.x, params.y)
+              },
+              {
+                label: 'Save Image As…',
+                enabled: !!params.srcURL,
+                click: () => contents.downloadURL(params.srcURL)
+              }
             )
           }
 
@@ -703,9 +754,13 @@ if (!gotTheLock) {
       mainWindow.setTitleBarOverlay({ symbolColor: dark ? '#ffffff' : '#000000' })
     })
     ipcMain.handle('set:config', async (_event, config) => {
+      if ('automaticUpdates' in config && typeof config.automaticUpdates !== 'boolean') {
+        throw new Error('automaticUpdates must be a boolean')
+      }
       await setConfig(config)
       CONFIG = await getConfig()
       updateTray()
+      setAutomaticUpdates(CONFIG.automaticUpdates)
       registerShortcuts(CONFIG.globalShortcut)
     })
 
@@ -735,6 +790,7 @@ if (!gotTheLock) {
         CONFIG = await getConfig()
         const owuiVersion = CONFIG?.localServer?.version || undefined
 
+        await webuiService.stop()
         sendToRenderer('status:install', 'Installing Open WebUI…')
         await installPackage('open-webui', owuiVersion, (status: string) => {
           sendToRenderer('status:install', status)
@@ -776,6 +832,7 @@ if (!gotTheLock) {
     ipcMain.handle('server:open', () => openLocalWebUI())
 
     // Updater
+    ipcMain.handle('updater:state', () => getUpdateState())
     ipcMain.handle('updater:check', () => checkForUpdates())
     ipcMain.handle('updater:download', () => downloadUpdate())
     ipcMain.handle('updater:install', () => installUpdate())
@@ -949,10 +1006,6 @@ if (!gotTheLock) {
 
     // ─── Startup ──────────────────────────────────────
 
-    // Create tray
-    const trayIcon = nativeImage.createFromPath(icon)
-    tray = new Tray(trayIcon.resize({ width: 16, height: 16 }))
-    tray.setToolTip('Open WebUI Desktop')
     updateTray()
 
 
@@ -960,17 +1013,7 @@ if (!gotTheLock) {
     // Global shortcut
     registerShortcuts(CONFIG.globalShortcut)
 
-    // Enable screen capture
-    session.defaultSession.setDisplayMediaRequestHandler(
-      (request, callback) => {
-        desktopCapturer.getSources({ types: ['screen'] }).then((sources) => {
-          callback({ video: sources[0], audio: 'loopback' })
-        })
-      },
-      { useSystemPicker: true }
-    )
-
-    createMainWindow()
+    createMainWindow(!CONFIG.startMinimized)
     // Show startup logs immediately while the service prepares and becomes ready.
     if (CONFIG?.llamaCpp?.enabled) {
       startLlamaCpp((status) => sendToRenderer('status:llamacpp-setup', status))
@@ -979,9 +1022,7 @@ if (!gotTheLock) {
     }
 
     // Initialize auto-updater
-    if (mainWindow) {
-      initUpdater(mainWindow)
-    }
+    initUpdater(sendToRenderer, CONFIG.automaticUpdates)
 
     app.on('activate', () => {
       if (BrowserWindow.getAllWindows().length === 0) createMainWindow()

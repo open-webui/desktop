@@ -1,5 +1,4 @@
 import { ipcRenderer, contextBridge } from 'electron'
-import { electronAPI } from '@electron-toolkit/preload'
 import { stripVTControlCharacters } from 'node:util'
 import type { ServiceId } from '../shared/terminal'
 
@@ -114,6 +113,7 @@ const api = {
   openLocalWebUI: () => ipcRenderer.invoke('server:open'),
 
   // Updater
+  getUpdateState: () => ipcRenderer.invoke('updater:state'),
   checkForUpdates: () => ipcRenderer.invoke('updater:check'),
   downloadUpdate: () => ipcRenderer.invoke('updater:download'),
   installUpdate: () => ipcRenderer.invoke('updater:install'),
@@ -124,14 +124,14 @@ const api = {
 
 if (process.contextIsolated) {
   try {
-    contextBridge.exposeInMainWorld('electron', electronAPI)
+    contextBridge.exposeInMainWorld('electron', { process: { versions: process.versions } })
     contextBridge.exposeInMainWorld('electronAPI', api)
   } catch (error) {
     console.error(error)
   }
 } else {
   // @ts-ignore
-  window.electron = electronAPI
+  window.electron = { process: { versions: process.versions } }
   // @ts-ignore
   window.electronAPI = api
 }

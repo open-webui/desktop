@@ -12,10 +12,12 @@ import log from 'electron-log'
 
 import {
   getConfig,
+  getProcessEnv,
   setConfig,
   getInstallDir,
   findAvailablePort,
-  downloadFileWithProgress
+  downloadFileWithProgress,
+  verifyFileChecksum
 } from './index'
 
 import { getModelsDir } from './huggingface'
@@ -40,6 +42,7 @@ export const getLlamaCppInfo = () => {
       if (fs.existsSync(cacheBase)) {
         const dirs = fs.readdirSync(cacheBase, { withFileTypes: true })
           .filter((d) => d.isDirectory())
+          .sort((a, b) => b.name.localeCompare(a.name, undefined, { numeric: true }))
         for (const d of dirs) {
           const found = findInstalledBinary(path.join(cacheBase, d.name))
           if (found) {
@@ -70,6 +73,7 @@ export const getLlamaCppInfo = () => {
 interface ReleaseAsset {
   name: string
   browser_download_url: string
+  digest?: string
 }
 
 /**
@@ -245,24 +249,81 @@ const findInstalledBinary = (versionDir: string): string | null => {
 
 // ─── Setup (Download & Extract) ─────────────────────────
 
+const installReleaseAsset = async (
+  asset: ReleaseAsset, destination: string, onStatus?: (status: string) => void, signal?: AbortSignal
+): Promise<void> => {
+  signal?.throwIfAborted()
+  log.info(`Downloading asset: ${asset.name}`)
+  onStatus?.(`Downloading ${asset.name}…`)
+
+  fs.mkdirSync(destination, { recursive: true })
+  const downloadPath = path.join(destination, asset.name)
+  const checksum = asset.digest?.startsWith('sha256:') ? asset.digest.slice(7) : ''
+  if (fs.existsSync(downloadPath)) {
+    try {
+      await verifyFileChecksum(downloadPath, checksum)
+    } catch {
+      fs.unlinkSync(downloadPath)
+    }
+  }
+  if (!fs.existsSync(downloadPath)) {
+    await downloadFileWithProgress(asset.browser_download_url, downloadPath, (progress) => {
+      onStatus?.(`Downloading… ${progress.toFixed(0)}%`)
+    }, signal, checksum)
+  }
+
+  signal?.throwIfAborted()
+  onStatus?.('Extracting…')
+  log.info(`Extracting ${downloadPath} to ${destination}`)
+
+  if (asset.name.endsWith('.zip')) {
+    try {
+      if (process.platform === 'win32') {
+        execFileSync('powershell', [
+          '-Command',
+          `Expand-Archive -LiteralPath '${downloadPath.replaceAll("'", "''")}' -DestinationPath '${destination.replaceAll("'", "''")}' -Force`
+        ])
+      } else {
+        execFileSync('unzip', ['-o', downloadPath, '-d', destination])
+      }
+    } catch (error) {
+      throw new Error(`Failed to extract zip: ${error?.message ?? error}`)
+    }
+  } else {
+    await tar.x({ cwd: destination, file: downloadPath })
+  }
+
+  try {
+    fs.unlinkSync(downloadPath)
+  } catch {}
+}
+
 let setupTask: Promise<string> | undefined
-export const setupLlamaCpp = (onStatus?: (status: string) => void, signal?: AbortSignal): Promise<string> => {
-  if (!setupTask) setupTask = prepareLlamaCpp(onStatus, signal).finally(() => { setupTask = undefined })
+export const setupLlamaCpp = (onStatus?: (status: string) => void, signal?: AbortSignal, requestedVersion?: string): Promise<string> => {
+  if (!setupTask) setupTask = prepareLlamaCpp(onStatus, signal, requestedVersion).finally(() => { setupTask = undefined })
   return setupTask
 }
 
 const prepareLlamaCpp = async (
-  onStatus?: (status: string) => void, signal?: AbortSignal
+  onStatus?: (status: string) => void, signal?: AbortSignal, requestedVersion?: string
 ): Promise<string> => {
   signal?.throwIfAborted()
   const config = await getConfig()
   const llamaConfig = config.llamaCpp ?? {}
-  const version = llamaConfig.version || 'latest'
+  let version = requestedVersion || llamaConfig.version || 'latest'
+  if (!/^[a-zA-Z0-9][a-zA-Z0-9._+-]*$/.test(version)) throw new Error('Invalid llama.cpp version')
   const assetName = llamaConfig.assetName?.trim() || ''
   const variant = assetName ? '' : resolveVariant(llamaConfig.variant)
   const useAssetCache = !!assetName || variant !== 'cpu'
   // Validate before consulting the cache, including offline starts.
-  getAssetPattern(version, variant, assetName)
+  const { pattern: selectedAsset } = getAssetPattern(version, variant, assetName)
+  const cuda = process.platform === 'win32'
+    ? selectedAsset.match(/-bin-win-(cuda-(\d+)\.\d+-(?:x64|arm64))\.zip$/)
+    : null
+  const runtimeName = cuda ? `cudart-llama-bin-win-${cuda[1]}.zip` : ''
+  const runtimeDlls = cuda ? [`cudart64_${cuda[2]}.dll`, `cublas64_${cuda[2]}.dll`, `cublasLt64_${cuda[2]}.dll`] : []
+  const hasRuntime = (binary: string): boolean =>
+    runtimeDlls.every((name) => fs.existsSync(path.join(path.dirname(binary), name)))
 
   const cacheBase = path.join(getInstallDir(), 'llama.cpp')
   if (!fs.existsSync(cacheBase)) {
@@ -274,14 +335,12 @@ const prepareLlamaCpp = async (
     const { pattern } = getAssetPattern(tag, variant, assetName)
     return findBinary(useAssetCache ? getAssetDir(versionDir, pattern) : versionDir)
   }
-  let cachedBinary: string | null = null
-
   // ── Check for existing cached binary before any network request ──
-  // This allows llama.cpp to start offline when previously installed.
+  // Startup reuses installed binaries; only an explicit update resolves a newer release.
   if (version !== 'latest') {
     // Pinned version — check its specific directory
     const pinnedBinary = getCachedBinary(version)
-    if (pinnedBinary) {
+    if (pinnedBinary && hasRuntime(pinnedBinary)) {
       log.info(`Using cached llama-server binary (pinned ${version}): ${pinnedBinary}`)
       binaryPath = pinnedBinary
       onStatus?.('Ready')
@@ -293,15 +352,20 @@ const prepareLlamaCpp = async (
       const cachedVersions = fs.readdirSync(cacheBase, { withFileTypes: true })
         .filter((d) => d.isDirectory())
         .map((d) => d.name)
+        .sort((a, b) => b.localeCompare(a, undefined, { numeric: true }))
 
       for (const cachedTag of cachedVersions) {
-        cachedBinary = getCachedBinary(cachedTag)
+        const cachedBinary = getCachedBinary(cachedTag)
         if (cachedBinary) {
-          log.info(`Found cached llama-server binary (${cachedTag}): ${cachedBinary}`)
-          // Still try to fetch release info to see if there's a newer version,
-          // but if the network is unavailable, use the cached binary.
+          if (!hasRuntime(cachedBinary)) {
+            // Repair this installation without implicitly updating to a newer release.
+            version = cachedTag
+            break
+          }
+          log.info(`Using cached llama-server binary (${cachedTag}): ${cachedBinary}`)
           binaryPath = cachedBinary
-          break
+          onStatus?.('Ready')
+          return cachedBinary
         }
       }
     } catch {
@@ -327,76 +391,36 @@ const prepareLlamaCpp = async (
     releaseData = await response.json()
   } catch (error) {
     signal?.throwIfAborted()
-    // Network unavailable — fall back to cached binary if we found one
-    if (cachedBinary) {
-      log.info('Network unavailable, using cached llama-server binary:', cachedBinary)
-      binaryPath = cachedBinary
-      onStatus?.('Ready (offline)')
-      return cachedBinary
-    }
     throw new Error(
-      `Failed to fetch release info (no internet?) and no cached llama.cpp binary found. ` +
-      `Please connect to the internet for the initial llama.cpp installation. ` +
+      `Failed to fetch release info (no internet?) and no complete cached llama.cpp installation found. ` +
+      `Please connect to the internet to install or repair llama.cpp. ` +
       `Original error: ${error?.message ?? error}`
     )
   }
 
   const tag = releaseData.tag_name
+  if (typeof tag !== 'string' || !/^[a-zA-Z0-9][a-zA-Z0-9._+-]*$/.test(tag)) throw new Error('Invalid llama.cpp release tag')
   log.info(`llama.cpp release tag: ${tag}`)
 
-  const { pattern, isZip } = getAssetPattern(tag, variant, assetName)
+  const { pattern } = getAssetPattern(tag, variant, assetName)
   const releaseDir = path.join(cacheBase, tag)
   const versionDir = useAssetCache ? getAssetDir(releaseDir, pattern) : releaseDir
   const existingBinary = findBinary(versionDir)
-  if (existingBinary) {
+  if (existingBinary && hasRuntime(existingBinary)) {
     log.info(`llama-server binary already exists: ${existingBinary}`)
     binaryPath = existingBinary
     return existingBinary
   }
 
   const asset = (releaseData.assets as ReleaseAsset[]).find((a) => a.name === pattern)
-  if (!asset) {
+  if (!asset && !existingBinary) {
     const available = (releaseData.assets as ReleaseAsset[]).map((a) => a.name).join(', ')
     throw new Error(
       `No matching asset found for pattern "${pattern}". Available: ${available}`
     )
   }
 
-  log.info(`Downloading asset: ${asset.name}`)
-  onStatus?.(`Downloading ${asset.name}…`)
-
-  fs.mkdirSync(versionDir, { recursive: true })
-  const downloadPath = path.join(versionDir, asset.name)
-  if (!fs.existsSync(downloadPath)) {
-    await downloadFileWithProgress(asset.browser_download_url, downloadPath, (progress) => {
-      onStatus?.(`Downloading… ${progress.toFixed(0)}%`)
-    }, signal)
-  }
-
-  signal?.throwIfAborted()
-  onStatus?.('Extracting…')
-  log.info(`Extracting ${downloadPath} to ${versionDir}`)
-
-  if (isZip) {
-    try {
-      if (process.platform === 'win32') {
-        execFileSync('powershell', [
-          '-Command',
-          `Expand-Archive -LiteralPath '${downloadPath.replaceAll("'", "''")}' -DestinationPath '${versionDir.replaceAll("'", "''")}' -Force`
-        ])
-      } else {
-        execFileSync('unzip', ['-o', downloadPath, '-d', versionDir])
-      }
-    } catch (error) {
-      throw new Error(`Failed to extract zip: ${error?.message ?? error}`)
-    }
-  } else {
-    await tar.x({ cwd: versionDir, file: downloadPath })
-  }
-
-  try {
-    fs.unlinkSync(downloadPath)
-  } catch {}
+  if (!existingBinary) await installReleaseAsset(asset, versionDir, onStatus, signal)
 
   if (process.platform !== 'win32') {
     const binary = findBinary(versionDir)
@@ -410,6 +434,13 @@ const prepareLlamaCpp = async (
   const resultBinary = findBinary(versionDir)
   if (!resultBinary) {
     throw new Error(`llama-server binary not found after extraction in ${versionDir}`)
+  }
+
+  if (!hasRuntime(resultBinary)) {
+    const runtime = (releaseData.assets as ReleaseAsset[]).find((a) => a.name === runtimeName)
+    if (!runtime) throw new Error(`CUDA runtime asset "${runtimeName}" not found in release ${tag}`)
+    await installReleaseAsset(runtime, path.dirname(resultBinary), onStatus, signal)
+    if (!hasRuntime(resultBinary)) throw new Error(`CUDA runtime DLLs missing after extracting ${runtimeName}`)
   }
 
   log.info(`llama-server binary ready: ${resultBinary}`)
@@ -457,8 +488,7 @@ export const checkLlamaCppUpdate = async (): Promise<{ currentVersion: string | 
 export const updateLlamaCpp = async (
   onStatus?: (status: string) => void
 ): Promise<{ url?: string; status?: string; pid?: number; binaryPath?: string; version?: string | null }> => {
-  // 1. Verify network is available BEFORE destructive operations —
-  //    don't delete the old binary if we can't download a replacement.
+  // Resolve the requested update before stopping the running service.
   onStatus?.('Checking for updates…')
   let releaseTag: string
   try {
@@ -481,31 +511,17 @@ export const updateLlamaCpp = async (
     )
   }
 
-  // 2. Stop if running
+  // Stop if running.
   await stopLlamaCpp()
   await setupTask?.catch(() => {})
   
-  // 3. Clear old cache directory (safe — we verified network above)
-  const currentInfo = getLlamaCppInfo()
-  if (currentInfo.version) {
-    const cacheDir = path.join(getInstallDir(), 'llama.cpp', currentInfo.version)
-    if (fs.existsSync(cacheDir)) {
-      onStatus?.('Removing old version…')
-      try {
-        fs.rmSync(cacheDir, { recursive: true, force: true })
-      } catch (err) {
-        log.error(`Failed to remove old llama.cpp cache at ${cacheDir}:`, err)
-      }
-    }
-  }
-  
-  // 4. Temporarily enforce 'latest' in config so it fetches the newest
+  // Target this release explicitly so setup cannot reuse an older cached version.
+  // Keep installed binaries available if downloading the replacement fails.
+  onStatus?.('Downloading update…')
+  await setupLlamaCpp(onStatus, undefined, releaseTag)
+
   const config = await getConfig()
   await setConfig({ llamaCpp: { ...config.llamaCpp, version: 'latest' } })
-  
-  // 5. Download new release
-  onStatus?.('Downloading update…')
-  await setupLlamaCpp(onStatus)
   
   return getLlamaCppInfo()
 }
@@ -525,7 +541,7 @@ export const startLlamaCpp = (onStatus?: (status: string) => void) => llamaServi
   return {
     file: binary,
     args: ['--host', host, '--port', String(port), '--models-dir', getModelsDir(), ...(llamaConfig.extraArgs ?? [])],
-    env: { ...process.env, ...(config.envVars ?? {}) }, url,
+    env: getProcessEnv(config.envVars), url,
     ready: (signal) => waitForReady(async (probeSignal) => {
       const response = await fetch(`${url}/health`, { signal: probeSignal })
       if (!response.ok) return false

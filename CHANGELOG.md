@@ -5,6 +5,40 @@ All notable changes to this project will be documented in this file.
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/),
 and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
+## [0.1.1] - 2026-11-01
+
+### Added
+
+- **Optional automatic Desktop updates.** Enable Automatic desktop updates in Settings → About to download new versions in the background and install them when you quit. It is off by default. Desktop now checks at launch and every six hours, and shows a dismissible notification when an update is available or ready to install (#100).
+- **Start with the window hidden.** Added Start minimized to tray in Settings → General, off by default. Open Desktop from the tray or your global shortcut when you need it. A previously maximized window stays hidden until you open it (#235).
+- **Hide the macOS menu bar icon.** Turn off Show Open WebUI in menu bar in Settings → General. The icon hides or returns immediately, without restarting Desktop (#213).
+- **Copy and save images.** Right-click an image in Open WebUI to choose Copy Image or Save Image As… (#230).
+- **Bulgarian language.** Added Български to Desktop's language selector, with translations for setup, settings, and status messages (#261).
+
+### Changed
+
+- **Local models keep the installed llama.cpp version.** Starting llama.cpp now reuses the newest compatible version already on your computer without checking for a newer release. Use Update in its settings when you want to upgrade. A failed update download keeps the previously installed version available (#193).
+- **Clearer Linux update options.** Snap and Flatpak installations now explain how to update through your package manager or download a newer package, instead of showing an update check that never finishes.
+- **Simpler download links.** The README groups downloads under macOS, Windows, and Linux, and fixes the broken Intel/AMD Linux AppImage link (#239).
+- **Windows shortcuts.** The Windows installer explicitly enables both desktop and Start menu shortcuts by default (#232).
+
+### Fixed
+
+- **Screen sharing inside Open WebUI.** Fixed screen capture requests failing inside the Desktop window (#206).
+- **Open WebUI left broken after an interrupted update.** Desktop now stops Open WebUI before updating, prevents overlapping installations, and does not try to start it after an update fails. Retrying Install or Update in Settings repairs an interrupted installation without deleting chats or settings (#220).
+- **NVIDIA acceleration on Windows.** Installing the CUDA version of llama.cpp now also downloads the matching NVIDIA support files. Existing installations missing those files are repaired on the next start (#198).
+- **Update progress disappearing.** Closing and reopening Settings → About now retains the available version, download progress, and Restart to Update action.
+- **Linux ARM64 update checks.** Fixed the missing update information that prevented ARM64 installations from finding new Desktop releases.
+- **Snap failing to open.** Fixed the Linux Snap package closing before showing a window because its bundled components required newer system libraries than the package provided (#176).
+- **macOS header changing height.** The top bar now stays the same slim height while Open WebUI starts or stops.
+- **Windows release builds.** Fixed a build failure that prevented the Windows installer from being created with the newer Windows build tools.
+
+### Security
+
+- **Check downloads before using them.** Desktop now verifies that Python, llama.cpp, and Hugging Face model downloads match the original files, rejecting incomplete or changed downloads. Large setup downloads also use less memory.
+- **Restrict links and model file locations.** Only web and email links can open outside Desktop. Model filenames that try to save or delete files outside the model folder are rejected.
+- **Require release signing checks.** Release preparation now stops if Windows signing or Apple's signing and security checks fail, instead of falling back to publishing unsigned installers.
+
 ## [0.1.0] - 2026-11-01
 
 ### Changed

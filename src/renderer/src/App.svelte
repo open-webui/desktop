@@ -1,7 +1,7 @@
 <script lang="ts">
   import { onMount, onDestroy } from 'svelte'
   import { fade } from 'svelte/transition'
-  import { appInfo, config, serverInfo, appState } from './lib/stores'
+  import { appInfo, config, serverInfo, appState, desktopUpdate } from './lib/stores'
 
   import Main from './lib/components/Main.svelte'
 
@@ -39,9 +39,21 @@
     }
     themeMediaQuery.addEventListener('change', themeChangeHandler)
 
+    let receivedUpdate = false
     unsubscribe = api.onData((data: any) => {
       if (data.type === 'server:info') serverInfo.set(data.data)
+      if (data.type === 'update:state') {
+        receivedUpdate = true
+        desktopUpdate.set(data.data)
+      }
 
+    })
+
+    // Update discovery must not delay server status or the rest of startup.
+    api.getUpdateState().then((update) => {
+      if (!receivedUpdate) desktopUpdate.set(update)
+    }).catch((error) => {
+      if (!receivedUpdate) desktopUpdate.set({ status: 'error', error: String(error) })
     })
 
     // Don't auto-install anything — the user must explicitly choose

@@ -1,73 +1,105 @@
 import { autoUpdater, type UpdateInfo } from 'electron-updater'
 import log from 'electron-log'
-import { app, BrowserWindow } from 'electron'
+import { app } from 'electron'
+import { existsSync, readFileSync } from 'fs'
+import { join } from 'path'
+import type { UpdateState } from '../shared/updater'
 
-let mainWin: BrowserWindow | null = null
+let state: UpdateState = { status: 'idle' }
+let publish: (type: string, data: UpdateState) => void = () => {}
 
-const send = (type: string, data?: any): void => {
-  mainWin?.webContents.send('main:data', { type, data })
+export const getUpdateState = (): UpdateState => state
+
+function setState(next: UpdateState): void {
+  state = next
+  publish('update:state', state)
 }
 
-export function initUpdater(window: BrowserWindow): void {
-  mainWin = window
+function unsupportedReason(): UpdateState['reason'] {
+  if (!app.isPackaged) return 'development'
+  if (process.platform !== 'linux') return undefined
+  if (process.env.SNAP || process.env.FLATPAK_ID || existsSync('/.flatpak-info')) return 'managed'
+  if (process.env.APPIMAGE) return undefined
+  try {
+    const type = readFileSync(join(process.resourcesPath, 'package-type'), 'utf8').trim()
+    if (['deb', 'rpm', 'pacman'].includes(type)) return undefined
+  } catch {
+    // Unpacked Linux builds do not have a package-type marker.
+  }
+  return 'unsupported'
+}
 
+function failed(error: unknown): void {
+  log.warn('Desktop update failed:', error)
+  setState({
+    ...state,
+    status: 'error',
+    error: error instanceof Error ? error.message : String(error)
+  })
+}
+
+export function initUpdater(send: typeof publish, automatic: boolean): void {
+  publish = send
   autoUpdater.logger = log
-  autoUpdater.autoDownload = false
+  autoUpdater.autoDownload = automatic
   autoUpdater.autoInstallOnAppQuit = true
 
-  autoUpdater.on('checking-for-update', () => {
-    send('update:checking')
-  })
-
+  autoUpdater.on('checking-for-update', () => setState({ status: 'checking' }))
   autoUpdater.on('update-available', (info: UpdateInfo) => {
-    send('update:available', {
+    setState({
+      status: autoUpdater.autoDownload ? 'downloading' : 'available',
       version: info.version,
-      releaseDate: info.releaseDate
+      percent: 0
     })
   })
-
-  autoUpdater.on('update-not-available', (_info: UpdateInfo) => {
-    send('update:not-available')
-  })
-
+  autoUpdater.on('update-not-available', () => setState({ status: 'up-to-date' }))
   autoUpdater.on('download-progress', (progress) => {
-    send('update:download-progress', {
-      percent: progress.percent,
-      bytesPerSecond: progress.bytesPerSecond,
-      transferred: progress.transferred,
-      total: progress.total
-    })
+    setState({ ...state, status: 'downloading', percent: Math.round(progress.percent) })
   })
-
-  autoUpdater.on('update-downloaded', (_info: UpdateInfo) => {
-    send('update:downloaded')
+  autoUpdater.on('update-downloaded', (info: UpdateInfo) => {
+    setState({ status: 'downloaded', version: info.version, percent: 100 })
   })
+  autoUpdater.on('error', failed)
 
-  autoUpdater.on('error', (error: Error) => {
-    send('update:error', { message: error?.message ?? 'Update error' })
-  })
+  void checkForUpdates()
+  const timer = setInterval(() => void checkForUpdates(), 6 * 60 * 60 * 1000)
+  timer.unref()
+  app.once('will-quit', () => clearInterval(timer))
+}
 
-  // Auto-check on launch (silently, only when packaged)
-  if (app.isPackaged) {
-    autoUpdater.checkForUpdates().catch((err) => {
-      log.warn('Auto update check failed:', err)
-    })
-  }
+export function setAutomaticUpdates(enabled: boolean): void {
+  const changed = autoUpdater.autoDownload !== enabled
+  autoUpdater.autoDownload = enabled
+  if (changed && enabled) void checkForUpdates()
 }
 
 export async function checkForUpdates(): Promise<void> {
-  if (!app.isPackaged) {
-    log.info('Skipping update check — app is not packaged')
-    send('update:not-available')
+  // Preserve a pending download/install when a timer or another window requests a check.
+  if (['checking', 'downloading', 'downloaded'].includes(state.status)) return
+  const reason = unsupportedReason()
+  if (reason) {
+    setState({ status: 'unsupported', reason })
     return
   }
-  await autoUpdater.checkForUpdates()
+  try {
+    const result = await autoUpdater.checkForUpdates()
+    if (!result) setState({ status: 'unsupported', reason: 'unsupported' })
+    else await result.downloadPromise
+  } catch (error) {
+    failed(error)
+  }
 }
 
 export async function downloadUpdate(): Promise<void> {
-  await autoUpdater.downloadUpdate()
+  if (state.status !== 'available') return
+  setState({ ...state, status: 'downloading', percent: 0 })
+  try {
+    await autoUpdater.downloadUpdate()
+  } catch (error) {
+    failed(error)
+  }
 }
 
 export function installUpdate(): void {
-  autoUpdater.quitAndInstall(false, true)
+  if (state.status === 'downloaded') autoUpdater.quitAndInstall(false, true)
 }

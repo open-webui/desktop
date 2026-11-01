@@ -22,6 +22,9 @@ jobs:
             - name: Install Dependencies
               run: npm ci
 
+            - name: Test updater
+              run: node --test tests/updater.test.mjs
+
             - name: Typecheck and Build
               run: npm run build
 
@@ -40,7 +43,8 @@ jobs:
             fail-fast: false
             matrix:
                 include:
-                    - os: ubuntu-latest
+                    # Match the Snap base so native modules load inside confinement.
+                    - os: ubuntu-22.04
                       arch: x64
                     - os: ubuntu-24.04-arm
                       arch: arm64
@@ -87,21 +91,20 @@ jobs:
                   sudo apt-get update
                   sudo apt-get install -y flatpak flatpak-builder
                   flatpak remote-add --user --if-not-exists flathub https://dl.flathub.org/repo/flathub.flatpakrepo
-                  flatpak install --user -y flathub org.freedesktop.Platform//23.08 org.freedesktop.Sdk//23.08
-                  flatpak install --user -y flathub org.electronjs.Electron2.BaseApp//23.08
+                  flatpak install --user -y flathub org.freedesktop.Platform//25.08 org.freedesktop.Sdk//25.08
+                  flatpak install --user -y flathub org.electronjs.Electron2.BaseApp//25.08
 
             # ── Apple codesigning (macOS only) ──
             - name: Install Apple codesigning certificate
               id: apple_cert
               if: matrix.os == 'macos-latest'
-              continue-on-error: true
               env:
                   BUILD_CERTIFICATE_BASE64: ${{ secrets.BUILD_CERTIFICATE_BASE64 }}
                   P12_PASSWORD: ${{ secrets.P12_PASSWORD }}
                   KEYCHAIN_PASSWORD: ${{ secrets.KEYCHAIN_PASSWORD }}
               run: |
                   if [ -z "$BUILD_CERTIFICATE_BASE64" ]; then
-                    echo "No certificate provided, will build unsigned"
+                    echo "Missing Apple signing certificate"
                     exit 1
                   fi
                   CERTIFICATE_PATH=$RUNNER_TEMP/build_certificate.p12
@@ -118,37 +121,18 @@ jobs:
             - name: Package for Windows
               id: win_build
               if: runner.os == 'Windows'
-              continue-on-error: true
               run: npx electron-builder --win --${{ matrix.arch }} --publish never
-
-            - name: Package for Windows (unsigned fallback)
-              if: runner.os == 'Windows' && steps.win_build.outcome == 'failure'
-              env:
-                  WIN_CSC_LINK: ''
-                  CSC_IDENTITY_AUTO_DISCOVERY: 'false'
-              run: |
-                  rm -rf dist/
-                  npx electron-builder --win --${{ matrix.arch }} --publish never
 
             - name: Package for macOS (signed + notarized)
               id: mac_build
               if: matrix.os == 'macos-latest' && steps.apple_cert.outcome == 'success'
-              continue-on-error: true
               env:
                   CSC_LINK: ${{ secrets.BUILD_CERTIFICATE_BASE64 }}
                   CSC_KEY_PASSWORD: ${{ secrets.P12_PASSWORD }}
                   APPLE_ID: ${{ secrets.APPLE_ID }}
                   APPLE_APP_SPECIFIC_PASSWORD: ${{ secrets.APPLE_PASSWORD }}
                   APPLE_TEAM_ID: ${{ secrets.APPLE_TEAM_ID }}
-              run: npx electron-builder --mac --${{ matrix.arch }} -c.mac.notarize=true --publish never
-
-            - name: Package for macOS (unsigned fallback)
-              if: matrix.os == 'macos-latest' && (steps.apple_cert.outcome != 'success' || steps.mac_build.outcome == 'failure')
-              env:
-                  CSC_IDENTITY_AUTO_DISCOVERY: 'false'
-              run: |
-                  rm -rf dist/
-                  npx electron-builder --mac --${{ matrix.arch }} --publish never
+              run: npx electron-builder --mac --${{ matrix.arch }} -c.mac.notarize=true -c.forceCodeSigning=true --publish never
 
             - name: Package for Linux
               if: runner.os == 'Linux'
@@ -163,10 +147,23 @@ jobs:
                     npx electron-builder --linux AppImage deb snap --${{ matrix.arch }} --publish never
                   fi
 
+            - name: Verify Snap launch
+              if: runner.os == 'Linux' && matrix.arch == 'x64'
+              run: |
+                  sudo apt-get update
+                  sudo apt-get install -y xvfb xdotool
+                  sudo systemctl start "user@$(id -u).service"
+                  sudo snap install gnome-3-28-1804 gtk-common-themes
+                  sudo snap install --dangerous dist/*.snap
+                  sudo snap connect open-webui:gnome-3-28-1804 gnome-3-28-1804:gnome-3-28-1804
+                  for plug in gtk-3-themes icon-themes sound-themes; do
+                    sudo snap connect "open-webui:$plug" "gtk-common-themes:$plug"
+                  done
+                  bash tests/snap-smoke.sh
+
             # ── Windows code signing ──
             - name: Azure Trusted Signing (Windows Only)
               if: runner.os == 'Windows'
-              continue-on-error: true
               uses: azure/trusted-signing-action@v0.5.1
               with:
                   azure-tenant-id: ${{ secrets.AZURE_TENANT_ID }}
@@ -277,32 +274,11 @@ jobs:
                     ls -la macos-latest-*/latest-mac.yml 2>/dev/null || true
                   fi
 
-            - name: Merge Linux latest-linux.yml (x64 + arm64)
+            - name: Verify Linux update manifests
               run: |
-                  X64_YML="ubuntu-latest-x64/latest-linux.yml"
-                  # electron-builder names the arm64 Linux manifest "latest-linux-arm64.yml"
-                  ARM_YML="ubuntu-24.04-arm-arm64/latest-linux-arm64.yml"
-
-                  if [ -f "$X64_YML" ] && [ -f "$ARM_YML" ]; then
-                    echo "Merging latest-linux.yml from both architectures"
-                    node -e "
-                      const fs = require('fs');
-                      const yaml = require('js-yaml');
-                      const x64 = yaml.load(fs.readFileSync('$X64_YML', 'utf8'));
-                      const arm = yaml.load(fs.readFileSync('$ARM_YML', 'utf8'));
-                      const all = [...(x64.files || []), ...(arm.files || [])];
-                      const map = new Map();
-                      for (const f of all) map.set(f.url, f);
-                      x64.files = [...map.values()];
-                      const out = yaml.dump(x64, { lineWidth: -1 });
-                      fs.writeFileSync('$X64_YML', out);
-                      console.log(out);
-                    "
-                    rm -f "$ARM_YML"
-                  else
-                    echo "Skipping merge — need both $X64_YML and $ARM_YML"
-                    ls -la ubuntu-*-*/latest-linux*.yml 2>/dev/null || true
-                  fi
+                  # Linux updaters request a separate channel file for each architecture.
+                  test -f ubuntu-22.04-x64/latest-linux.yml
+                  test -f ubuntu-24.04-arm-arm64/latest-linux-arm64.yml
 
             - name: Merge Windows latest.yml (x64 + arm64)
               run: |
@@ -343,6 +319,7 @@ jobs:
                     const manifests = [
                       { prefix: 'macos-latest-', file: 'latest-mac.yml' },
                       { prefix: 'ubuntu-',        file: 'latest-linux.yml' },
+                      { prefix: 'ubuntu-',        file: 'latest-linux-arm64.yml' },
                       { prefix: 'windows-',       file: 'latest.yml' },
                     ];
 

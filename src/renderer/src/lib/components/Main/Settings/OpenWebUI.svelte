@@ -76,16 +76,14 @@
   const updatePackage = async () => {
     updating = true
     try {
-      if (isRunning) {
-        await window.electronAPI.stopServer()
-      }
-      await window.electronAPI.installPackage()
+      if (!(await window.electronAPI.installPackage())) return
       await window.electronAPI.startServer()
       version = await window.electronAPI.getPackageVersion('open-webui')
     } catch (e) {
       console.error('Failed to update:', e)
+    } finally {
+      updating = false
     }
-    updating = false
   }
 </script>
 
