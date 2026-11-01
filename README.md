@@ -38,8 +38,6 @@ Desktop focuses on installing and launching Open WebUI locally. Hosted-server co
 ## Highlights
 
 - **Local installation.** Install and update Open WebUI from the app.
-- **Service controls.** Start and stop local services and inspect their output in the bottom drawer.
-- **Settings.** Access settings from the bottom bar.
 - **Cross-platform.** macOS, Windows, and Linux.
 
 ## System Requirements
