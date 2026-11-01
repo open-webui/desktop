@@ -4,7 +4,7 @@
   import i18n from '../../../i18n'
   import { appInfo } from '../../../stores'
   import { tooltip } from '../../../actions/tooltip'
-  import LogViewer from '../../common/LogViewer.svelte'
+  import TerminalView from '../../common/TerminalView.svelte'
   import SettingsIcon from 'iconoir/icons/settings.svg?raw'
   import XmarkIcon from 'iconoir/icons/xmark.svg?raw'
   import PlayIcon from 'iconoir/icons/play.svg?raw'
@@ -36,7 +36,7 @@
   let expanded = $state(false)
   let visited = $state<ServiceId[]>([])
   let panelHeight = $state(160)
-  let viewers: Partial<Record<ServiceId, LogViewer>> = {}
+  let terminalViews: Partial<Record<ServiceId, TerminalView>> = {}
   let pending = $state<Partial<Record<ServiceId, 'start' | 'stop' | 'restart'>>>({})
   let errors = $state<Partial<Record<ServiceId, string>>>({})
   let copied = $state(false)
@@ -127,7 +127,7 @@
   async function copyLogs(): Promise<void> {
     const id = active?.id
     if (!id) return
-    const text = viewers[id]?.getBufferText()
+    const text = terminalViews[id]?.getBufferText()
     if (!text) return
     try {
       await navigator.clipboard.writeText(text)
@@ -319,8 +319,8 @@
           hidden={active?.id !== service.id}
         >
           {#if visited.includes(service.id)}
-            <LogViewer
-              bind:this={viewers[service.id]}
+            <TerminalView
+              bind:this={terminalViews[service.id]}
               service={service.id}
               readonly={service.id !== 'server'}
             />

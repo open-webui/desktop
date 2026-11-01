@@ -1,4 +1,5 @@
 <script lang="ts">
+  import NavArrowRightIcon from 'iconoir/icons/nav-arrow-right.svg?raw'
   import NavArrowDownIcon from 'iconoir/icons/nav-arrow-down.svg?raw'
   import DownloadIcon from 'iconoir/icons/download.svg?raw'
   import PlayIcon from 'iconoir/icons/play.svg?raw'
@@ -6,7 +7,7 @@
   import RestartIcon from 'iconoir/icons/restart.svg?raw'
   import SquareIcon from 'iconoir/icons/square.svg?raw'
   import { onMount, onDestroy } from 'svelte'
-  import { config } from '../../../stores'
+  import { appInfo, config } from '../../../stores'
   import i18n from '../../../i18n'
   import Switch from '../../common/Switch.svelte'
 
@@ -19,6 +20,21 @@
   let setupStatus = $state('')
   let uninstalling = $state(false)
   let installing = $state(false)
+  let advancedOpen = $state(false)
+  let defaultAssetName = $state('')
+  let archiveDraft = $state<string | null>(null)
+
+  $effect(() => {
+    if (!advancedOpen) return
+    const variant = $config?.llamaCpp?.variant ?? 'auto'
+    let cancelled = false
+    defaultAssetName = ''
+    archiveDraft = null
+    window.electronAPI.getLlamaCppAssetName?.(variant)?.then((name: string) => {
+      if (!cancelled) defaultAssetName = name
+    }).catch(console.error)
+    return () => { cancelled = true }
+  })
 
   type UpdateStatus = 'idle' | 'checking' | 'available' | 'updating' | 'up-to-date' | 'error'
   let updateStatus = $state<UpdateStatus>('idle')
@@ -51,11 +67,13 @@
   const updateConfig = async (key: string, value: any) => {
     const current = $config ?? {}
     const llamaCpp = { ...(current.llamaCpp ?? {}), [key]: value }
+    if (key === 'variant') llamaCpp.assetName = ''
     await window.electronAPI.setConfig({ llamaCpp })
     config.set(await window.electronAPI.getConfig())
   }
 
   const platform = $derived((() => {
+    if ($appInfo?.platform) return $appInfo.platform
     const info = navigator.userAgent
     if (info.includes('Mac')) return 'darwin'
     if (info.includes('Win')) return 'win32'
@@ -187,6 +205,45 @@
   }
 </script>
 
+{#snippet archiveFilename()}
+  <div class="pt-1">
+    <button
+      class="inline-flex items-center gap-[6px] bg-transparent p-0 text-[12px] leading-[16px] text-[oklch(0.69_0_0)] transition-colors hover:text-[oklch(0.2_0_0)] dark:hover:text-white"
+      aria-expanded={advancedOpen}
+      aria-controls="llama-advanced"
+      onclick={() => (advancedOpen = !advancedOpen)}
+    >
+      <span aria-hidden="true" class="inline-flex size-[12px] [&>svg]:size-full transition-transform duration-200 {advancedOpen ? 'rotate-90' : ''}">{@html NavArrowRightIcon}</span>
+      <span class="text-[#171717] dark:text-white">{$i18n.t('common.advanced')}</span>
+    </button>
+    {#if advancedOpen}
+      <div id="llama-advanced" class="mt-[16px] py-[7px]">
+        <label for="llama-archive-filename" class="text-[12px] leading-[16px] font-normal text-[#171717] dark:text-white">
+          {$i18n.t('settings.inference.archiveFilename')}
+        </label>
+        <input
+          id="llama-archive-filename"
+          type="text"
+          class="h-[28px] min-h-[28px] max-w-full rounded-[8px] border border-[oklch(0.94_0_0/0.5)] outline-hidden! bg-[oklch(0.98_0_0/0.4)] px-[8px] py-0 text-[12px] leading-[16px] font-normal text-[oklch(0.42_0_0)] transition-colors duration-150 placeholder:text-[oklch(0.85_0_0)] focus:border-blue-400 disabled:cursor-not-allowed disabled:opacity-50 dark:border-white/[0.04] dark:bg-white/[0.03] dark:text-[oklch(0.85_0_0)] dark:placeholder:text-[oklch(0.42_0_0)] dark:focus:border-blue-500 [&::-webkit-outer-spin-button]:appearance-none [&::-webkit-outer-spin-button]:m-0 [&::-webkit-inner-spin-button]:appearance-none [&::-webkit-inner-spin-button]:m-0 [&[type=number]]:[-moz-appearance:textfield] w-full font-mono mt-[6px]"
+          spellcheck={false}
+          value={archiveDraft ?? ($config?.llamaCpp?.assetName || defaultAssetName)}
+          oninput={(e) => (archiveDraft = e.currentTarget.value)}
+          aria-describedby="llama-archive-description"
+          onchange={(e) => {
+            const input = e.currentTarget
+            const value = input.value.trim()
+            archiveDraft = input.value = value || defaultAssetName
+            updateConfig('assetName', value === defaultAssetName ? '' : value)
+          }}
+        />
+        <div id="llama-archive-description" class="text-[11px] leading-[16px] text-[oklch(0.51_0_0)] dark:text-[oklch(0.77_0_0)] mt-0.5">
+          {$i18n.t('settings.inference.archiveFilenameDesc')}
+        </div>
+      </div>
+    {/if}
+  </div>
+{/snippet}
+
 <div class="flex min-w-0 flex-col text-[#171717] dark:text-white">
 {#if !loaded}
   <div class="py-6 text-[12px] text-center">{$i18n.t('common.loading')}</div>
@@ -281,6 +338,7 @@
         >
       </div>
     </div>
+    {@render archiveFilename()}
   </div>
 {:else}
   <div>
@@ -625,6 +683,8 @@
         }}
       />
     </div>
+
+    {@render archiveFilename()}
 
     <!-- Uninstall -->
     {#if lsInfo?.binaryPath}

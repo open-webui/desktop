@@ -189,6 +189,8 @@
   "settings.inference.versionDesc": "릴리스 태그 (예: latest, b8412)",
   "settings.inference.variant": "변형",
   "settings.inference.variantDesc": "하드웨어 가속 백엔드",
+  "settings.inference.archiveFilename": "아카이브 파일 이름",
+  "settings.inference.archiveFilenameDesc": "선택한 llama.cpp 릴리스의 .zip 또는 .tar.gz 파일 이름입니다(편집 가능). 릴리스 태그에는 ${tag}를 사용하세요. 지우거나 변형을 변경하면 기본 파일 이름으로 복원됩니다. 변경 사항은 다음 시작 또는 재시작 시 적용됩니다.",
   "settings.inference.port": "포트",
   "settings.inference.portDesc": "llama-server 서버 포트",
   "settings.inference.extraArguments": "추가 인수",

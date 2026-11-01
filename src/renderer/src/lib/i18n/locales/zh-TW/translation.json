@@ -189,6 +189,8 @@
   "settings.inference.versionDesc": "發行標籤（例如 latest、b8412）",
   "settings.inference.variant": "變體",
   "settings.inference.variantDesc": "硬體加速後端",
+  "settings.inference.archiveFilename": "壓縮檔檔名",
+  "settings.inference.archiveFilenameDesc": "可編輯所選 llama.cpp 版本中的 .zip 或 .tar.gz 檔名。使用 ${tag} 代表版本標籤。清空或變更變體可還原其預設檔名。變更將於下次啟動或重新啟動時生效。",
   "settings.inference.port": "連接埠",
   "settings.inference.portDesc": "llama-server 伺服器連接埠",
   "settings.inference.extraArguments": "額外參數",

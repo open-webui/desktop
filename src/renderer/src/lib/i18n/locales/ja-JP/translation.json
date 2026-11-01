@@ -189,6 +189,8 @@
   "settings.inference.versionDesc": "リリースタグ（例: latest、b8412）",
   "settings.inference.variant": "バリエーション",
   "settings.inference.variantDesc": "ハードウェアアクセラレーションバックエンド",
+  "settings.inference.archiveFilename": "アーカイブファイル名",
+  "settings.inference.archiveFilenameDesc": "選択した llama.cpp リリースの .zip または .tar.gz ファイル名（編集可能）。リリースタグには ${tag} を使用します。クリアするかバリアントを変更すると既定のファイル名に戻ります。変更は次回の起動または再起動時に適用されます。",
   "settings.inference.port": "ポート",
   "settings.inference.portDesc": "llama-server のサーバーポート",
   "settings.inference.extraArguments": "追加引数",

@@ -10,7 +10,6 @@ import {
   desktopCapturer,
   BrowserWindow,
   globalShortcut,
-  MessageChannelMain,
   Notification,
   Menu,
   ipcMain,
@@ -49,6 +48,7 @@ import {
   llamaService,
   stopLlamaCpp,
   getLlamaCppInfo,
+  getLlamaCppAssetName,
   checkLlamaCppUpdate,
   updateLlamaCpp,
   uninstallLlamaCpp
@@ -64,7 +64,7 @@ import {
   getRepoFiles
 } from './utils/huggingface'
 
-import { attachTerminal } from './process/terminal-channel'
+import { attachTerminal } from './process/terminalChannel'
 
 import { initUpdater, checkForUpdates, downloadUpdate, installUpdate } from './updater'
 
@@ -337,49 +337,38 @@ function createMainWindow(show = true): void {
 const updateTray = () => {
   if (!tray || !CONFIG) return
 
-  // Open the managed local installation from the tray.
-  const localItem = isPackageInstalled('open-webui')
-    ? [{
-        label: 'Open WebUI',
-        sublabel: webuiService.info.url || `http://127.0.0.1:${CONFIG.localServer?.port ?? 8080}`,
-        click: async () => {
-          const result = await openLocalWebUI()
-          if (result) sendToRenderer('server:open', result)
-        }
-      }]
-    : []
+  const canOpenInBrowser = webuiService.info.reachable && !!webuiService.info.url
 
   const trayMenuTemplate = [
     {
-      label: 'Show Open WebUI',
-      click: () => {
+      label: 'Open WebUI',
+      click: async () => {
+        if (mainWindow?.isMinimized()) mainWindow.restore()
         mainWindow?.show()
         mainWindow?.focus()
+        const result = await openLocalWebUI()
+        if (result) sendToRenderer('server:open', result)
+      }
+    },
+    {
+      label: 'Open in Browser',
+      enabled: canOpenInBrowser,
+      click: () => {
+        if (webuiService.info.reachable && webuiService.info.url) openUrl(webuiService.info.url)
+      }
+    },
+    {
+      label: 'Copy Address',
+      enabled: canOpenInBrowser,
+      click: () => {
+        if (webuiService.info.reachable && webuiService.info.url) clipboard.writeText(webuiService.info.url)
       }
     },
     { type: 'separator' },
-    ...(localItem.length > 0
-      ? [
-          ...localItem,
-          { type: 'separator' }
-        ]
-      : []),
-    ...(webuiService.info.status === 'started' && webuiService.info.url
-      ? [
-          {
-            label: `Local: ${webuiService.info.url}`,
-            click: () => {
-              if (webuiService.info.url) clipboard.writeText(webuiService.info.url)
-            }
-          },
-          { type: 'separator' }
-        ]
-      : []),
     {
-      label: 'Quit Open WebUI',
+      label: 'Quit Open WebUI Desktop',
       accelerator: 'CommandOrControl+Q',
-      click: async () => {
-        await stopServerHandler()
+      click: () => {
         isQuiting = true
         app.quit()
       }
@@ -582,10 +571,6 @@ if (!gotTheLock) {
 
     // Log webview guest renderer crashes for diagnostics — the existing
     // 'crashed' listener in Content.svelte surfaces these to the user.
-    //
-    // For webview guests we also intercept navigation and popup events
-    // so that external links open in the user's default browser instead
-    // of navigating the webview or spawning a new Electron window (#165).
     app.on('web-contents-created', (_event, contents) => {
       contents.on('render-process-gone', (_e, details) => {
         if (details.reason !== 'clean-exit') {
@@ -597,26 +582,26 @@ if (!gotTheLock) {
       })
 
       if (contents.getType() === 'webview') {
-        // ── Popups (target="_blank" links) → open in default browser ──
-        contents.setWindowOpenHandler(({ url }) => {
-          openUrl(url)
-          return { action: 'deny' }
-        })
-
-        // ── In-page navigation to a different origin → open externally ──
-        // This catches regular link clicks (no target) that would navigate
-        // the webview away from the Open WebUI instance.
-        contents.on('will-navigate', (event, url) => {
-          try {
-            const currentOrigin = new URL(contents.getURL()).origin
-            const targetOrigin = new URL(url).origin
-            if (targetOrigin !== currentOrigin) {
-              event.preventDefault()
-              openUrl(url)
+        // Keep OAuth navigation and popups in their session; ordinary tabs open externally.
+        contents.setWindowOpenHandler(({ url, disposition, features }) => {
+          const isWebUrl = /^https?:\/\//i.test(url)
+          // Shift-clicking a link also requests a new window, but has no popup features.
+          if (disposition === 'new-window' && features && (isWebUrl || url === 'about:blank')) {
+            return {
+              action: 'allow',
+              overrideBrowserWindowOptions: {
+                webPreferences: {
+                  session: contents.session,
+                  nodeIntegration: false,
+                  contextIsolation: true,
+                  sandbox: true,
+                  webviewTag: false
+                }
+              }
             }
-          } catch {
-            // Malformed URL — let it through so Chromium can handle/reject it
           }
+          if (isWebUrl) openUrl(url)
+          return { action: 'deny' }
         })
 
         // ── Native right-click context menu (#161) ──────────────────
@@ -785,17 +770,7 @@ if (!gotTheLock) {
       if (event.sender !== mainWindow?.webContents || event.senderFrame !== event.sender.mainFrame) return
       const service = serviceId === 'server' ? webuiService : serviceId === 'llamacpp' ? llamaService : null
       if (!service || !Number.isSafeInteger(connectionId)) return
-      const { port1, port2 } = new MessageChannelMain()
-      const detach = attachTerminal(service, port1)
-      const cleanup = () => {
-        detach()
-        event.sender.removeListener('destroyed', cleanup)
-        event.sender.removeListener('render-process-gone', cleanup)
-      }
-      port1.once('close', cleanup)
-      event.sender.once('destroyed', cleanup)
-      event.sender.once('render-process-gone', cleanup)
-      event.sender.postMessage('terminal:port', connectionId, [port2])
+      attachTerminal(service, event.sender, connectionId)
     })
 
     ipcMain.handle('server:open', () => openLocalWebUI())
@@ -852,6 +827,7 @@ if (!gotTheLock) {
       return true
     })
     ipcMain.handle('llamacpp:info', () => getLlamaCppInfo())
+    ipcMain.handle('llamacpp:asset-name', (_event, variant?: string) => getLlamaCppAssetName(variant))
     ipcMain.handle('llamacpp:logs', () => [llamaService.logs])
 
     ipcMain.handle('llamacpp:uninstall', async () => {
@@ -976,7 +952,7 @@ if (!gotTheLock) {
     // Create tray
     const trayIcon = nativeImage.createFromPath(icon)
     tray = new Tray(trayIcon.resize({ width: 16, height: 16 }))
-    tray.setToolTip('Open WebUI')
+    tray.setToolTip('Open WebUI Desktop')
     updateTray()
 
 

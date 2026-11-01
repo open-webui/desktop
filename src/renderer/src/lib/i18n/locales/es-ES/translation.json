@@ -189,6 +189,8 @@
   "settings.inference.versionDesc": "Etiqueta de versión (ej. latest, b8412)",
   "settings.inference.variant": "Variante",
   "settings.inference.variantDesc": "Aceleración por hardware",
+  "settings.inference.archiveFilename": "Nombre del archivo",
+  "settings.inference.archiveFilenameDesc": "Nombre editable de un archivo .zip o .tar.gz de la versión de llama.cpp seleccionada. Usa ${tag} para la etiqueta de la versión. Bórralo o cambia la variante para restaurar su nombre predeterminado. Los cambios se aplican al iniciar o reiniciar.",
   "settings.inference.port": "Puerto",
   "settings.inference.portDesc": "Puerto del servidor llama-server",
   "settings.inference.extraArguments": "Argumentos adicionales",

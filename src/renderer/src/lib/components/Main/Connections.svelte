@@ -3,13 +3,13 @@
   import { config, serverInfo } from '../../stores'
   import i18n from '../../i18n'
   import Content from './Connections/Content.svelte'
-  import LogPanel from './Connections/LogPanel.svelte'
+  import TerminalDock from './Connections/TerminalDock.svelte'
 
   let { onOpenSettings }: { onOpenSettings: () => void } = $props()
 
   let serverUrl = $state('')
   let content: Content | undefined = $state()
-  let logPanel: LogPanel | undefined = $state()
+  let terminalDock: TerminalDock | undefined = $state()
   let canRefresh = $state(false)
   let connecting = $state(false)
   let launchError = $state('')
@@ -159,11 +159,11 @@
     {toastVisible}
     onStartInstall={startInstall}
     onOpenWebUI={() => openWebUI()}
-    onOpenTerminal={() => logPanel?.select('server')}
+    onOpenTerminal={() => terminalDock?.select('server')}
   />
 
-  <LogPanel
-    bind:this={logPanel}
+  <TerminalDock
+    bind:this={terminalDock}
     {onOpenSettings}
     onRefresh={() => content?.refresh()}
     canRefresh={canRefresh && !connecting}

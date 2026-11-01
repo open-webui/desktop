@@ -189,6 +189,8 @@
   "settings.inference.versionDesc": "Release-Tag (z.B. latest, b8412)",
   "settings.inference.variant": "Variante",
   "settings.inference.variantDesc": "Hardware-Beschleunigung",
+  "settings.inference.archiveFilename": "Archivdateiname",
+  "settings.inference.archiveFilenameDesc": "Bearbeitbarer .zip- oder .tar.gz-Dateiname aus dem gewählten llama.cpp-Release. Verwende ${tag} für den Release-Tag. Leeren oder die Variante ändern, um den Standarddateinamen wiederherzustellen. Änderungen gelten beim nächsten Start oder Neustart.",
   "settings.inference.port": "Port",
   "settings.inference.portDesc": "Server-Port für llama-server",
   "settings.inference.extraArguments": "Zusätzliche Argumente",

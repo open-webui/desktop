@@ -3,7 +3,7 @@ import { electronAPI } from '@electron-toolkit/preload'
 import { stripVTControlCharacters } from 'node:util'
 import type { ServiceId } from '../shared/terminal'
 
-import { createTerminalClient } from './terminal-client'
+import { createTerminalClient } from './terminalClient'
 
 if (process.platform !== 'darwin') {
   window.addEventListener('DOMContentLoaded', () => {
@@ -87,6 +87,7 @@ const api = {
   startLlamaCpp: () => ipcRenderer.invoke('llamacpp:start'),
   stopLlamaCpp: () => ipcRenderer.invoke('llamacpp:stop'),
   getLlamaCppInfo: () => ipcRenderer.invoke('llamacpp:info'),
+  getLlamaCppAssetName: (variant?: string) => ipcRenderer.invoke('llamacpp:asset-name', variant),
   getLlamaCppLogs: () => ipcRenderer.invoke('llamacpp:logs'),
   checkLlamaCppUpdate: () => ipcRenderer.invoke('llamacpp:check-update'),
   updateLlamaCpp: () => ipcRenderer.invoke('llamacpp:update'),

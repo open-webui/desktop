@@ -10,8 +10,8 @@ import * as tar from 'tar'
 
 import { app, shell, Notification, net as electronNet } from 'electron'
 import { execFileSync, spawn, execFile } from 'child_process'
-import { ManagedService, waitForReady } from '../process/managed-service'
-import { spawnPty } from '../process/native-pty'
+import { ManagedService, waitForReady } from '../process/managedService'
+import { spawnPty } from '../process/nativePty'
 
 import log from 'electron-log'
 log.transports.file.resolvePathFn = () => getLogFilePath('main')
@@ -129,7 +129,7 @@ export const getSecretKey = (keyPath?: string, key?: string): string => {
 
 // ─── Port Utils ─────────────────────────────────────────
 
-export const portInUse = async (port: number, host: string = '0.0.0.0'): Promise<boolean> => {
+const portInUse = async (port: number, host: string): Promise<boolean> => {
   return new Promise((resolve) => {
     const client = new net.Socket()
     client
@@ -147,6 +147,20 @@ export const portInUse = async (port: number, host: string = '0.0.0.0'): Promise
       })
       .connect(port, host)
   })
+}
+
+export const findAvailablePort = async (
+  preferred: number,
+  host: string,
+  signal: AbortSignal
+): Promise<number> => {
+  for (let port = preferred; port <= Math.min(preferred + 100, 65535); port++) {
+    signal.throwIfAborted()
+    const occupied = await portInUse(port, host)
+    signal.throwIfAborted()
+    if (!occupied) return port
+  }
+  throw new Error('No available ports found')
 }
 
 // ─── Python Download & Install ──────────────────────────
@@ -589,16 +603,7 @@ export const startServer = (onStatus?: (status: string) => void) => webuiService
     fs.mkdirSync(dataDir, { recursive: true })
   }
 
-  // Find available port
-  let desiredPort = port || 8080
-  let availablePort = desiredPort
-  while (await portInUse(availablePort, host)) {
-    signal.throwIfAborted()
-    availablePort++
-    if (availablePort > desiredPort + 100) {
-      throw new Error('No available ports found')
-    }
-  }
+  const availablePort = await findAvailablePort(port || 8080, host, signal)
   commandArgs.push('--port', availablePort.toString())
   log.info('Starting Open-WebUI server...', pythonPath, commandArgs.join(' '))
 
@@ -629,6 +634,7 @@ export interface AppConfig {
     port: number
     version: string
     variant: string
+    assetName?: string
     extraArgs: string[]
   }
   envVars: Record<string, string>

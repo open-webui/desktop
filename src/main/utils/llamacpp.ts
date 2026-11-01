@@ -3,17 +3,18 @@
 import * as fs from 'fs'
 import * as path from 'path'
 import { execFileSync } from 'child_process'
+import { createHash } from 'crypto'
 
 import * as tar from 'tar'
-import { ManagedService, waitForReady } from '../process/managed-service'
-import { spawnPty } from '../process/native-pty'
+import { ManagedService, waitForReady } from '../process/managedService'
+import { spawnPty } from '../process/nativePty'
 import log from 'electron-log'
 
 import {
   getConfig,
   setConfig,
   getInstallDir,
-  portInUse,
+  findAvailablePort,
   downloadFileWithProgress
 } from './index'
 
@@ -40,7 +41,7 @@ export const getLlamaCppInfo = () => {
         const dirs = fs.readdirSync(cacheBase, { withFileTypes: true })
           .filter((d) => d.isDirectory())
         for (const d of dirs) {
-          const found = findBinary(path.join(cacheBase, d.name))
+          const found = findInstalledBinary(path.join(cacheBase, d.name))
           if (found) {
             binaryPath = found
             break
@@ -135,7 +136,16 @@ const resolveVariant = (variant: string | undefined): string => {
 /**
  * Determine the correct release asset name for this platform/arch/variant.
  */
-const getAssetPattern = (tag: string, variant: string): { pattern: string; isZip: boolean } => {
+const getAssetPattern = (
+  tag: string, variant: string, assetName?: string
+): { pattern: string; isZip: boolean } => {
+  if (assetName?.trim()) {
+    const pattern = assetName.trim().replaceAll('${tag}', tag)
+    if (!/^[a-zA-Z0-9][a-zA-Z0-9._+-]*\.(zip|tar\.gz)$/.test(pattern)) {
+      throw new Error('Archive filename must be a .zip or .tar.gz filename, without paths or URLs. Use ${tag} for the release tag.')
+    }
+    return { pattern, isZip: pattern.endsWith('.zip') }
+  }
   const platform = process.platform
   const arch = process.arch
 
@@ -169,6 +179,9 @@ const getAssetPattern = (tag: string, variant: string): { pattern: string; isZip
   return { pattern: `llama-${tag}-bin-ubuntu-x64.tar.gz`, isZip: false }
 }
 
+export const getLlamaCppAssetName = (variant?: string): string =>
+  getAssetPattern('${tag}', resolveVariant(variant)).pattern
+
 /**
  * Find the llama-server binary inside the extracted directory.
  */
@@ -200,6 +213,23 @@ const findBinary = (dir: string): string | null => {
   return null
 }
 
+// Keep custom archives separate from each other and from existing preset installations.
+const getAssetDir = (versionDir: string, pattern: string): string =>
+  path.join(versionDir, '.assets', createHash('sha256').update(pattern).digest('hex'))
+
+const findInstalledBinary = (versionDir: string): string | null => {
+  const legacyBinary = findBinary(versionDir)
+  if (legacyBinary) return legacyBinary
+  const assetsDir = path.join(versionDir, '.assets')
+  if (!fs.existsSync(assetsDir)) return null
+  for (const entry of fs.readdirSync(assetsDir, { withFileTypes: true })) {
+    if (!entry.isDirectory()) continue
+    const binary = findBinary(path.join(assetsDir, entry.name))
+    if (binary) return binary
+  }
+  return null
+}
+
 // ─── Setup (Download & Extract) ─────────────────────────
 
 let setupTask: Promise<string> | undefined
@@ -215,19 +245,28 @@ const prepareLlamaCpp = async (
   const config = await getConfig()
   const llamaConfig = config.llamaCpp ?? {}
   const version = llamaConfig.version || 'latest'
-  const variant = resolveVariant(llamaConfig.variant)
+  const assetName = llamaConfig.assetName?.trim() || ''
+  const variant = assetName ? '' : resolveVariant(llamaConfig.variant)
+  // Validate before consulting the cache, including offline starts.
+  getAssetPattern(version, variant, assetName)
 
   const cacheBase = path.join(getInstallDir(), 'llama.cpp')
   if (!fs.existsSync(cacheBase)) {
     fs.mkdirSync(cacheBase, { recursive: true })
   }
 
+  const getCachedBinary = (tag: string): string | null => {
+    const versionDir = path.join(cacheBase, tag)
+    const { pattern } = getAssetPattern(tag, variant, assetName)
+    return findBinary(assetName ? getAssetDir(versionDir, pattern) : versionDir)
+  }
+  let cachedBinary: string | null = null
+
   // ── Check for existing cached binary before any network request ──
   // This allows llama.cpp to start offline when previously installed.
   if (version !== 'latest') {
     // Pinned version — check its specific directory
-    const pinnedDir = path.join(cacheBase, version)
-    const pinnedBinary = fs.existsSync(pinnedDir) ? findBinary(pinnedDir) : null
+    const pinnedBinary = getCachedBinary(version)
     if (pinnedBinary) {
       log.info(`Using cached llama-server binary (pinned ${version}): ${pinnedBinary}`)
       binaryPath = pinnedBinary
@@ -242,7 +281,7 @@ const prepareLlamaCpp = async (
         .map((d) => d.name)
 
       for (const cachedTag of cachedVersions) {
-        const cachedBinary = findBinary(path.join(cacheBase, cachedTag))
+        cachedBinary = getCachedBinary(cachedTag)
         if (cachedBinary) {
           log.info(`Found cached llama-server binary (${cachedTag}): ${cachedBinary}`)
           // Still try to fetch release info to see if there's a newer version,
@@ -275,10 +314,11 @@ const prepareLlamaCpp = async (
   } catch (error) {
     signal?.throwIfAborted()
     // Network unavailable — fall back to cached binary if we found one
-    if (binaryPath) {
-      log.info('Network unavailable, using cached llama-server binary:', binaryPath)
+    if (cachedBinary) {
+      log.info('Network unavailable, using cached llama-server binary:', cachedBinary)
+      binaryPath = cachedBinary
       onStatus?.('Ready (offline)')
-      return binaryPath
+      return cachedBinary
     }
     throw new Error(
       `Failed to fetch release info (no internet?) and no cached llama.cpp binary found. ` +
@@ -290,11 +330,9 @@ const prepareLlamaCpp = async (
   const tag = releaseData.tag_name
   log.info(`llama.cpp release tag: ${tag}`)
 
-  const versionDir = path.join(cacheBase, tag)
-  if (!fs.existsSync(versionDir)) {
-    fs.mkdirSync(versionDir, { recursive: true })
-  }
-
+  const { pattern, isZip } = getAssetPattern(tag, variant, assetName)
+  const releaseDir = path.join(cacheBase, tag)
+  const versionDir = assetName ? getAssetDir(releaseDir, pattern) : releaseDir
   const existingBinary = findBinary(versionDir)
   if (existingBinary) {
     log.info(`llama-server binary already exists: ${existingBinary}`)
@@ -302,7 +340,6 @@ const prepareLlamaCpp = async (
     return existingBinary
   }
 
-  const { pattern, isZip } = getAssetPattern(tag, variant)
   const asset = (releaseData.assets as ReleaseAsset[]).find((a) => a.name === pattern)
   if (!asset) {
     const available = (releaseData.assets as ReleaseAsset[]).map((a) => a.name).join(', ')
@@ -314,6 +351,7 @@ const prepareLlamaCpp = async (
   log.info(`Downloading asset: ${asset.name}`)
   onStatus?.(`Downloading ${asset.name}…`)
 
+  fs.mkdirSync(versionDir, { recursive: true })
   const downloadPath = path.join(versionDir, asset.name)
   if (!fs.existsSync(downloadPath)) {
     await downloadFileWithProgress(asset.browser_download_url, downloadPath, (progress) => {
@@ -330,7 +368,7 @@ const prepareLlamaCpp = async (
       if (process.platform === 'win32') {
         execFileSync('powershell', [
           '-Command',
-          `Expand-Archive -Path "${downloadPath}" -DestinationPath "${versionDir}" -Force`
+          `Expand-Archive -LiteralPath '${downloadPath.replaceAll("'", "''")}' -DestinationPath '${versionDir.replaceAll("'", "''")}' -Force`
         ])
       } else {
         execFileSync('unzip', ['-o', downloadPath, '-d', versionDir])
@@ -467,12 +505,7 @@ export const startLlamaCpp = (onStatus?: (status: string) => void) => llamaServi
   const config = await getConfig()
   const llamaConfig = config.llamaCpp ?? {}
   const host = '127.0.0.1'
-  const desiredPort = llamaConfig.port || 18881
-  let port = desiredPort
-  while (await portInUse(port, host)) {
-    signal.throwIfAborted()
-    if (++port > desiredPort + 100) throw new Error('No available port found for llama-server')
-  }
+  const port = await findAvailablePort(llamaConfig.port || 18881, host, signal)
   const url = `http://${host}:${port}`
   onStatus?.('Starting llama-server…')
   return {
