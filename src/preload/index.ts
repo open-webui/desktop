@@ -18,21 +18,6 @@ ipcRenderer.on('pty:port', (event, _data) => {
   port.start()
 })
 
-// ─── Open Terminal PTY MessagePort ──────────────────────
-let activeOtPtyPort: MessagePort | null = null
-let otPtyOutputCallback: ((data: string) => void) | null = null
-
-ipcRenderer.on('open-terminal:pty:port', (event, _data) => {
-  const [port] = event.ports
-  if (!port) return
-  if (activeOtPtyPort) activeOtPtyPort.close()
-  activeOtPtyPort = port
-  port.onmessage = (ev: MessageEvent) => {
-    if (ev.data?.type === 'output' && otPtyOutputCallback) otPtyOutputCallback(ev.data.data)
-  }
-  port.start()
-})
-
 // ─── llama.cpp PTY MessagePort ──────────────────────────
 let activeLsCppPtyPort: MessagePort | null = null
 let lsCppPtyOutputCallback: ((data: string) => void) | null = null
@@ -107,23 +92,6 @@ const api = {
     if (activePtyPort) {
       activePtyPort.close()
       activePtyPort = null
-    }
-  },
-
-  // Open Terminal
-  startOpenTerminal: () => ipcRenderer.invoke('open-terminal:start'),
-  stopOpenTerminal: () => ipcRenderer.invoke('open-terminal:stop'),
-  getOpenTerminalInfo: () => ipcRenderer.invoke('open-terminal:info'),
-  getOpenTerminalStatus: () => ipcRenderer.invoke('open-terminal:status'),
-  connectOpenTerminalPty: (onOutput: (data: string) => void) => {
-    otPtyOutputCallback = onOutput
-    ipcRenderer.invoke('open-terminal:pty:connect')
-  },
-  disconnectOpenTerminalPty: () => {
-    otPtyOutputCallback = null
-    if (activeOtPtyPort) {
-      activeOtPtyPort.close()
-      activeOtPtyPort = null
     }
   },
 

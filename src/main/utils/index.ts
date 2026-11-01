@@ -822,12 +822,6 @@ export interface AppConfig {
     serveOnLocalNetwork: boolean
     autoUpdate: boolean
   }
-  openTerminal: {
-    enabled: boolean
-    port: number
-    cwd: string
-    apiKey: string
-  }
   llamaCpp: {
     enabled: boolean
     port: number
@@ -860,11 +854,6 @@ const DEFAULT_CONFIG: AppConfig = {
     port: 8080,
     serveOnLocalNetwork: false,
     autoUpdate: true
-  },
-  openTerminal: {
-    enabled: false,
-    cwd: '',
-    apiKey: ''
   },
   llamaCpp: {
     enabled: false,

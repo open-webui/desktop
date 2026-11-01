@@ -51,15 +51,6 @@ import {
 } from './utils'
 
 import {
-  startOpenTerminal,
-  stopOpenTerminal,
-  getOpenTerminalInfo,
-  getOpenTerminalPty,
-  getOpenTerminalLog,
-  validateOpenTerminalProcess
-} from './utils/open-terminal'
-
-import {
   setupLlamaCpp,
   startLlamaCpp,
   stopLlamaCpp,
@@ -1042,42 +1033,6 @@ const connectPtyPort = (pid?: number): void => {
 }
 
 /**
- * MessagePort channel for the Open Terminal PTY — read-only log viewer.
- */
-let activeOpenTerminalDisposable: { dispose: () => void } | null = null
-
-const connectOpenTerminalPtyPort = (): void => {
-  if (!mainWindow) return
-
-  const { port1, port2 } = new MessageChannelMain()
-
-  const otPty = getOpenTerminalPty()
-  if (!otPty) {
-    port1.postMessage({ type: 'output', data: '[Open Terminal is not running]\r\n' })
-    mainWindow.webContents.postMessage('open-terminal:pty:port', null, [port2])
-    return
-  }
-
-  // Clean up previous
-  activeOpenTerminalDisposable?.dispose()
-
-  // Replay log buffer
-  const buffer = getOpenTerminalLog()
-  for (const chunk of buffer) {
-    port1.postMessage({ type: 'output', data: chunk })
-  }
-
-  // Live data
-  const disposable = otPty.onData((data: string) => {
-    port1.postMessage({ type: 'output', data })
-  })
-  activeOpenTerminalDisposable = disposable
-
-  port1.start()
-  mainWindow.webContents.postMessage('open-terminal:pty:port', null, [port2])
-}
-
-/**
  * MessagePort channel for the llamacpp PTY — log viewer.
  */
 let activeLlamaCppDisposable: { dispose: () => void } | null = null
@@ -1134,13 +1089,6 @@ const resetAppHandler = async () => {
   try {
     await stopServerHandler()
     SERVER_STATUS = null
-    // Stop Open Terminal if running
-    try {
-      await stopOpenTerminal()
-      sendToRenderer('status:open-terminal', null)
-    } catch (e) {
-      log.warn('Failed to stop Open Terminal during reset:', e)
-    }
     // Stop and uninstall llama.cpp if running
     try {
       await uninstallLlamaCpp()
@@ -1459,18 +1407,11 @@ if (!gotTheLock) {
       try {
         CONFIG = await getConfig()
         const owuiVersion = CONFIG?.localServer?.version || undefined
-        const otVersion = CONFIG?.openTerminal?.version || undefined
 
         sendToRenderer('status:install', 'Installing Open WebUI…')
         await installPackage('open-webui', owuiVersion, (status: string) => {
           sendToRenderer('status:install', status)
         })
-        sendToRenderer('status:install', 'Installing Open Terminal…')
-        await installPackage('open-terminal', otVersion, (status: string) => {
-          sendToRenderer('status:install', status)
-        }).catch((e) =>
-          log.warn('open-terminal install failed (non-fatal):', e)
-        )
         sendToRenderer('status:package', true)
         // Notify renderer of install state change
         sendToRenderer('packages:changed', {
@@ -1869,54 +1810,6 @@ if (!gotTheLock) {
       }).show()
     })
 
-    // Open Terminal
-    ipcMain.handle('open-terminal:start', async () => {
-      try {
-        sendToRenderer('status:open-terminal', 'starting')
-        const result = await startOpenTerminal(CONFIG?.openTerminal?.port ?? null, (status) => {
-          sendToRenderer('status:open-terminal-setup', status)
-        })
-        sendToRenderer('status:open-terminal', 'started')
-        sendToRenderer('open-terminal:ready', result)
-        // Notify webview to register terminal server at system level
-        sendToRenderer('connections:terminal', {
-          action: 'add',
-          url: result.url,
-          key: result.apiKey
-        })
-        return result
-      } catch (error) {
-        log.error('Failed to start Open Terminal:', error)
-        sendToRenderer('status:open-terminal', 'failed')
-        sendToRenderer('error', { message: `Open Terminal failed: ${error?.message}` })
-        return null
-      }
-    })
-
-    ipcMain.handle('open-terminal:stop', async () => {
-      try {
-        const info = getOpenTerminalInfo()
-        await stopOpenTerminal()
-        sendToRenderer('status:open-terminal', 'stopped')
-        // Notify webview to unregister terminal server
-        if (info.url) {
-          sendToRenderer('connections:terminal', {
-            action: 'remove',
-            url: info.url
-          })
-        }
-
-        return true
-      } catch (error) {
-        log.error('Failed to stop Open Terminal:', error)
-        return false
-      }
-    })
-
-    ipcMain.handle('open-terminal:info', () => getOpenTerminalInfo())
-    ipcMain.handle('open-terminal:status', () => isPackageInstalled('open-terminal'))
-    ipcMain.handle('open-terminal:pty:connect', () => connectOpenTerminalPtyPort())
-
     // llama.cpp
     ipcMain.handle('llamacpp:setup', async () => {
       try {
@@ -2140,23 +2033,7 @@ if (!gotTheLock) {
     )
 
     // Validate stale PIDs from previous crash
-    validateOpenTerminalProcess()
     validateLlamaCppProcess()
-
-    // Auto-start Open Terminal if previously enabled
-    if (CONFIG?.openTerminal?.enabled) {
-      try {
-        sendToRenderer('status:open-terminal', 'starting')
-        const result = await startOpenTerminal(CONFIG?.openTerminal?.port ?? null, (status) => {
-          sendToRenderer('status:open-terminal-setup', status)
-        })
-        sendToRenderer('status:open-terminal', 'started')
-        sendToRenderer('open-terminal:ready', result)
-      } catch (error) {
-        log.error('Auto-start Open Terminal failed:', error)
-        sendToRenderer('status:open-terminal', 'failed')
-      }
-    }
 
     // Auto-start llama.cpp if previously enabled
     if (CONFIG?.llamaCpp?.enabled) {
@@ -2217,7 +2094,6 @@ if (!gotTheLock) {
   app.on('before-quit', async () => {
     isQuiting = true
     await stopLlamaCpp()
-    await stopOpenTerminal()
     await stopServerHandler()
     globalShortcut.unregisterAll()
     mainWindow = null

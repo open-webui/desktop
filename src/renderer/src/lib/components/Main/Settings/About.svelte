@@ -5,7 +5,6 @@
   import logoImage from '../../../assets/images/splash-dark.png'
 
   let openWebuiVersion = $state<string | null>(null)
-  let openTerminalVersion = $state<string | null>(null)
   let llamaCppVersion = $state<string | null>(null)
 
   // Update state
@@ -127,7 +126,6 @@
 
   onMount(async () => {
     openWebuiVersion = await window.electronAPI.getPackageVersion('open-webui')
-    openTerminalVersion = await window.electronAPI.getPackageVersion('open-terminal')
 
     try {
       const info = await window.electronAPI.getLlamaCppInfo()
@@ -258,16 +256,6 @@
     >
       <div class="text-[13px] opacity-70">{$i18n.t('settings.about.openWebuiVersion')}</div>
       <div class="text-[12px] opacity-30 group-hover:opacity-50 transition">{openWebuiVersion}</div>
-    </button>
-  {/if}
-
-  {#if openTerminalVersion}
-    <button
-      class="w-full py-4 flex items-center justify-between bg-transparent border-none cursor-pointer group"
-      onclick={() => openRelease('open-webui/open-terminal', openTerminalVersion!)}
-    >
-      <div class="text-[13px] opacity-70">{$i18n.t('settings.about.openTerminalVersion')}</div>
-      <div class="text-[12px] opacity-30 group-hover:opacity-50 transition">{openTerminalVersion}</div>
     </button>
   {/if}
 

@@ -5,13 +5,12 @@
   import Switch from '../../common/Switch.svelte'
 
   interface Props {
-    onContinue: (options: { installOpenTerminal: boolean; installLlamaCpp: boolean; installDir: string }) => void
+    onContinue: (options: { installLlamaCpp: boolean; installDir: string }) => void
     onCancel: () => void
   }
 
   let { onContinue, onCancel }: Props = $props()
 
-  let installOpenTerminal = $state(true)
   let installLlamaCpp = $state(true)
   let installDir = $state('')
   let defaultInstallDir = $state('')
@@ -70,17 +69,6 @@
     <div class="px-6 py-4 flex flex-col divide-y divide-gray-100/30 dark:divide-gray-800/15">
       <div class="py-3.5 flex items-center justify-between gap-4">
         <div>
-          <div class="text-[13px] font-medium text-gray-700 dark:text-gray-300">{$i18n.t('main.getStarted.openTerminal')}</div>
-          <div class="text-[11px] text-gray-400 dark:text-gray-500 mt-0.5">{$i18n.t('main.getStarted.openTerminalDesc')}</div>
-        </div>
-        <Switch
-          checked={installOpenTerminal}
-          onchange={(v) => { installOpenTerminal = v }}
-        />
-      </div>
-
-      <div class="py-3.5 flex items-center justify-between gap-4">
-        <div>
           <div class="text-[13px] font-medium text-gray-700 dark:text-gray-300 flex items-center gap-1.5">
             {$i18n.t('main.getStarted.llamaCpp')}
             <span class="text-[9px] opacity-30 uppercase tracking-wide">{$i18n.t('common.experimental')}</span>
@@ -135,7 +123,7 @@
     <div class="px-5 pb-5 pt-1 flex flex-col gap-2">
       <button
         class="w-full rounded-xl bg-gray-900 dark:bg-white px-4 py-2.5 text-sm font-medium text-white dark:text-gray-900 transition-all duration-200 hover:bg-gray-800 dark:hover:bg-gray-100 active:scale-[0.98] border-none cursor-pointer"
-        onclick={() => onContinue({ installOpenTerminal, installLlamaCpp, installDir })}
+        onclick={() => onContinue({ installLlamaCpp, installDir })}
       >
         {$i18n.t('main.getStarted.continue')}
       </button>

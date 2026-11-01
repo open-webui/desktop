@@ -5,7 +5,6 @@
   import General from './Settings/General.svelte'
   import OpenWebUI from './Settings/OpenWebUI.svelte'
   import Connections from './Settings/Connections.svelte'
-  import OpenTerminal from './Settings/OpenTerminal.svelte'
   import InferenceRuntime from './Settings/InferenceRuntime.svelte'
   import Models from './Settings/Models.svelte'
   import About from './Settings/About.svelte'
@@ -31,11 +30,6 @@
       icon: 'M21 12a9 9 0 11-18 0 9 9 0 0118 0z',
       extra:
         'M9 3.51a9.012 9.012 0 016 0M9 20.49a9.012 9.012 0 006 0M3.51 9a9.012 9.012 0 000 6M20.49 9a9.012 9.012 0 010 6M12 3v18M3 12h18'
-    },
-    {
-      id: 'terminal',
-      label: () => $i18n.t('settings.tabs.terminal'),
-      icon: 'M6.75 7.5l3 2.25-3 2.25m4.5 0h3m-9 8.25h13.5A2.25 2.25 0 0021 18V6a2.25 2.25 0 00-2.25-2.25H5.25A2.25 2.25 0 003 6v12a2.25 2.25 0 002.25 2.25z'
     },
     {
       id: 'inference',
@@ -132,8 +126,6 @@
         <OpenWebUI />
       {:else if settingsTab === 'connections'}
         <Connections />
-      {:else if settingsTab === 'terminal'}
-        <OpenTerminal />
       {:else if settingsTab === 'inference'}
         <InferenceRuntime />
       {:else if settingsTab === 'models'}
