@@ -5,6 +5,16 @@ All notable changes to this project will be documented in this file.
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/),
 and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
+## [0.1.3] - 2026-11-01
+
+### Fixed
+
+- **Linux graphics staying slow after an update.** Desktop now tries normal graphics again after its built-in browser is updated. A past graphics crash no longer keeps it permanently in software rendering. If graphics crashes again, Desktop still retries with software rendering.
+
+### Changed
+
+- **Debian, Ubuntu, and Linux Mint downloads.** Added direct installer links and instructions for AppImage users whose app fails to open with a `chrome-sandbox` error.
+
 ## [0.1.2] - 2026-11-01
 
 ### Fixed

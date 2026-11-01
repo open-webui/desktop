@@ -96,7 +96,11 @@ if (process.platform === 'linux') {
 // shortcut properties. On the next launch the marker is detected and
 // the switch is applied preemptively.
 
-const gpuCrashMarkerPath = join(app.getPath('userData'), '.gpu-sandbox-disabled')
+// Retry Linux's default graphics after an Electron upgrade instead of keeping an old workaround forever.
+const gpuCrashMarkerPath = join(
+  app.getPath('userData'),
+  process.platform === 'linux' ? `.gpu-sandbox-disabled-${process.versions.electron}` : '.gpu-sandbox-disabled'
+)
 const gpuSandboxDisabled = existsSync(gpuCrashMarkerPath) || app.commandLine.hasSwitch('disable-gpu-sandbox')
 
 if (gpuSandboxDisabled) {
