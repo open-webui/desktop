@@ -164,6 +164,8 @@ jobs:
             # ── Windows code signing ──
             - name: Azure Trusted Signing (Windows Only)
               if: runner.os == 'Windows'
+              # Allow unsigned releases when Azure signing fails.
+              continue-on-error: true
               uses: azure/trusted-signing-action@v0.5.1
               with:
                   azure-tenant-id: ${{ secrets.AZURE_TENANT_ID }}
