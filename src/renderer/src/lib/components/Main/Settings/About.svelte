@@ -3,21 +3,33 @@
   import RefreshIcon from 'iconoir/icons/refresh.svg?raw'
   import { onMount, onDestroy } from 'svelte'
   import { fade, scale } from 'svelte/transition'
-  import { appInfo } from '../../../stores'
+  import { appInfo, config, desktopUpdate } from '../../../stores'
+  import Switch from '../../common/Switch.svelte'
   import i18n from '../../../i18n'
   import logoImage from '../../../assets/images/splash-dark.png'
 
   let openWebuiVersion = $state<string | null>(null)
   let llamaCppVersion = $state<string | null>(null)
 
-  // Update state
-  type UpdateStatus = 'idle' | 'checking' | 'available' | 'downloading' | 'downloaded' | 'up-to-date' | 'error'
-  let updateStatus = $state<UpdateStatus>('idle')
-  let updateVersion = $state<string | null>(null)
-  let downloadPercent = $state(0)
-  let updateError = $state<string | null>(null)
+  const updateStatus = $derived($desktopUpdate.status)
+  const updateVersion = $derived($desktopUpdate.version)
+  const downloadPercent = $derived($desktopUpdate.percent ?? 0)
+  const updateError = $derived($desktopUpdate.error)
+  let savingAutomaticUpdates = $state(false)
+  let settingsError = $state<string | null>(null)
 
-  let cleanupDataListener: (() => void) | null = null
+  const saveAutomaticUpdates = async (enabled: boolean) => {
+    savingAutomaticUpdates = true
+    settingsError = null
+    try {
+      await window.electronAPI.setConfig({ automaticUpdates: enabled })
+      config.set(await window.electronAPI.getConfig())
+    } catch (error: any) {
+      settingsError = error?.message ?? $i18n.t('error.unknown')
+    } finally {
+      savingAutomaticUpdates = false
+    }
+  }
 
   // Changelog state
   let changelogOpen = $state(false)
@@ -135,38 +147,9 @@
       llamaCppVersion = info?.version ?? null
     } catch {}
 
-    // Listen for update events from main process
-    cleanupDataListener = window.electronAPI.onData((data: any) => {
-      switch (data.type) {
-        case 'update:checking':
-          updateStatus = 'checking'
-          updateError = null
-          break
-        case 'update:available':
-          updateStatus = 'available'
-          updateVersion = data.data?.version ?? null
-          break
-        case 'update:not-available':
-          updateStatus = 'up-to-date'
-          break
-        case 'update:download-progress':
-          updateStatus = 'downloading'
-          downloadPercent = Math.round(data.data?.percent ?? 0)
-          break
-        case 'update:downloaded':
-          updateStatus = 'downloaded'
-          downloadPercent = 100
-          break
-        case 'update:error':
-          updateStatus = 'error'
-          updateError = data.data?.message ?? $i18n.t('error.unknown')
-          break
-      }
-    })
   })
 
   onDestroy(() => {
-    cleanupDataListener?.()
     if (dismissTimer) clearTimeout(dismissTimer)
     if (clickTimer) clearTimeout(clickTimer)
     typewriterTimers.forEach(t => clearTimeout(t))
@@ -180,31 +163,17 @@
     window.electronAPI?.openInBrowser?.('https://github.com/open-webui/desktop')
   }
 
-  const handleCheck = async () => {
-    updateStatus = 'checking'
-    updateError = null
+  const runUpdateAction = async (action: () => Promise<void>) => {
     try {
-      await window.electronAPI.checkForUpdates()
-    } catch (e: any) {
-      updateStatus = 'error'
-      updateError = e?.message ?? $i18n.t('error.checkFailed')
+      await action()
+    } catch (error: any) {
+      desktopUpdate.update((state) => ({ ...state, status: 'error', error: error?.message ?? $i18n.t('error.unknown') }))
     }
   }
 
-  const handleDownload = async () => {
-    updateStatus = 'downloading'
-    downloadPercent = 0
-    try {
-      await window.electronAPI.downloadUpdate()
-    } catch (e: any) {
-      updateStatus = 'error'
-      updateError = e?.message ?? $i18n.t('error.downloadFailed')
-    }
-  }
-
-  const handleInstall = () => {
-    window.electronAPI.installUpdate()
-  }
+  const handleCheck = () => runUpdateAction(() => window.electronAPI.checkForUpdates())
+  const handleDownload = () => runUpdateAction(() => window.electronAPI.downloadUpdate())
+  const handleInstall = () => runUpdateAction(() => window.electronAPI.installUpdate())
 
   const toggleChangelog = async () => {
     changelogOpen = !changelogOpen
@@ -288,13 +257,38 @@
   </div>
 
   <!-- Update section -->
+  {#if updateStatus !== 'unsupported'}
+    <div class="flex min-w-0 items-center justify-between gap-[16px] py-[7px]">
+      <div>
+        <div class="text-[12px] leading-[16px] font-normal text-[#171717] dark:text-white">
+          {$i18n.t('settings.about.automaticUpdates')}
+        </div>
+        <div class="text-[11px] leading-[16px] text-[oklch(0.51_0_0)] dark:text-[oklch(0.77_0_0)] mt-0.5">
+          {$i18n.t('settings.about.automaticUpdatesDesc')}
+        </div>
+      </div>
+      {#key `${$config?.automaticUpdates}-${savingAutomaticUpdates}`}
+        <Switch
+          checked={$config?.automaticUpdates === true}
+          disabled={savingAutomaticUpdates}
+          label={$i18n.t('settings.about.automaticUpdates')}
+          onchange={saveAutomaticUpdates}
+        />
+      {/key}
+    </div>
+    {#if settingsError}<div role="alert" class="text-[11px] text-red-600 dark:text-red-400">{settingsError}</div>{/if}
+  {/if}
   <div class="pt-1">
     <div class="flex items-center justify-between">
       <div>
         <div class="text-[12px] leading-[16px] font-normal text-[#171717] dark:text-white">
           {$i18n.t('settings.about.softwareUpdate')}
         </div>
-        {#if updateStatus === 'up-to-date'}
+        {#if updateStatus === 'unsupported'}
+          <div class="text-[11px] leading-[16px] text-[oklch(0.51_0_0)] dark:text-[oklch(0.77_0_0)] mt-0.5">
+            {$i18n.t(`settings.about.updateUnsupported.${$desktopUpdate.reason ?? 'unsupported'}`)}
+          </div>
+        {:else if updateStatus === 'up-to-date'}
           <div class="text-[11px] leading-[16px] text-[oklch(0.51_0_0)] dark:text-[oklch(0.77_0_0)] mt-0.5">
             {$i18n.t('settings.about.upToDate')}
           </div>
@@ -315,7 +309,7 @@
         {/if}
       </div>
 
-      <div>
+      <div class="shrink-0">
         {#if updateStatus === 'idle' || updateStatus === 'up-to-date' || updateStatus === 'error'}
           <button
             class="inline-flex max-w-full shrink-0 items-center justify-center gap-[6px] whitespace-nowrap border-none bg-transparent p-0 text-[12px] leading-[16px] text-[oklch(0.69_0_0)] transition-colors duration-150 hover:text-[oklch(0.2_0_0)] disabled:cursor-not-allowed disabled:opacity-50 dark:hover:text-white [&>span[aria-hidden]]:size-[12px]"

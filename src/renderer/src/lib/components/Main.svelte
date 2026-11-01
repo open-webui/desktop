@@ -1,10 +1,12 @@
 <script lang="ts">
   import { fade } from 'svelte/transition'
-  import { appInfo, serverInfo } from '../stores'
+  import { appInfo, serverInfo, desktopUpdate } from '../stores'
   import Connections from './Main/Connections.svelte'
   import Settings from './Main/Settings.svelte'
+  import i18n from '../i18n'
 
   let settingsOpen = $state(false)
+  let settingsTab = $state('general')
 </script>
 
 <svelte:window
@@ -26,8 +28,20 @@
   ></div>
   <!-- Local launcher -->
   <div class="flex-1 min-h-0">
-    <Connections onOpenSettings={() => (settingsOpen = true)} />
+    <Connections onOpenSettings={() => { settingsTab = 'general'; settingsOpen = true }} />
   </div>
+
+  {#if $desktopUpdate.status === 'available' || $desktopUpdate.status === 'downloaded'}
+    <button
+      type="button"
+      class="shrink-0 border-t border-black/5 dark:border-white/10 px-4 py-2 text-[12px] text-center hover:bg-black/5 dark:hover:bg-white/5"
+      onclick={() => { settingsTab = 'about'; settingsOpen = true }}
+    >
+      {$desktopUpdate.status === 'downloaded'
+        ? $i18n.t('settings.about.updateReady')
+        : $i18n.t('settings.about.versionAvailable', { version: $desktopUpdate.version })}
+    </button>
+  {/if}
 
   {#if settingsOpen}
     <div
@@ -44,7 +58,7 @@
         in:fade={{ duration: 150 }}
         onclick={(e) => e.stopPropagation()}
       >
-        <Settings onClose={() => (settingsOpen = false)} />
+        <Settings initialTab={settingsTab} onClose={() => (settingsOpen = false)} />
       </div>
     </div>
   {/if}

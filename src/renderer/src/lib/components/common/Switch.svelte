@@ -2,12 +2,14 @@
   let {
     checked = false,
     label = '',
+    disabled = false,
     onchange
-  }: { checked: boolean; label?: string; onchange?: (value: boolean) => void } = $props()
+  }: { checked: boolean; label?: string; disabled?: boolean; onchange?: (value: boolean) => void } = $props()
 </script>
 
 <button
   type="button"
+  {disabled}
   role="switch"
   aria-checked={checked}
   aria-label={label}

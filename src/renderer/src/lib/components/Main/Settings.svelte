@@ -15,8 +15,8 @@
   import Models from './Settings/Models.svelte'
   import About from './Settings/About.svelte'
 
-  let { onClose }: { onClose: () => void } = $props()
-  let settingsTab = $state('general')
+  let { onClose, initialTab = 'general' }: { onClose: () => void; initialTab?: string } = $props()
+  let settingsTab = $state(initialTab)
   let search = $state('')
   let showSearch = $state(false)
 
