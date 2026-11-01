@@ -8,6 +8,8 @@
   let { onOpenSettings }: { onOpenSettings: () => void } = $props()
 
   let serverUrl = $state('')
+  let content: Content | undefined = $state()
+  let canRefresh = $state(false)
   let connecting = $state(false)
   let launchError = $state('')
   let localInstalled = $state(false)
@@ -27,15 +29,21 @@
   } | null>(null)
   let llamaCppSetupStatus = $state('')
 
-  const openWebUI = async (): Promise<boolean> => {
+  const openWebUI = async (restart = false): Promise<boolean> => {
     if (connecting) return false
     connecting = true
     launchError = ''
     try {
-      const result = await window.electronAPI.openLocalWebUI()
+      let result: { url?: string | null } | null
+      if (restart) {
+        serverUrl = ''
+        result = (await window.electronAPI.restartServer())
+          ? await window.electronAPI.getServerInfo()
+          : null
+      } else result = await window.electronAPI.openLocalWebUI()
       if (!result?.url) {
         const info = await window.electronAPI.getServerInfo()
-        if (info.status === 'stopped') return false
+        if (info.status === 'stopped' && !restart) return false
         throw new Error(info.error || 'Open WebUI could not start. Check the logs and try again.')
       }
       serverUrl = result.url
@@ -138,6 +146,8 @@
   class="h-full w-full flex flex-col bg-[#f5f5f7] dark:bg-[#0a0a0a] text-[#1d1d1f] dark:text-[#fafafa]"
 >
   <Content
+    bind:this={content}
+    bind:canRefresh
     {serverUrl}
     {connecting}
     {launchError}
@@ -147,11 +157,13 @@
     {installStatus}
     {toastVisible}
     onStartInstall={startInstall}
-    onOpenWebUI={openWebUI}
+    onOpenWebUI={() => openWebUI()}
   />
 
   <LogPanel
     {onOpenSettings}
+    onRefresh={() => content?.refresh()}
+    canRefresh={canRefresh && !connecting}
     services={[
       ...(localInstalled || (serverStatus && serverStatus !== 'stopped')
         ? [
@@ -160,13 +172,15 @@
               label: $i18n.t('statusBar.server'),
               status: serverStatus,
               pid: $serverInfo?.pid,
+              browserUrl: $serverInfo?.reachable ? $serverInfo.url : undefined,
               detail: $serverInfo?.error || (serverStatus === 'starting' ? installStatus : ''),
               onStart: async () => {
                 if (!(await openWebUI()) && launchError) throw new Error(launchError)
               },
-              onStop: async () => {
-                if (!(await window.electronAPI.stopServer()))
-                  throw new Error('Failed to stop Open WebUI')
+              runningAction: 'restart' as const,
+              onRunningAction: async () => {
+                if (!(await openWebUI(true)))
+                  throw new Error(launchError || 'Failed to restart Open WebUI')
               }
             }
           ]
@@ -181,7 +195,8 @@
               detail:
                 llamaCppInfo?.error || (llamaCppStatus === 'starting' ? llamaCppSetupStatus : ''),
               onStart: () => window.electronAPI.startLlamaCpp(),
-              onStop: () => window.electronAPI.stopLlamaCpp()
+              runningAction: 'stop' as const,
+              onRunningAction: () => window.electronAPI.stopLlamaCpp()
             }
           ]
         : [])

@@ -16,6 +16,7 @@
   let {
     serverUrl,
     connecting,
+    canRefresh = $bindable(false),
     launchError,
     localInstalled,
     installPhase,
@@ -27,6 +28,7 @@
   }: {
     serverUrl: string
     connecting: boolean
+    canRefresh?: boolean
     launchError: string
     localInstalled: boolean
     installPhase: string
@@ -53,10 +55,21 @@
   let webview: WebviewTag | undefined
   const activeWebviewError = $derived(serverUrl ? webviewError : null)
   const isLoading = $derived(connecting || (!!serverUrl && !activeWebviewError && webviewLoading))
+  let startupLine = $state('')
+  const loadingStatus = $derived(startupLine || installStatus)
 
-  const retryActiveWebview = (): void => {
+  $effect(() => {
+    startupLine = ''
+    if (!isLoading) return
+    return window.electronAPI.onTerminalLine('server', (line: string) => {
+      startupLine = line
+    })
+  })
+
+  export const refresh = (): void => {
+    if (!canRefresh || !webview) return
     webviewError = null
-    webview?.reload()
+    webview.reload()
   }
   const openActiveInBrowser = (): void => window.electronAPI.openInBrowser(serverUrl)
 
@@ -72,6 +85,7 @@
 
   function attachWebview(wv: WebviewTag): { destroy: () => void } {
     webview = wv
+    canRefresh = false
     webviewError = null
     webviewLoading = true
     let disposed = false
@@ -95,11 +109,15 @@
     listen('did-start-loading', () => {
       webviewLoading = true
     })
+    listen('dom-ready', () => {
+      canRefresh = true
+    })
     listen('did-stop-loading', () => {
       webviewLoading = false
     })
     listen('did-fail-load', (event: DidFailLoadEvent) => {
       if (event.errorCode === -3 || event.isMainFrame === false) return
+      canRefresh = true
       webviewError = {
         code: event.errorCode,
         description: event.errorDescription || 'Unknown error',
@@ -168,6 +186,7 @@
         unsubscribe()
         for (const [name, callback] of listeners) wv.removeEventListener(name, callback)
         webview = undefined
+        canRefresh = false
       }
     }
   }
@@ -220,7 +239,7 @@
         <div class="flex gap-2 justify-center">
           <button
             class="px-4 py-2 rounded-xl text-[13px] font-medium bg-black dark:bg-white text-white dark:text-black border-none cursor-pointer transition hover:bg-gray-800 dark:hover:bg-gray-100 active:scale-[0.98]"
-            onclick={retryActiveWebview}
+            onclick={refresh}
           >
             {$i18n.t('common.retry')}
           </button>
@@ -241,11 +260,18 @@
       class="absolute inset-0 z-10 flex items-center justify-center bg-[#eee] dark:bg-[#111]"
       transition:fade={{ duration: 200 }}
     >
-      <div class="flex flex-col items-center gap-3">
+      <div class="flex w-full min-w-0 flex-col items-center gap-3 px-6">
         <div
           class="w-6 h-6 rounded-full border-2 border-black/10 dark:border-white/15 border-t-black/50 dark:border-t-white/50 animate-spin"
         ></div>
-        <span class="text-[11px] opacity-30">{$i18n.t('common.loading')}</span>
+        <div class="flex w-full min-w-0 flex-col items-center gap-1.5" role="status">
+          <span class="text-[12px] opacity-70">{$i18n.t('common.loading')}</span>
+          {#if loadingStatus}
+            <span class="max-w-[min(320px,100%)] truncate font-mono text-[11px] opacity-40" title={loadingStatus}
+              >{loadingStatus}</span
+            >
+          {/if}
+        </div>
       </div>
     </div>
   {/if}

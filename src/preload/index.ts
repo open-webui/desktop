@@ -1,5 +1,7 @@
 import { ipcRenderer, contextBridge } from 'electron'
 import { electronAPI } from '@electron-toolkit/preload'
+import { stripVTControlCharacters } from 'node:util'
+import type { ServiceId } from '../shared/terminal'
 
 import { createTerminalClient } from './terminal-client'
 
@@ -56,6 +58,17 @@ const api = {
   disconnectTerminal: terminals.disconnect,
   writeTerminal: terminals.write,
   resizeTerminal: terminals.resize,
+  onTerminalLine: (service: ServiceId, callback: (line: string) => void) => {
+    let tail = ''
+    const id = terminals.connect(service, (message, consumed) => {
+      tail = message.type === 'reset' ? '' : (tail + message.data).slice(-16384)
+      // Keep split escape sequences in the buffer, but don't show an unfinished color code.
+      const plain = stripVTControlCharacters(tail.replace(/\x1b(?:\[[0-?]*[ -/]*)?$/, ''))
+      callback(plain.split(/[\r\n]/).findLast((line) => line.trim())?.trim() ?? '')
+      consumed()
+    })
+    return () => terminals.disconnect(id)
+  },
 
   // llama.cpp
   setupLlamaCpp: () => ipcRenderer.invoke('llamacpp:setup'),

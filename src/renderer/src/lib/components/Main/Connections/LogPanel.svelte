@@ -11,6 +11,9 @@
   import NavArrowDownIcon from 'iconoir/icons/nav-arrow-down.svg?raw'
   import CheckIcon from 'iconoir/icons/check.svg?raw'
   import CopyIcon from 'iconoir/icons/copy.svg?raw'
+  import RefreshIcon from 'iconoir/icons/refresh-double.svg?raw'
+  import RestartIcon from 'iconoir/icons/system-restart.svg?raw'
+  import ArrowUpRightIcon from 'iconoir/icons/arrow-up-right.svg?raw'
 
   interface Service {
     id: ServiceId
@@ -18,16 +21,23 @@
     status?: string | null
     pid?: number | null
     detail?: string | null
+    browserUrl?: string | null
     onStart: () => Promise<unknown>
-    onStop: () => Promise<unknown>
+    runningAction: 'stop' | 'restart'
+    onRunningAction: () => Promise<unknown>
   }
-  let { services, onOpenSettings }: { services: Service[]; onOpenSettings: () => void } = $props()
+  let { services, onOpenSettings, onRefresh, canRefresh }: {
+    services: Service[]
+    onOpenSettings: () => void
+    onRefresh: () => void
+    canRefresh: boolean
+  } = $props()
   let activeId = $state<ServiceId>('server')
   let expanded = $state(false)
   let visited = $state<ServiceId[]>([])
   let panelHeight = $state(160)
   let viewers: Partial<Record<ServiceId, LogViewer>> = {}
-  let pending = $state<Partial<Record<ServiceId, 'start' | 'stop'>>>({})
+  let pending = $state<Partial<Record<ServiceId, 'start' | 'stop' | 'restart'>>>({})
   let errors = $state<Partial<Record<ServiceId, string>>>({})
   let copied = $state(false)
   let copyTimer: ReturnType<typeof setTimeout> | undefined
@@ -41,6 +51,9 @@
   function isBusy(service: Service): boolean {
     return (
       pending[service.id] === 'stop' ||
+      pending[service.id] === 'restart' ||
+      (service.runningAction === 'restart' &&
+        (service.status === 'starting' || pending[service.id] === 'start')) ||
       (pending[service.id] === 'start' && !canStop(service)) ||
       service.status === 'stopping' ||
       service.status === 'setting-up'
@@ -97,12 +110,12 @@
 
   async function operate(service: Service): Promise<void> {
     if (isBusy(service)) return
-    const action = canStop(service) ? 'stop' : 'start'
+    const action = canStop(service) ? service.runningAction : 'start'
     if (action === 'start') select(service.id)
     pending[service.id] = action
     errors[service.id] = ''
     try {
-      await (action === 'stop' ? service.onStop() : service.onStart())
+      await (action === 'start' ? service.onStart() : service.onRunningAction())
     } catch (cause) {
       // A stop can cancel a start that is still awaiting readiness.
       if (pending[service.id] === action) errors[service.id] = String(cause)
@@ -190,7 +203,7 @@
     >
     <div class="terminal-tabs" role="tablist" aria-label={$i18n.t('logs.terminal')}>
       {#each services as service, index (service.id)}
-        {@const actionLabel = `${$i18n.t(canStop(service) ? 'common.stop' : 'common.start')} ${service.label}`}
+        {@const actionLabel = `${$i18n.t(canStop(service) ? `common.${service.runningAction}` : 'common.start')} ${service.label}`}
         <div
           class="terminal-tab-group"
           class:selected={expanded && active?.id === service.id}
@@ -210,7 +223,19 @@
             }}
             onkeydown={(event) => navigate(event, index)}>{service.label}</button
           >
-          {#if !canStop(service) || (expanded && active?.id === service.id)}
+          {#if !expanded && service.browserUrl}
+            <button
+              type="button"
+              class="tab-control"
+              aria-label={$i18n.t('setup.openInBrowser')}
+              use:tooltip={$i18n.t('setup.openInBrowser')}
+              onclick={() => window.electronAPI.openInBrowser(service.browserUrl)}
+            >
+              <span aria-hidden="true" class="inline-flex size-[10px] [&>svg]:size-full"
+                >{@html ArrowUpRightIcon}</span
+              >
+            </button>
+          {:else if !canStop(service) || (expanded && active?.id === service.id)}
             <button
               type="button"
               class="tab-control"
@@ -220,7 +245,7 @@
               onclick={() => operate(service)}
               >{#if canStop(service)}<span
                   aria-hidden="true"
-                  class="inline-flex shrink-0 [&>svg]:size-full size-[10px]">{@html XmarkIcon}</span
+                  class="inline-flex shrink-0 [&>svg]:size-full size-[10px]">{@html service.runningAction === 'restart' ? RestartIcon : XmarkIcon}</span
                 >{:else}<span
                   aria-hidden="true"
                   class="inline-flex shrink-0 [&>svg]:size-full size-[10px]">{@html PlayIcon}</span
@@ -265,6 +290,16 @@
         >
       </button>
     {/if}
+    <button
+      type="button"
+      class="terminal-refresh"
+      aria-label={$i18n.t('common.refresh')}
+      use:tooltip={$i18n.t('common.refresh')}
+      disabled={!canRefresh}
+      onclick={onRefresh}
+    >
+      <span aria-hidden="true" class="inline-flex size-[10px] [&>svg]:size-full">{@html RefreshIcon}</span>
+    </button>
   </div>
   <div
     class="terminal-body"
@@ -406,8 +441,9 @@
     white-space: nowrap;
     flex-shrink: 0;
   }
-  .terminal-chevron-toggle {
-    width: 32px;
+  .terminal-chevron-toggle,
+  .terminal-refresh {
+    width: 24px;
     height: 100%;
     flex-shrink: 0;
     padding: 0;

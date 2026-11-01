@@ -761,7 +761,7 @@ if (!gotTheLock) {
     ipcMain.handle('server:start', () => startServerHandler())
     ipcMain.handle('server:stop', () => stopServerHandler())
     ipcMain.handle('server:restart', async () => {
-      await stopServerHandler()
+      if (!(await stopServerHandler())) return false
       return startServerHandler()
     })
     ipcMain.handle('server:logs', () => [webuiService.logs])
