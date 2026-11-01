@@ -4,7 +4,6 @@
 
   import General from './Settings/General.svelte'
   import OpenWebUI from './Settings/OpenWebUI.svelte'
-  import Connections from './Settings/Connections.svelte'
   import InferenceRuntime from './Settings/InferenceRuntime.svelte'
   import Models from './Settings/Models.svelte'
   import About from './Settings/About.svelte'
@@ -42,11 +41,6 @@
       icon: 'M20.25 6.375c0 2.278-3.694 4.125-8.25 4.125S3.75 8.653 3.75 6.375m16.5 0c0-2.278-3.694-4.125-8.25-4.125S3.75 4.097 3.75 6.375m16.5 0v11.25c0 2.278-3.694 4.125-8.25 4.125s-8.25-1.847-8.25-4.125V6.375m16.5 0v3.75m-16.5-3.75v3.75m16.5 0v3.75C20.25 16.153 16.556 18 12 18s-8.25-1.847-8.25-4.125v-3.75m16.5 0c0 2.278-3.694 4.125-8.25 4.125s-8.25-1.847-8.25-4.125'
     },
     {
-      id: 'connections',
-      label: () => $i18n.t('settings.tabs.connections'),
-      icon: 'M12 21a9.004 9.004 0 008.716-6.747M12 21a9.004 9.004 0 01-8.716-6.747M12 21c2.485 0 4.5-4.03 4.5-9S14.485 3 12 3m0 18c-2.485 0-4.5-4.03-4.5-9S9.515 3 12 3m0 0a8.997 8.997 0 017.843 4.582M12 3a8.997 8.997 0 00-7.843 4.582m15.686 0A11.953 11.953 0 0112 10.5c-2.998 0-5.74-1.1-7.843-2.918m15.686 0A8.959 8.959 0 0121 12c0 .778-.099 1.533-.284 2.253m0 0A17.919 17.919 0 0112 16.5a17.92 17.92 0 01-8.716-2.247m0 0A9.015 9.015 0 013 12c0-1.605.42-3.113 1.157-4.418'
-    },
-    {
       id: 'about',
       label: () => $i18n.t('settings.tabs.about'),
       icon: 'M11.25 11.25l.041-.02a.75.75 0 011.063.852l-.708 2.836a.75.75 0 001.063.853l.041-.021M21 12a9 9 0 11-18 0 9 9 0 0118 0zm-9-3.75h.008v.008H12V8.25z'
@@ -55,7 +49,7 @@
 </script>
 
 <div
-  class="h-full w-full flex bg-[#f5f5f7] dark:bg-[#0a0a0a] text-[#1d1d1f] dark:text-[#fafafa]"
+  class="settings h-full w-full flex bg-[#f5f5f7] dark:bg-[#0a0a0a] text-black dark:text-white"
   in:fade={{ duration: 150 }}
 >
   <!-- Settings sidebar -->
@@ -64,16 +58,16 @@
   >
     <div class="h-4 shrink-0"></div>
     <div class="px-3 pb-3">
-      <span class="text-[13px] opacity-60 font-medium">{$i18n.t('settings.title')}</span>
+      <span class="text-[13px] font-medium">{$i18n.t('settings.title')}</span>
     </div>
 
     <div class="flex flex-col gap-0.5 px-1">
       {#each tabs as tab}
         <button
-          class="flex items-center gap-2 px-2.5 py-[6px] rounded-2xl text-[12px] transition bg-transparent border-none text-[#1d1d1f] dark:text-[#fafafa] text-left w-full {settingsTab ===
+          class="flex items-center gap-2 px-2.5 py-[6px] rounded-2xl text-[12px] transition bg-transparent border-none text-black dark:text-white text-left w-full {settingsTab ===
           tab.id
-            ? 'bg-black/[0.06] dark:bg-white/[0.08] opacity-90'
-            : 'opacity-40 hover:opacity-70 hover:bg-black/[0.02] '}"
+            ? 'bg-black/[0.06] dark:bg-white/[0.08]'
+            : 'hover:bg-black/[0.02]'}"
           onclick={() => (settingsTab = tab.id)}
         >
           <svg
@@ -99,11 +93,11 @@
     <div
       class="flex items-center justify-between px-8 pt-5 pb-3 border-b border-black/[0.04] dark:border-white/[0.04]"
     >
-      <span class="text-[15px] opacity-80 font-medium"
+      <span class="text-[15px] font-medium"
         >{tabs.find((t) => t.id === settingsTab)?.label() ?? settingsTab}</span
       >
       <button
-        class="opacity-30 hover:opacity-70 transition bg-transparent border-none text-[#1d1d1f] dark:text-[#fafafa]"
+        class="transition bg-transparent border-none text-black dark:text-white"
         onclick={onClose}
         title={$i18n.t('settings.closeSettings')}
       >
@@ -124,8 +118,6 @@
         <General />
       {:else if settingsTab === 'openwebui'}
         <OpenWebUI />
-      {:else if settingsTab === 'connections'}
-        <Connections />
       {:else if settingsTab === 'inference'}
         <InferenceRuntime />
       {:else if settingsTab === 'models'}
@@ -136,3 +128,11 @@
     </div>
   </div>
 </div>
+
+<style>
+  .settings :global(input::placeholder),
+  .settings :global(textarea::placeholder) {
+    color: inherit;
+    opacity: 1;
+  }
+</style>

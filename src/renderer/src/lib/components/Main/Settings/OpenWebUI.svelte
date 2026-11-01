@@ -4,20 +4,19 @@
   import i18n from '../../../i18n'
   import Switch from '../../common/Switch.svelte'
 
-  let serverStatus = $state<string | null>(null)
+  const serverStatus = $derived($serverInfo?.status ?? null)
   let updating = $state(false)
   let stopping = $state(false)
   let starting = $state(false)
   let restarting = $state(false)
   let version = $state<string | null>(null)
-  let serverPid = $state<number | null>(null)
+  const serverPid = $derived($serverInfo?.pid ?? null)
   let loaded = $state(false)
   let defaultDataPath = $state('')
 
   onMount(async () => {
     const info = await window.electronAPI.getServerInfo()
-    serverStatus = info?.status ?? null
-    serverPid = info?.pid ?? null
+    serverInfo.set(info)
     version = await window.electronAPI.getPackageVersion('open-webui')
     defaultDataPath = await window.electronAPI.getDefaultDataPath()
     loaded = true
@@ -26,7 +25,7 @@
   const installed = $derived(version !== null)
 
   const isRunning = $derived(
-    serverStatus === 'running' || $serverInfo?.reachable === true
+    serverStatus === 'started' || $serverInfo?.reachable === true
   )
 
   let uninstalling = $state(false)
@@ -43,7 +42,6 @@
     stopping = true
     try {
       await window.electronAPI.stopServer()
-      serverStatus = 'stopped'
     } catch (e) {
       console.error('Failed to stop server:', e)
     }
@@ -54,7 +52,6 @@
     starting = true
     try {
       await window.electronAPI.startServer()
-      serverStatus = 'running'
     } catch (e) {
       console.error('Failed to start server:', e)
     }
@@ -65,7 +62,6 @@
     restarting = true
     try {
       await window.electronAPI.restartServer()
-      serverStatus = 'running'
     } catch (e) {
       console.error('Failed to restart server:', e)
     }
@@ -77,11 +73,9 @@
     try {
       if (isRunning) {
         await window.electronAPI.stopServer()
-        serverStatus = 'stopped'
       }
       await window.electronAPI.installPackage()
       await window.electronAPI.startServer()
-      serverStatus = 'running'
       version = await window.electronAPI.getPackageVersion('open-webui')
     } catch (e) {
       console.error('Failed to update:', e)
@@ -91,15 +85,15 @@
 </script>
 
 {#if !loaded}
-  <div class="py-6 text-[12px] opacity-20 text-center">{$i18n.t('common.loading')}</div>
+  <div class="py-6 text-[12px] text-center">{$i18n.t('common.loading')}</div>
 {:else if !installed}
   <div class="py-4 flex items-center justify-between">
     <div>
-      <div class="text-[13px] opacity-40">{$i18n.t('settings.openwebui.notInstalled')}</div>
-      <div class="text-[11px] opacity-20 mt-0.5">{$i18n.t('settings.openwebui.notInstalledDesc')}</div>
+      <div class="text-[13px]">{$i18n.t('settings.openwebui.notInstalled')}</div>
+      <div class="text-[11px] mt-0.5">{$i18n.t('settings.openwebui.notInstalledDesc')}</div>
     </div>
     <button
-      class="text-[12px] opacity-40 hover:opacity-70 px-3 py-1.5 bg-black/[0.04] dark:bg-white/[0.06] transition border-none text-[#1d1d1f] dark:text-[#fafafa] rounded-xl flex items-center gap-1.5 {installing ? 'pointer-events-none opacity-20' : ''}"
+      class="text-[12px] px-3 py-1.5 bg-black/[0.04] dark:bg-white/[0.06] transition border-none text-black dark:text-white rounded-xl flex items-center gap-1.5 {installing ? 'pointer-events-none opacity-50' : ''}"
       disabled={installing}
       onclick={async () => {
         installing = true
@@ -126,21 +120,21 @@
   <div class="py-4">
     <div class="flex items-center justify-between mb-3">
       <div>
-        <div class="text-[13px] opacity-70">{$i18n.t('settings.openwebui.server')}</div>
-        <div class="text-[11px] opacity-25 mt-0.5">
+        <div class="text-[13px]">{$i18n.t('settings.openwebui.server')}</div>
+        <div class="text-[11px] mt-0.5">
           {#if version}v{version} · {/if}{$i18n.t('settings.openwebui.localInstance')}
         </div>
       </div>
       <div class="flex items-center gap-1.5">
         {#if isRunning}
           <div class="w-1.5 h-1.5 rounded-full bg-emerald-400"></div>
-          <span class="text-[12px] opacity-50">{$i18n.t('common.running')}</span>
+          <span class="text-[12px]">{$i18n.t('common.running')}</span>
         {:else if serverStatus === 'stopped'}
           <div class="w-1.5 h-1.5 rounded-full bg-black/15 dark:bg-white/20"></div>
-          <span class="text-[12px] opacity-30">{$i18n.t('common.stopped')}</span>
+          <span class="text-[12px]">{$i18n.t('common.stopped')}</span>
         {:else}
           <div class="w-1.5 h-1.5 rounded-full bg-amber-400/60"></div>
-          <span class="text-[12px] opacity-30 capitalize">{serverStatus ?? $i18n.t('common.unknown')}</span>
+          <span class="text-[12px] capitalize">{serverStatus ?? $i18n.t('common.unknown')}</span>
         {/if}
       </div>
     </div>
@@ -148,7 +142,7 @@
     <div class="flex items-center gap-2">
       {#if isRunning}
         <button
-          class="text-[12px] opacity-40 hover:opacity-70 px-3 py-1.5 bg-black/[0.04] dark:bg-white/[0.06] transition border-none text-[#1d1d1f] dark:text-[#fafafa] rounded-xl flex items-center gap-1.5 {stopping ? 'pointer-events-none opacity-20' : ''}"
+          class="text-[12px] px-3 py-1.5 bg-black/[0.04] dark:bg-white/[0.06] transition border-none text-black dark:text-white rounded-xl flex items-center gap-1.5 {stopping ? 'pointer-events-none opacity-50' : ''}"
           disabled={stopping}
           onclick={stopServer}
         >
@@ -163,7 +157,7 @@
           {/if}
         </button>
         <button
-          class="text-[12px] opacity-40 hover:opacity-70 px-3 py-1.5 bg-black/[0.04] dark:bg-white/[0.06] transition border-none text-[#1d1d1f] dark:text-[#fafafa] rounded-xl flex items-center gap-1.5 {restarting ? 'pointer-events-none opacity-20' : ''}"
+          class="text-[12px] px-3 py-1.5 bg-black/[0.04] dark:bg-white/[0.06] transition border-none text-black dark:text-white rounded-xl flex items-center gap-1.5 {restarting ? 'pointer-events-none opacity-50' : ''}"
           disabled={restarting}
           onclick={restartServer}
         >
@@ -179,7 +173,7 @@
         </button>
       {:else}
         <button
-          class="text-[12px] opacity-40 hover:opacity-70 px-3 py-1.5 bg-black/[0.04] dark:bg-white/[0.06] transition border-none text-[#1d1d1f] dark:text-[#fafafa] rounded-xl flex items-center gap-1.5 {starting ? 'pointer-events-none opacity-20' : ''}"
+          class="text-[12px] px-3 py-1.5 bg-black/[0.04] dark:bg-white/[0.06] transition border-none text-black dark:text-white rounded-xl flex items-center gap-1.5 {starting ? 'pointer-events-none opacity-50' : ''}"
           disabled={starting}
           onclick={startServer}
         >
@@ -196,7 +190,7 @@
       {/if}
 
       <button
-        class="text-[12px] opacity-40 hover:opacity-70 px-3 py-1.5 bg-black/[0.04] dark:bg-white/[0.06] transition border-none text-[#1d1d1f] dark:text-[#fafafa] rounded-xl flex items-center gap-1.5 {updating ? 'pointer-events-none opacity-20' : ''}"
+        class="text-[12px] px-3 py-1.5 bg-black/[0.04] dark:bg-white/[0.06] transition border-none text-black dark:text-white rounded-xl flex items-center gap-1.5 {updating ? 'pointer-events-none opacity-50' : ''}"
         disabled={updating}
         onclick={updatePackage}
       >
@@ -216,16 +210,16 @@
   <!-- Running Instance Info -->
   {#if isRunning}
     <div class="py-4">
-      <div class="text-[13px] opacity-70 mb-3">{$i18n.t('settings.openwebui.runningInstance')}</div>
+      <div class="text-[13px] mb-3">{$i18n.t('settings.openwebui.runningInstance')}</div>
       <div class="flex flex-col gap-2">
         <div class="flex items-center justify-between">
-          <span class="text-[11px] opacity-30">URL</span>
-          <button class="text-[12px] opacity-50 font-mono hover:opacity-80 transition bg-transparent border-none text-[#1d1d1f] dark:text-[#fafafa] p-0 underline decoration-dotted underline-offset-2 cursor-pointer" onclick={() => window.open($serverInfo?.url ?? 'http://127.0.0.1:8080')}>{$serverInfo?.url ?? 'http://127.0.0.1:8080'}</button>
+          <span class="text-[11px]">URL</span>
+          <button class="text-[12px] font-mono transition bg-transparent border-none text-black dark:text-white p-0 underline decoration-dotted underline-offset-2 cursor-pointer" onclick={() => window.open($serverInfo?.url ?? 'http://127.0.0.1:8080')}>{$serverInfo?.url ?? 'http://127.0.0.1:8080'}</button>
         </div>
         {#if serverPid}
         <div class="flex items-center justify-between">
-          <span class="text-[11px] opacity-30">PID</span>
-          <span class="text-[12px] opacity-50 font-mono">{serverPid}</span>
+          <span class="text-[11px]">PID</span>
+          <span class="text-[12px] font-mono">{serverPid}</span>
         </div>
         {/if}
       </div>
@@ -234,8 +228,8 @@
 
   <div class="py-4 flex items-center justify-between">
     <div>
-      <div class="text-[13px] opacity-70">{$i18n.t('settings.openwebui.startOnLaunch')}</div>
-      <div class="text-[11px] opacity-25 mt-0.5">
+      <div class="text-[13px]">{$i18n.t('settings.openwebui.startOnLaunch')}</div>
+      <div class="text-[11px] mt-0.5">
         {$i18n.t('settings.openwebui.startOnLaunchDesc')}
       </div>
     </div>
@@ -248,12 +242,12 @@
 
   <div class="py-4 flex items-center justify-between">
     <div>
-      <div class="text-[13px] opacity-70">{$i18n.t('settings.openwebui.serverPort')}</div>
-      <div class="text-[11px] opacity-25 mt-0.5">{$i18n.t('settings.openwebui.serverPortDesc')}</div>
+      <div class="text-[13px]">{$i18n.t('settings.openwebui.serverPort')}</div>
+      <div class="text-[11px] mt-0.5">{$i18n.t('settings.openwebui.serverPortDesc')}</div>
     </div>
     <input
       type="number"
-      class="bg-black/[0.04] dark:bg-white/[0.06] text-[12px] text-[#1d1d1f] dark:text-[#fafafa] px-3 py-1.5 border-none outline-none rounded-xl opacity-60 w-20 text-right"
+      class="bg-black/[0.04] dark:bg-white/[0.06] text-[12px] text-black dark:text-white px-3 py-1.5 border-none outline-none rounded-xl w-20 text-right"
       value={$config?.localServer?.port ?? 8080}
       onchange={(e) =>
         updateConfig('port', parseInt((e.target as HTMLInputElement).value) || 8080)}
@@ -262,8 +256,8 @@
 
   <div class="py-4 flex items-center justify-between">
     <div>
-      <div class="text-[13px] opacity-70">{$i18n.t('settings.openwebui.serveOnLocalNetwork')}</div>
-      <div class="text-[11px] opacity-25 mt-0.5">
+      <div class="text-[13px]">{$i18n.t('settings.openwebui.serveOnLocalNetwork')}</div>
+      <div class="text-[11px] mt-0.5">
         {$i18n.t('settings.openwebui.serveOnLocalNetworkDesc')}
       </div>
     </div>
@@ -276,8 +270,8 @@
 
   <div class="py-4 flex items-center justify-between">
     <div>
-      <div class="text-[13px] opacity-70">{$i18n.t('settings.openwebui.autoUpdate')}</div>
-      <div class="text-[11px] opacity-25 mt-0.5">
+      <div class="text-[13px]">{$i18n.t('settings.openwebui.autoUpdate')}</div>
+      <div class="text-[11px] mt-0.5">
         {$i18n.t('settings.openwebui.autoUpdateDesc')}
       </div>
     </div>
@@ -291,12 +285,12 @@
   <!-- Version Pin -->
   <div class="py-4 flex items-center justify-between">
     <div>
-      <div class="text-[13px] opacity-70">{$i18n.t('settings.openwebui.version')}</div>
-      <div class="text-[11px] opacity-25 mt-0.5">{$i18n.t('settings.openwebui.versionDesc')}</div>
+      <div class="text-[13px]">{$i18n.t('settings.openwebui.version')}</div>
+      <div class="text-[11px] mt-0.5">{$i18n.t('settings.openwebui.versionDesc')}</div>
     </div>
     <input
       type="text"
-      class="bg-black/[0.04] dark:bg-white/[0.06] text-[12px] text-[#1d1d1f] dark:text-[#fafafa] px-3 py-1.5 border-none outline-none rounded-xl opacity-60 w-28 text-right font-mono"
+      class="bg-black/[0.04] dark:bg-white/[0.06] text-[12px] text-black dark:text-white px-3 py-1.5 border-none outline-none rounded-xl w-28 text-right font-mono"
       placeholder="latest"
       value={$config?.localServer?.version ?? ''}
       onchange={(e) => updateConfig('version', (e.target as HTMLInputElement).value.trim())}
@@ -305,13 +299,13 @@
 
   <div class="py-4 flex items-center justify-between gap-4">
     <div class="shrink-0">
-      <div class="text-[13px] opacity-70">{$i18n.t('settings.openwebui.dataLocation')}</div>
-      <div class="text-[11px] opacity-25 mt-0.5">{$i18n.t('settings.openwebui.dataLocationDesc')}</div>
+      <div class="text-[13px]">{$i18n.t('settings.openwebui.dataLocation')}</div>
+      <div class="text-[11px] mt-0.5">{$i18n.t('settings.openwebui.dataLocationDesc')}</div>
     </div>
     <div class="flex items-center gap-1.5 min-w-0 flex-1 max-w-[280px] justify-end">
       <input
         type="text"
-        class="bg-black/[0.04] dark:bg-white/[0.06] text-[12px] text-[#1d1d1f] dark:text-[#fafafa] px-3 py-1.5 border-none outline-none rounded-xl opacity-60 min-w-0 flex-1 text-right font-mono"
+        class="bg-black/[0.04] dark:bg-white/[0.06] text-[12px] text-black dark:text-white px-3 py-1.5 border-none outline-none rounded-xl min-w-0 flex-1 text-right font-mono"
         placeholder={defaultDataPath || 'Default'}
         value={$config?.dataDir ?? ''}
         onchange={async (e) => {
@@ -321,7 +315,7 @@
         }}
       />
       <button
-        class="shrink-0 text-[12px] opacity-40 hover:opacity-70 px-2.5 py-1.5 bg-black/[0.04] dark:bg-white/[0.06] transition border-none text-[#1d1d1f] dark:text-[#fafafa] rounded-xl"
+        class="shrink-0 text-[12px] px-2.5 py-1.5 bg-black/[0.04] dark:bg-white/[0.06] transition border-none text-black dark:text-white rounded-xl"
         onclick={async () => {
           const folder = await window.electronAPI.selectFolder()
           if (folder) {
@@ -338,11 +332,11 @@
   <!-- Uninstall -->
   <div class="py-4 flex items-center justify-between">
     <div>
-      <div class="text-[13px] opacity-70">{$i18n.t('settings.openwebui.uninstall')}</div>
-      <div class="text-[11px] opacity-25 mt-0.5">{$i18n.t('settings.openwebui.uninstallDesc')}</div>
+      <div class="text-[13px]">{$i18n.t('settings.openwebui.uninstall')}</div>
+      <div class="text-[11px] mt-0.5">{$i18n.t('settings.openwebui.uninstallDesc')}</div>
     </div>
     <button
-      class="text-[12px] opacity-40 hover:opacity-70 px-3 py-1.5 bg-black/[0.04] dark:bg-white/[0.06] transition border-none text-[#1d1d1f] dark:text-[#fafafa] rounded-xl flex items-center gap-1.5 {uninstalling ? 'pointer-events-none opacity-20' : ''}"
+      class="text-[12px] px-3 py-1.5 bg-black/[0.04] dark:bg-white/[0.06] transition border-none text-black dark:text-white rounded-xl flex items-center gap-1.5 {uninstalling ? 'pointer-events-none opacity-50' : ''}"
       disabled={uninstalling}
       onclick={async () => {
         if (confirm($i18n.t('settings.openwebui.uninstallConfirm'))) {

@@ -1,83 +1,93 @@
 <script lang="ts">
   import { onMount, onDestroy } from 'svelte'
-  import { Terminal } from '@xterm/xterm'
+  import { Terminal, type ITheme } from '@xterm/xterm'
   import { FitAddon } from '@xterm/addon-fit'
   import '@xterm/xterm/css/xterm.css'
 
-  interface Props {
-    connect: (callback: (data: string) => void) => void
-    disconnect: () => void
-    readonly?: boolean
-    onWrite?: (data: string) => void
-    onResize?: (cols: number, rows: number) => void
-  }
+  import type { ServiceId, TerminalOutput } from '../../../../../shared/terminal'
 
-  let {
-    connect,
-    disconnect,
-    readonly = false,
-    onWrite,
-    onResize
-  }: Props = $props()
+  interface Props {
+    service: ServiceId
+    readonly?: boolean
+  }
+  let { service, readonly = true }: Props = $props()
+  let connectionId: number | undefined
+  const resize = (): void => {
+    if (!containerEl?.clientWidth || !containerEl?.clientHeight) return
+    fitAddon?.fit()
+    if (term && connectionId !== undefined)
+      window.electronAPI.resizeTerminal(connectionId, term.cols, term.rows)
+  }
 
   let containerEl: HTMLDivElement | undefined = $state()
   let term: Terminal | null = null
   let fitAddon: FitAddon | null = null
   let resizeObserver: ResizeObserver | null = null
+  let themeObserver: MutationObserver | null = null
 
-  const initTerminal = () => {
+  const terminalTheme = (): ITheme => {
+    const style = getComputedStyle(containerEl!)
+    return {
+      background: style.backgroundColor,
+      foreground: style.color,
+      cursor: style.color,
+      selectionBackground: style.getPropertyValue('--terminal-selection').trim()
+    }
+  }
+
+  const initTerminal = (): void => {
     if (!containerEl || term) return
 
     term = new Terminal({
       cursorBlink: false,
       disableStdin: readonly,
-      fontSize: 11,
+      fontSize: 13,
       fontFamily: "'SF Mono', 'Fira Code', 'Cascadia Code', Menlo, Monaco, monospace",
-      lineHeight: 1.5,
+      lineHeight: 1,
       scrollback: 10000,
-      theme: {
-        background: '#0a0a0a',
-        foreground: '#d4d4d4',
-        cursor: readonly ? '#d4d4d4' : 'transparent',
-        selectionBackground: readonly ? '#264f78' : '#ffffff30'
-      },
+      cursorStyle: 'bar',
+      cursorInactiveStyle: 'none',
+      theme: terminalTheme(),
       convertEol: true
     })
 
     fitAddon = new FitAddon()
     term.loadAddon(fitAddon)
     term.open(containerEl)
-    requestAnimationFrame(() => fitAddon?.fit())
+    requestAnimationFrame(resize)
 
-    resizeObserver = new ResizeObserver(() => {
-      try {
-        fitAddon?.fit()
-        if (term && onResize) {
-          onResize(term.cols, term.rows)
-        }
-      } catch {}
-    })
+    resizeObserver = new ResizeObserver(resize)
     resizeObserver.observe(containerEl)
-
-    if (!readonly && onWrite) {
-      term.onData((data: string) => {
-        onWrite!(data)
-      })
-    }
-
-    connect((data: string) => {
-      term?.write(data)
+    themeObserver = new MutationObserver(() => {
+      if (term && containerEl) term.options.theme = terminalTheme()
     })
-
-    if (term && onResize) {
-      onResize(term.cols, term.rows)
-    }
+    themeObserver.observe(document.documentElement, {
+      attributes: true,
+      attributeFilter: ['class']
+    })
+    if (!readonly)
+      term.onData((data: string) => {
+        if (connectionId !== undefined) window.electronAPI.writeTerminal(connectionId, data)
+      })
+    connectionId = window.electronAPI.connectTerminal(
+      service,
+      (message: TerminalOutput, consumed: () => void) => {
+        if (message.type === 'reset') {
+          // Queue reset behind any output xterm is still parsing from the old run.
+          term?.write('\x1bc', () => requestAnimationFrame(resize))
+        } else if (term) term.write(message.data, consumed)
+        else consumed()
+      }
+    )
   }
 
-  const destroyTerminal = () => {
+  const destroyTerminal = (): void => {
     resizeObserver?.disconnect()
     resizeObserver = null
-    disconnect()
+    themeObserver?.disconnect()
+    themeObserver = null
+    if (connectionId !== undefined) window.electronAPI.disconnectTerminal(connectionId)
+    connectionId = undefined
     term?.dispose()
     term = null
     fitAddon = null
@@ -102,7 +112,19 @@
   })
 </script>
 
-<div
-  class="absolute inset-0 px-3 py-2 bg-[#0a0a0a]"
-  bind:this={containerEl}
-></div>
+<div class="terminal-viewer" bind:this={containerEl}></div>
+
+<style>
+  .terminal-viewer {
+    position: absolute;
+    inset: 0;
+    padding: 4px 36px 4px 8px;
+    background: var(--terminal-background);
+    color: var(--terminal-foreground);
+  }
+  @media (pointer: coarse) {
+    .terminal-viewer {
+      padding-right: 52px;
+    }
+  }
+</style>

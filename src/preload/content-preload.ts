@@ -1,11 +1,6 @@
 import { ipcRenderer, contextBridge } from 'electron'
 
-// ─── Desktop ↔ Open WebUI Generic Protocol ──────────────
-// This preload is a dumb relay. It passes typed {type, data}
-// messages between the embedder (desktop renderer) and the
-// Open WebUI page. Business logic lives elsewhere.
-// To add new features, just add new event types — this file
-// never needs to change.
+// Bridge the embedded WebUI theme, local model events, and allowed requests.
 
 type EventCallback = (data: any) => void
 const eventCallbacks: EventCallback[] = []
@@ -28,6 +23,7 @@ contextBridge.exposeInMainWorld('electronAPI', {
   // Push events: desktop → Open WebUI
   onEvent: (callback: EventCallback): void => {
     eventCallbacks.push(callback)
+    ipcRenderer.sendToHost('webview:ready')
   },
 
   // Request/Response: Open WebUI → desktop
@@ -43,10 +39,5 @@ contextBridge.exposeInMainWorld('electronAPI', {
       ipcRenderer.on('desktop:response', handler)
       ipcRenderer.sendToHost('webview:send', { ...data, _requestId: id })
     })
-  },
-
-  // Navigation: Open WebUI → desktop
-  load: (page: string): void => {
-    ipcRenderer.sendToHost('webview:load', page)
   }
 })

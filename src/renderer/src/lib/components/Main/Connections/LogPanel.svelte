@@ -1,192 +1,450 @@
 <script lang="ts">
-  import { fly } from 'svelte/transition'
+  import { onDestroy } from 'svelte'
+  import type { ServiceId } from '../../../../../../shared/terminal'
   import i18n from '../../../i18n'
+  import { appInfo } from '../../../stores'
   import { tooltip } from '../../../actions/tooltip'
   import LogViewer from '../../common/LogViewer.svelte'
+  import TerminalIcon from './TerminalIcon.svelte'
 
-  interface Props {
-    activeLog: 'server' | 'llama-server'
-    serviceReady: boolean
-    statusText?: string
-    connectPty: (callback: (data: string) => void) => void
-    disconnectPty: () => void
-    readonly?: boolean
-    onWrite?: (data: string) => void
-    onResize?: (cols: number, rows: number) => void
-    onStop?: () => Promise<void>
-    onClose: () => void
+  interface Service {
+    id: ServiceId
+    label: string
+    status?: string | null
+    pid?: number | null
+    detail?: string | null
+    onStart: () => Promise<unknown>
+    onStop: () => Promise<unknown>
   }
-
-  let {
-    activeLog,
-    serviceReady,
-    statusText = '',
-    connectPty,
-    disconnectPty,
-    readonly = false,
-    onWrite,
-    onResize,
-    onStop,
-    onClose
-  }: Props = $props()
-
-  let stopping = $state(false)
-
-  let panelHeight = $state(250)
-  let dragging = $state(false)
-  let startY = 0
-  let startHeight = 0
+  let { services, onOpenSettings }: { services: Service[]; onOpenSettings: () => void } = $props()
+  let activeId = $state<ServiceId>('server')
+  let expanded = $state(false)
+  let visited = $state<ServiceId[]>([])
+  let panelHeight = $state(160)
+  let viewers: Partial<Record<ServiceId, LogViewer>> = {}
+  let pending = $state<Partial<Record<ServiceId, 'start' | 'stop'>>>({})
+  let errors = $state<Partial<Record<ServiceId, string>>>({})
   let copied = $state(false)
-  let refreshKey = $state(0)
+  let copyTimer: ReturnType<typeof setTimeout> | undefined
+  let endDrag: () => void = () => {}
 
-  let logViewerRef: LogViewer | undefined = $state()
-
-  const logLabels: Record<string, () => string> = {
-    'server': () => $i18n.t('statusBar.server'),
-    'llama-server': () => $i18n.t('sidebar.llamaCpp')
+  const active = $derived(services.find((service) => service.id === activeId) ?? services[0])
+  function canStop(service: Service): boolean {
+    return service.status === 'started' || service.status === 'starting' || !!service.pid
   }
 
-  const onDragStart = (e: MouseEvent) => {
-    dragging = true
-    startY = e.clientY
-    startHeight = panelHeight
+  function isBusy(service: Service): boolean {
+    return (
+      pending[service.id] === 'stop' ||
+      (pending[service.id] === 'start' && !canStop(service)) ||
+      service.status === 'stopping' ||
+      service.status === 'setting-up'
+    )
+  }
+  const statusText = $derived(
+    $i18n.t(
+      active?.status === 'started'
+        ? 'common.running'
+        : active?.status === 'starting'
+          ? 'common.starting'
+          : active?.status === 'setting-up'
+            ? 'setup.settingUp'
+            : active?.status === 'stopping'
+              ? 'common.stopping'
+              : active?.status === 'failed'
+                ? 'common.failed'
+                : 'common.stopped'
+    )
+  )
+  const toggleLabel = $derived($i18n.t(expanded ? 'logs.collapse' : 'logs.expand'))
+  const error = $derived(
+    active && (errors[active?.id] || (active.status === 'failed' ? active.detail : ''))
+  )
 
-    // Overlay prevents webview from capturing mouse events during drag
+  function select(id: ServiceId): void {
+    activeId = id
+    expanded = true
+    if (!visited.includes(id)) visited = [...visited, id]
+    copied = false
+    clearTimeout(copyTimer)
+  }
+
+  function toggle(): void {
+    if (expanded) expanded = false
+    else if (active) select(active?.id)
+  }
+
+  function navigate(event: KeyboardEvent, index: number): void {
+    let next = index
+    if (event.key === 'ArrowRight') next = (index + 1) % services.length
+    else if (event.key === 'ArrowLeft') next = (index - 1 + services.length) % services.length
+    else if (event.key === 'Home') next = 0
+    else if (event.key === 'End') next = services.length - 1
+    else return
+    event.preventDefault()
+    select(services[next].id)
+    const button = event.currentTarget as HTMLButtonElement
+    button
+      .closest('[role="tablist"]')
+      ?.querySelectorAll<HTMLButtonElement>('[role="tab"]')
+      [next]?.focus()
+  }
+
+  async function operate(service: Service): Promise<void> {
+    if (isBusy(service)) return
+    const action = canStop(service) ? 'stop' : 'start'
+    if (action === 'start') select(service.id)
+    pending[service.id] = action
+    errors[service.id] = ''
+    try {
+      await (action === 'stop' ? service.onStop() : service.onStart())
+    } catch (cause) {
+      // A stop can cancel a start that is still awaiting readiness.
+      if (pending[service.id] === action) errors[service.id] = String(cause)
+    } finally {
+      if (pending[service.id] === action) delete pending[service.id]
+    }
+  }
+
+  async function copyLogs(): Promise<void> {
+    const id = active?.id
+    if (!id) return
+    const text = viewers[id]?.getBufferText()
+    if (!text) return
+    try {
+      await navigator.clipboard.writeText(text)
+      if (active?.id !== id) return
+      copied = true
+      clearTimeout(copyTimer)
+      copyTimer = setTimeout(() => {
+        copied = false
+      }, 1500)
+    } catch {
+      errors[id] = $i18n.t('logs.copyFailed')
+    }
+  }
+
+  function resize(height: number): void {
+    panelHeight = Math.max(108, Math.min(Math.max(108, window.innerHeight - 160), height))
+  }
+
+  function onDragStart(event: MouseEvent): void {
+    if (event.button !== 0) return
+    event.preventDefault()
+    endDrag()
+    const startY = event.clientY
+    const startHeight = panelHeight
+    // Keep the webview from swallowing drag events.
     const overlay = document.createElement('div')
     overlay.style.cssText = 'position:fixed;inset:0;z-index:9999;cursor:ns-resize;'
     document.body.appendChild(overlay)
-
-    const onDragMove = (e: MouseEvent) => {
-      const delta = startY - e.clientY
-      panelHeight = Math.max(120, Math.min(600, startHeight + delta))
-    }
-
-    const onDragEnd = () => {
-      dragging = false
+    const move = (event: MouseEvent): void => resize(startHeight + startY - event.clientY)
+    endDrag = () => {
       overlay.remove()
-      window.removeEventListener('mousemove', onDragMove)
-      window.removeEventListener('mouseup', onDragEnd)
+      window.removeEventListener('mousemove', move)
+      window.removeEventListener('mouseup', endDrag)
+      window.removeEventListener('blur', endDrag)
     }
-
-    window.addEventListener('mousemove', onDragMove)
-    window.addEventListener('mouseup', onDragEnd)
+    window.addEventListener('mousemove', move)
+    window.addEventListener('mouseup', endDrag)
+    window.addEventListener('blur', endDrag)
   }
 
-  const copyLogs = () => {
-    const text = logViewerRef?.getBufferText?.()
-    if (text) {
-      navigator.clipboard.writeText(text)
-      copied = true
-      setTimeout(() => { copied = false }, 1500)
-    }
-  }
+  onDestroy(() => {
+    endDrag()
+    clearTimeout(copyTimer)
+  })
 </script>
 
-<div
-  class="shrink-0 flex flex-col border-t border-black/[0.1] dark:border-white/[0.1] bg-[#0a0a0a] overflow-hidden"
-  style="height: {panelHeight}px"
-  in:fly={{ y: 60, duration: 200 }}
-  out:fly={{ y: 60, duration: 150 }}
->
-  <!-- Resize edge -->
-  <!-- svelte-ignore a11y_no_static_element_interactions -->
-  <div
-    class="h-0 shrink-0 cursor-ns-resize relative"
-    onmousedown={onDragStart}
-  >
-    <div class="absolute -top-[3px] left-0 right-0 h-[6px] z-10"></div>
-  </div>
-
-  <!-- Header bar -->
-  <!-- svelte-ignore a11y_no_static_element_interactions -->
-  <div class="flex items-center justify-between px-3 py-1 shrink-0 border-b border-white/[0.06] cursor-pointer" onclick={onClose}>
-    <div class="flex items-center gap-2">
-      <span class="text-[11px] uppercase tracking-wider text-white/40 font-medium">{logLabels[activeLog]?.() ?? activeLog}</span>
-    </div>
-    <!-- svelte-ignore a11y_no_static_element_interactions -->
-    <div class="flex items-center gap-0.5" onclick={(e) => e.stopPropagation()}>
-      <!-- Stop button (llama.cpp only) -->
-      {#if onStop && serviceReady}
-        <button
-          class="p-1 rounded-md hover:bg-white/[0.08] transition bg-transparent border-none cursor-pointer {stopping ? 'opacity-30 pointer-events-none' : 'opacity-40 hover:opacity-80'} text-white"
-          disabled={stopping}
-          onclick={async () => {
-            stopping = true
-            try {
-              await onStop()
-            } finally {
-              stopping = false
-              onClose()
-            }
-          }}
-          use:tooltip={$i18n.t('common.stop')}
+<section class="terminal-dock" aria-label={$i18n.t('logs.terminal')}>
+  {#if active && expanded}
+    <!-- Focusable separators support keyboard resizing as well as dragging. -->
+    <!-- svelte-ignore a11y_no_noninteractive_tabindex, a11y_no_noninteractive_element_interactions -->
+    <div
+      class="resize-edge"
+      role="separator"
+      aria-label={$i18n.t('logs.resize')}
+      aria-orientation="horizontal"
+      aria-valuenow={panelHeight}
+      aria-valuemin={108}
+      tabindex="0"
+      onmousedown={onDragStart}
+      onkeydown={(event) => {
+        if (event.key === 'ArrowUp' || event.key === 'ArrowDown') {
+          event.preventDefault()
+          resize(panelHeight + (event.key === 'ArrowUp' ? 20 : -20))
+        }
+      }}
+    ></div>
+  {/if}
+  <div class="terminal-bar">
+    <button type="button" class="settings-button" onclick={onOpenSettings}
+      ><TerminalIcon name="settings" size={12} />{$i18n.t('settings.title')}</button
+    >
+    <div class="terminal-tabs" role="tablist" aria-label={$i18n.t('logs.terminal')}>
+      {#each services as service, index (service.id)}
+        {@const actionLabel = `${$i18n.t(canStop(service) ? 'common.stop' : 'common.start')} ${service.label}`}
+        <div
+          class="terminal-tab-group"
+          class:selected={active?.id === service.id}
+          role="presentation"
         >
-          {#if stopping}
-            <div class="w-3.5 h-3.5 rounded-full border-[1.5px] border-white/30 border-t-transparent animate-spin"></div>
-          {:else}
-            <svg class="w-3.5 h-3.5" fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="1.5">
-              <path stroke-linecap="round" stroke-linejoin="round" d="M5.636 5.636a9 9 0 1012.728 0M12 3v9" />
-            </svg>
-          {/if}
-        </button>
-      {/if}
-      <!-- Copy button -->
+          <button
+            type="button"
+            class="terminal-tab"
+            role="tab"
+            id={`terminal-tab-${service.id}`}
+            aria-controls={`terminal-output-${service.id}`}
+            aria-selected={active?.id === service.id}
+            tabindex={active?.id === service.id ? 0 : -1}
+            onclick={() => {
+              if (expanded && active?.id === service.id) toggle()
+              else select(service.id)
+            }}
+            onkeydown={(event) => navigate(event, index)}>{service.label}</button
+          >
+          <button
+            type="button"
+            class="tab-control"
+            aria-label={actionLabel}
+            use:tooltip={actionLabel}
+            disabled={isBusy(service)}
+            onclick={() => operate(service)}
+            ><TerminalIcon name={canStop(service) ? 'xmark' : 'play'} size={10} /></button
+          >
+        </div>
+      {/each}
+    </div>
+    {#if active}
       <button
-        class="p-1 rounded-md opacity-40 hover:opacity-80 hover:bg-white/[0.08] transition bg-transparent border-none text-white cursor-pointer"
+        type="button"
+        class="terminal-toggle"
+        aria-label={toggleLabel}
+        aria-expanded={expanded}
+        use:tooltip={toggleLabel}
+        onclick={toggle}
+      >
+        <span class="terminal-status" role="status" title={active.detail || statusText}
+          >{statusText}</span
+        >
+        <TerminalIcon name="chevron" size={12} flipped={!expanded} />
+      </button>
+    {:else}
+      <div class="terminal-spacer"></div>
+    {/if}
+    {#if $appInfo?.version}<span class="app-version drag-region">v{$appInfo.version}</span>{/if}
+  </div>
+  <div
+    class="terminal-body"
+    style:height={`calc(${panelHeight}px - var(--terminal-bar-height))`}
+    hidden={!active || !expanded}
+  >
+    {#if error}<div class="terminal-error" role="alert" title={error}>{error}</div>{/if}
+    <div class="terminal-output">
+      {#each services as service (service.id)}
+        <div
+          id={`terminal-output-${service.id}`}
+          class="terminal-pane"
+          role="tabpanel"
+          aria-labelledby={`terminal-tab-${service.id}`}
+          hidden={active?.id !== service.id}
+        >
+          {#if visited.includes(service.id)}
+            <LogViewer
+              bind:this={viewers[service.id]}
+              service={service.id}
+              readonly={service.id !== 'server'}
+            />
+          {/if}
+        </div>
+      {/each}
+      <button
+        type="button"
+        class="terminal-action copy-output"
+        aria-label={$i18n.t('logs.copyLogs')}
+        use:tooltip={$i18n.t(copied ? 'logs.copied' : 'logs.copyLogs')}
         onclick={copyLogs}
-        title={$i18n.t('logs.copyLogs')}
       >
-        <svg class="w-3.5 h-3.5" fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="1.5">
-          {#if copied}
-            <path stroke-linecap="round" stroke-linejoin="round" d="M4.5 12.75l6 6 9-13.5" />
-          {:else}
-            <path stroke-linecap="round" stroke-linejoin="round" d="M15.666 3.888A2.25 2.25 0 0013.5 2.25h-3c-1.03 0-1.9.693-2.166 1.638m7.332 0c.055.194.084.4.084.612v0a.75.75 0 01-.75.75H9.75a.75.75 0 01-.75-.75v0c0-.212.03-.418.084-.612m7.332 0c.646.049 1.288.11 1.927.184 1.1.128 1.907 1.077 1.907 2.185V19.5a2.25 2.25 0 01-2.25 2.25H6.75A2.25 2.25 0 014.5 19.5V6.257c0-1.108.806-2.057 1.907-2.185a48.208 48.208 0 011.927-.184" />
-          {/if}
-        </svg>
-      </button>
-      <!-- Refresh button -->
-      <button
-        class="p-1 rounded-md opacity-40 hover:opacity-80 hover:bg-white/[0.08] transition bg-transparent border-none text-white cursor-pointer"
-        onclick={() => { disconnectPty(); refreshKey++ }}
-        title={$i18n.t('common.refresh')}
-      >
-        <svg class="w-3.5 h-3.5" fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="1.5">
-          <path stroke-linecap="round" stroke-linejoin="round" d="M16.023 9.348h4.992v-.001M2.985 19.644v-4.992m0 0h4.992m-4.993 0l3.181 3.183a8.25 8.25 0 0013.803-3.7M20.015 4.356v4.992m0 0h-4.992m4.993 0l-3.181-3.183a8.25 8.25 0 00-13.803 3.7" />
-        </svg>
-      </button>
-      <!-- Close button -->
-      <button
-        class="p-1 rounded-md opacity-40 hover:opacity-80 hover:bg-white/[0.08] transition bg-transparent border-none text-white cursor-pointer"
-        onclick={onClose}
-        title={$i18n.t('common.close')}
-      >
-        <svg class="w-3.5 h-3.5" fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="2">
-          <path stroke-linecap="round" stroke-linejoin="round" d="M6 18L18 6M6 6l12 12" />
-        </svg>
+        <TerminalIcon name={copied ? 'check' : 'copy'} size={12} />
       </button>
     </div>
   </div>
+</section>
 
-  <!-- Log content -->
-  <div class="flex-1 min-h-0 relative overflow-hidden">
-    {#if serviceReady}
-      {#key `${activeLog}-${refreshKey}`}
-        <LogViewer
-          bind:this={logViewerRef}
-          connect={connectPty}
-          disconnect={disconnectPty}
-          {readonly}
-          {onWrite}
-          {onResize}
-        />
-      {/key}
-    {:else}
-      <div class="absolute inset-0 flex items-center justify-center bg-[#0a0a0a]">
-        <div class="flex flex-col items-center gap-3">
-          <div class="w-5 h-5 rounded-full border-2 border-white/15 border-t-white/50 animate-spin"></div>
-          <span class="text-[11px] text-white/50">{statusText || $i18n.t('common.loading')}</span>
-        </div>
-      </div>
-    {/if}
-  </div>
-</div>
+<style>
+  .terminal-dock {
+    --terminal-bar-height: 24px;
+    --terminal-background: #f5f5f7;
+    --terminal-foreground: #37373a;
+    --terminal-muted: #747478;
+    --terminal-selection: #00000020;
+    position: relative;
+    flex-shrink: 0;
+    background: var(--terminal-background);
+    color: var(--terminal-muted);
+    font-size: 11px;
+  }
+  :global(.dark) .terminal-dock {
+    --terminal-background: #181819;
+    --terminal-foreground: #ceced0;
+    --terminal-muted: #929296;
+    --terminal-selection: #ffffff30;
+  }
+  .terminal-bar {
+    --terminal-foreground: #000;
+    --terminal-muted: #000;
+    display: flex;
+    align-items: center;
+    height: var(--terminal-bar-height);
+    min-width: 0;
+    background: #fff;
+    color: var(--terminal-muted);
+  }
+  :global(.dark) .terminal-bar {
+    --terminal-foreground: #fff;
+    --terminal-muted: #fff;
+    background: #000;
+  }
+  .terminal-tabs {
+    display: flex;
+    align-self: stretch;
+    min-width: 0;
+    flex: 0 1 auto;
+    overflow-x: auto;
+    scrollbar-width: none;
+  }
+  .terminal-tabs::-webkit-scrollbar {
+    display: none;
+  }
+  button {
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    border: 0;
+    background: transparent;
+    color: inherit;
+    font: inherit;
+  }
+  button:hover:not(:disabled),
+  .terminal-tab-group.selected {
+    color: var(--terminal-foreground);
+  }
+  button:disabled {
+    opacity: 0.4;
+    cursor: default;
+  }
+  button:focus-visible {
+    outline: 1px solid currentColor;
+    outline-offset: -3px;
+  }
+  .terminal-tab {
+    flex-shrink: 0;
+    padding: 0 4px 0 8px;
+    white-space: nowrap;
+    height: 100%;
+  }
+  .terminal-tab-group {
+    display: flex;
+    align-items: center;
+    flex-shrink: 0;
+  }
+  .terminal-tab-group.selected .terminal-tab {
+    font-weight: 500;
+  }
+  .tab-control {
+    width: 20px;
+    height: 100%;
+    padding: 0 4px 0 0;
+    color: var(--terminal-muted);
+  }
+  .terminal-toggle {
+    flex: 1;
+    min-width: 28px;
+    height: 100%;
+    justify-content: flex-end;
+    gap: 8px;
+    padding: 0 8px;
+  }
+  .app-version {
+    padding: 0 8px;
+    white-space: nowrap;
+    flex-shrink: 0;
+  }
+  .terminal-spacer {
+    flex: 1;
+  }
+  .settings-button {
+    height: 100%;
+    gap: 5px;
+    padding: 0 8px;
+    flex-shrink: 0;
+  }
+  .terminal-action {
+    flex-shrink: 0;
+    width: 28px;
+    height: 28px;
+    padding: 0;
+  }
+  .terminal-status {
+    min-width: 0;
+    margin: 0 0 0 8px;
+    overflow: hidden;
+    white-space: nowrap;
+    text-overflow: ellipsis;
+  }
+  .terminal-body {
+    display: flex;
+    flex-direction: column;
+    min-height: 0;
+  }
+  .terminal-body[hidden],
+  .terminal-pane[hidden] {
+    display: none;
+  }
+  .terminal-output {
+    position: relative;
+    flex: 1;
+    min-height: 0;
+  }
+  .terminal-pane {
+    position: absolute;
+    inset: 0;
+  }
+  .copy-output {
+    position: absolute;
+    top: 2px;
+    right: 0;
+  }
+  .terminal-error {
+    flex-shrink: 0;
+    overflow: hidden;
+    text-overflow: ellipsis;
+    white-space: nowrap;
+    padding: 2px 8px;
+    color: var(--terminal-foreground);
+  }
+  .resize-edge {
+    position: absolute;
+    top: -3px;
+    inset-inline: 0;
+    height: 6px;
+    z-index: 1;
+    cursor: ns-resize;
+  }
+  .resize-edge:focus-visible {
+    outline: 1px solid var(--terminal-muted);
+    outline-offset: -3px;
+  }
+  @media (pointer: coarse) {
+    .terminal-dock {
+      --terminal-bar-height: 44px;
+    }
+    .terminal-action {
+      width: 44px;
+      height: 44px;
+    }
+    .terminal-tab {
+      min-height: 44px;
+    }
+  }
+</style>

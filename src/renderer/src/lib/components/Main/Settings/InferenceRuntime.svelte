@@ -1,5 +1,5 @@
 <script lang="ts">
-  import { onMount } from 'svelte'
+  import { onMount, onDestroy } from 'svelte'
   import { config } from '../../../stores'
   import i18n from '../../../i18n'
   import Switch from '../../common/Switch.svelte'
@@ -20,11 +20,14 @@
   let updateError = $state<string | null>(null)
 
 
+  let unsubscribe: (() => void) | undefined
+  onDestroy(() => unsubscribe?.())
   onMount(async () => {
     lsInfo = await window.electronAPI.getLlamaCppInfo()
     loaded = true
 
-    window.electronAPI.onData((data: any) => {
+    unsubscribe = window.electronAPI.onData((data: any) => {
+      if (data.type === 'llamacpp:info') lsInfo = { ...lsInfo, ...data.data }
       if (data.type === 'status:llamacpp') {
         lsInfo = { ...lsInfo, status: data.data }
       }
@@ -179,18 +182,18 @@
 </script>
 
 {#if !loaded}
-  <div class="py-6 text-[12px] opacity-20 text-center">{$i18n.t('common.loading')}</div>
+  <div class="py-6 text-[12px] text-center">{$i18n.t('common.loading')}</div>
 {:else if !installed}
   <div class="py-4 flex items-center justify-between">
     <div>
-      <div class="text-[13px] opacity-40 flex items-center gap-1.5">
+      <div class="text-[13px] flex items-center gap-1.5">
         {$i18n.t('settings.inference.notInstalled')}
-        <span class="text-[9px] opacity-30 uppercase tracking-wide">{$i18n.t('common.experimental')}</span>
+        <span class="text-[9px] uppercase tracking-wide">{$i18n.t('common.experimental')}</span>
       </div>
-      <div class="text-[11px] opacity-20 mt-0.5">{$i18n.t('settings.inference.notInstalledDesc')}</div>
+      <div class="text-[11px] mt-0.5">{$i18n.t('settings.inference.notInstalledDesc')}</div>
     </div>
     <button
-      class="text-[12px] opacity-40 hover:opacity-70 px-3 py-1.5 bg-black/[0.04] dark:bg-white/[0.06] transition border-none text-[#1d1d1f] dark:text-[#fafafa] rounded-xl flex items-center gap-1.5 {installing ? 'pointer-events-none opacity-20' : ''}"
+      class="text-[12px] px-3 py-1.5 bg-black/[0.04] dark:bg-white/[0.06] transition border-none text-black dark:text-white rounded-xl flex items-center gap-1.5 {installing ? 'pointer-events-none opacity-50' : ''}"
       disabled={installing}
       onclick={async () => {
         installing = true
@@ -215,12 +218,12 @@
   <!-- Version -->
   <div class="py-4 flex items-center justify-between border-t border-white/[0.04]">
     <div>
-      <div class="text-[13px] opacity-70">{$i18n.t('settings.inference.version')}</div>
-      <div class="text-[11px] opacity-25 mt-0.5">{$i18n.t('settings.inference.versionDesc')}</div>
+      <div class="text-[13px]">{$i18n.t('settings.inference.version')}</div>
+      <div class="text-[11px] mt-0.5">{$i18n.t('settings.inference.versionDesc')}</div>
     </div>
     <input
       type="text"
-      class="bg-black/[0.04] dark:bg-white/[0.06] text-[12px] text-[#1d1d1f] dark:text-[#fafafa] px-3 py-1.5 border-none outline-none rounded-xl opacity-60 w-24 text-right font-mono"
+      class="bg-black/[0.04] dark:bg-white/[0.06] text-[12px] text-black dark:text-white px-3 py-1.5 border-none outline-none rounded-xl w-24 text-right font-mono"
       value={$config?.llamaCpp?.version ?? 'latest'}
       onchange={(e) => updateConfig('version', (e.target as HTMLInputElement).value.trim() || 'latest')}
     />
@@ -229,11 +232,11 @@
   <!-- Variant -->
   <div class="py-4 flex items-center justify-between border-t border-white/[0.04]">
     <div>
-      <div class="text-[13px] opacity-70">{$i18n.t('settings.inference.variant')}</div>
-      <div class="text-[11px] opacity-25 mt-0.5">{$i18n.t('settings.inference.variantDesc')}</div>
+      <div class="text-[13px]">{$i18n.t('settings.inference.variant')}</div>
+      <div class="text-[11px] mt-0.5">{$i18n.t('settings.inference.variantDesc')}</div>
     </div>
     <select
-      class="bg-black/[0.04] dark:bg-white/[0.06] text-[12px] text-[#1d1d1f] dark:text-[#fafafa] px-3 py-1.5 border-none outline-none rounded-xl opacity-60"
+      class="bg-black/[0.04] dark:bg-white/[0.06] text-[12px] text-black dark:text-white px-3 py-1.5 border-none outline-none rounded-xl"
       onchange={(e) => updateConfig('variant', (e.target as HTMLSelectElement).value)}
     >
       {#each variantOptions as opt}
@@ -247,39 +250,39 @@
   <div class="py-4">
     <div class="flex items-center justify-between mb-3">
       <div>
-        <div class="text-[13px] opacity-70 flex items-center gap-1.5">
+        <div class="text-[13px] flex items-center gap-1.5">
           {$i18n.t('settings.inference.llamaServer')}
-          <span class="text-[9px] opacity-30 uppercase tracking-wide">{$i18n.t('common.experimental')}</span>
+          <span class="text-[9px] uppercase tracking-wide">{$i18n.t('common.experimental')}</span>
         </div>
-        <div class="text-[11px] opacity-25 mt-0.5">
+        <div class="text-[11px] mt-0.5">
           {$i18n.t('settings.inference.llamaServerDesc')}
         </div>
       </div>
       <div class="flex items-center gap-1.5">
         {#if isRunning}
           <div class="w-1.5 h-1.5 rounded-full bg-emerald-400"></div>
-          <span class="text-[12px] opacity-50">{$i18n.t('common.running')}</span>
+          <span class="text-[12px]">{$i18n.t('common.running')}</span>
         {:else if lsInfo?.status === 'starting' || lsInfo?.status === 'setting-up'}
           <div class="w-1.5 h-1.5 rounded-full bg-amber-400/60 animate-pulse"></div>
-          <span class="text-[12px] opacity-30 capitalize">{lsInfo?.status === 'setting-up' ? $i18n.t('settings.inference.settingUp') : $i18n.t('common.starting')}</span>
+          <span class="text-[12px] capitalize">{lsInfo?.status === 'setting-up' ? $i18n.t('settings.inference.settingUp') : $i18n.t('common.starting')}</span>
         {:else if lsInfo?.status === 'failed'}
           <div class="w-1.5 h-1.5 rounded-full bg-red-400/70"></div>
-          <span class="text-[12px] opacity-30">{$i18n.t('common.failed')}</span>
+          <span class="text-[12px]">{$i18n.t('common.failed')}</span>
         {:else}
           <div class="w-1.5 h-1.5 rounded-full bg-black/15 dark:bg-white/20"></div>
-          <span class="text-[12px] opacity-30">{$i18n.t('common.stopped')}</span>
+          <span class="text-[12px]">{$i18n.t('common.stopped')}</span>
         {/if}
       </div>
     </div>
 
     {#if setupStatus}
-      <div class="text-[11px] opacity-30 mb-3 font-mono truncate">{setupStatus}</div>
+      <div class="text-[11px] mb-3 font-mono truncate">{setupStatus}</div>
     {/if}
 
     <div class="flex items-center gap-2">
       {#if isRunning}
         <button
-          class="text-[12px] opacity-40 hover:opacity-70 px-3 py-1.5 bg-black/[0.04] dark:bg-white/[0.06] transition border-none text-[#1d1d1f] dark:text-[#fafafa] rounded-xl flex items-center gap-1.5 {stopping ? 'pointer-events-none opacity-20' : ''}"
+          class="text-[12px] px-3 py-1.5 bg-black/[0.04] dark:bg-white/[0.06] transition border-none text-black dark:text-white rounded-xl flex items-center gap-1.5 {stopping ? 'pointer-events-none opacity-50' : ''}"
           disabled={stopping}
           onclick={stopServer}
         >
@@ -294,7 +297,7 @@
           {/if}
         </button>
         <button
-          class="text-[12px] opacity-40 hover:opacity-70 px-3 py-1.5 bg-black/[0.04] dark:bg-white/[0.06] transition border-none text-[#1d1d1f] dark:text-[#fafafa] rounded-xl flex items-center gap-1.5 {restarting ? 'pointer-events-none opacity-20' : ''}"
+          class="text-[12px] px-3 py-1.5 bg-black/[0.04] dark:bg-white/[0.06] transition border-none text-black dark:text-white rounded-xl flex items-center gap-1.5 {restarting ? 'pointer-events-none opacity-50' : ''}"
           disabled={restarting}
           onclick={restartServer}
         >
@@ -310,7 +313,7 @@
         </button>
       {:else}
         <button
-          class="text-[12px] opacity-40 hover:opacity-70 px-3 py-1.5 bg-black/[0.04] dark:bg-white/[0.06] transition border-none text-[#1d1d1f] dark:text-[#fafafa] rounded-xl flex items-center gap-1.5 {starting ? 'pointer-events-none opacity-20' : ''}"
+          class="text-[12px] px-3 py-1.5 bg-black/[0.04] dark:bg-white/[0.06] transition border-none text-black dark:text-white rounded-xl flex items-center gap-1.5 {starting ? 'pointer-events-none opacity-50' : ''}"
           disabled={starting}
           onclick={startServer}
         >
@@ -327,7 +330,7 @@
       {/if}
 
       <button
-        class="text-[12px] opacity-40 hover:opacity-70 px-3 py-1.5 bg-black/[0.04] dark:bg-white/[0.06] transition border-none text-[#1d1d1f] dark:text-[#fafafa] rounded-xl flex items-center gap-1.5 {settingUp ? 'pointer-events-none opacity-20' : ''}"
+        class="text-[12px] px-3 py-1.5 bg-black/[0.04] dark:bg-white/[0.06] transition border-none text-black dark:text-white rounded-xl flex items-center gap-1.5 {settingUp ? 'pointer-events-none opacity-50' : ''}"
         disabled={settingUp}
         onclick={setupServer}
       >
@@ -347,20 +350,20 @@
   <!-- Running Instance Info -->
   {#if isRunning && lsInfo}
     <div class="py-4">
-      <div class="text-[13px] opacity-70 mb-3">{$i18n.t('settings.inference.runningInstance')}</div>
+      <div class="text-[13px] mb-3">{$i18n.t('settings.inference.runningInstance')}</div>
       <div class="flex flex-col gap-2">
         <div class="flex items-center justify-between">
-          <span class="text-[11px] opacity-30">URL</span>
-          <button class="text-[12px] opacity-50 font-mono hover:opacity-80 transition bg-transparent border-none text-[#1d1d1f] dark:text-[#fafafa] p-0 underline decoration-dotted underline-offset-2 cursor-pointer" onclick={() => window.open(lsInfo.url)}>{lsInfo.url}</button>
+          <span class="text-[11px]">URL</span>
+          <button class="text-[12px] font-mono transition bg-transparent border-none text-black dark:text-white p-0 underline decoration-dotted underline-offset-2 cursor-pointer" onclick={() => window.open(lsInfo.url)}>{lsInfo.url}</button>
         </div>
         <div class="flex items-center justify-between">
-          <span class="text-[11px] opacity-30">PID</span>
-          <span class="text-[12px] opacity-50 font-mono">{lsInfo.pid}</span>
+          <span class="text-[11px]">PID</span>
+          <span class="text-[12px] font-mono">{lsInfo.pid}</span>
         </div>
         {#if lsInfo.version}
         <div class="flex items-center justify-between">
-          <span class="text-[11px] opacity-30">{$i18n.t('settings.inference.build')}</span>
-          <span class="text-[12px] opacity-50 font-mono">{lsInfo.version}</span>
+          <span class="text-[11px]">{$i18n.t('settings.inference.build')}</span>
+          <span class="text-[12px] font-mono">{lsInfo.version}</span>
         </div>
         {/if}
       </div>
@@ -371,29 +374,29 @@
   <div class="py-4">
     <div class="flex items-center justify-between">
       <div>
-        <div class="text-[13px] opacity-70">{$i18n.t('settings.about.softwareUpdate')}</div>
+        <div class="text-[13px]">{$i18n.t('settings.about.softwareUpdate')}</div>
         {#if updateStatus === 'up-to-date'}
-          <div class="text-[11px] opacity-25 mt-0.5">{$i18n.t('settings.inference.upToDate')}</div>
+          <div class="text-[11px] mt-0.5">{$i18n.t('settings.inference.upToDate')}</div>
         {:else if updateStatus === 'available' && updateInfo?.latestVersion}
-          <div class="text-[11px] opacity-40 mt-0.5">{$i18n.t('settings.inference.updateAvailable', { version: updateInfo.latestVersion })}</div>
+          <div class="text-[11px] mt-0.5">{$i18n.t('settings.inference.updateAvailable', { version: updateInfo.latestVersion })}</div>
         {:else if updateStatus === 'updating'}
-          <div class="text-[11px] opacity-25 mt-0.5">{$i18n.t('settings.inference.updating')}</div>
+          <div class="text-[11px] mt-0.5">{$i18n.t('settings.inference.updating')}</div>
         {:else if updateStatus === 'error'}
-          <div class="text-[11px] text-red-400/60 mt-0.5">{updateError}</div>
+          <div class="text-[11px] text-red-600 dark:text-red-400 mt-0.5">{updateError}</div>
         {/if}
       </div>
 
       <div>
         {#if updateStatus === 'idle' || updateStatus === 'up-to-date' || updateStatus === 'error'}
           <button
-            class="text-[12px] opacity-40 hover:opacity-70 px-3 py-1.5 bg-black/[0.04] dark:bg-white/[0.06] transition border-none text-[#1d1d1f] dark:text-[#fafafa] rounded-xl"
+            class="text-[12px] px-3 py-1.5 bg-black/[0.04] dark:bg-white/[0.06] transition border-none text-black dark:text-white rounded-xl"
             onclick={checkUpdate}
           >
             {$i18n.t('settings.inference.checkForUpdates')}
           </button>
         {:else if updateStatus === 'checking'}
           <button
-            class="text-[12px] opacity-30 px-3 py-1.5 bg-black/[0.04] dark:bg-white/[0.06] border-none text-[#1d1d1f] dark:text-[#fafafa] rounded-xl pointer-events-none flex items-center gap-1.5"
+            class="text-[12px] px-3 py-1.5 bg-black/[0.04] dark:bg-white/[0.06] border-none text-black dark:text-white rounded-xl pointer-events-none flex items-center gap-1.5"
             disabled
           >
             <svg class="w-3 h-3 animate-spin" viewBox="0 0 24 24" fill="none">
@@ -403,14 +406,14 @@
           </button>
         {:else if updateStatus === 'available'}
           <button
-            class="text-[12px] opacity-50 hover:opacity-80 px-3 py-1.5 bg-black/[0.06] dark:bg-white/[0.08] transition border-none text-[#1d1d1f] dark:text-[#fafafa] rounded-xl"
+            class="text-[12px] px-3 py-1.5 bg-black/[0.06] dark:bg-white/[0.08] transition border-none text-black dark:text-white rounded-xl"
             onclick={doUpdate}
           >
             {$i18n.t('common.update')}
           </button>
         {:else if updateStatus === 'updating'}
           <button
-            class="text-[12px] opacity-30 px-3 py-1.5 bg-black/[0.04] dark:bg-white/[0.06] border-none text-[#1d1d1f] dark:text-[#fafafa] rounded-xl pointer-events-none flex items-center gap-1.5"
+            class="text-[12px] px-3 py-1.5 bg-black/[0.04] dark:bg-white/[0.06] border-none text-black dark:text-white rounded-xl pointer-events-none flex items-center gap-1.5"
             disabled
           >
             <div class="w-2.5 h-2.5 rounded-full border-2 border-black/20 dark:border-white/30 border-t-transparent animate-spin"></div>
@@ -424,8 +427,8 @@
   <!-- Start on Launch -->
   <div class="py-4 flex items-center justify-between">
     <div>
-      <div class="text-[13px] opacity-70">{$i18n.t('settings.inference.startOnLaunch')}</div>
-      <div class="text-[11px] opacity-25 mt-0.5">{$i18n.t('settings.inference.startOnLaunchDesc')}</div>
+      <div class="text-[13px]">{$i18n.t('settings.inference.startOnLaunch')}</div>
+      <div class="text-[11px] mt-0.5">{$i18n.t('settings.inference.startOnLaunchDesc')}</div>
     </div>
     <Switch
       checked={$config?.llamaCpp?.enabled ?? false}
@@ -436,12 +439,12 @@
   <!-- Version -->
   <div class="py-4 flex items-center justify-between">
     <div>
-      <div class="text-[13px] opacity-70">{$i18n.t('settings.inference.version')}</div>
-      <div class="text-[11px] opacity-25 mt-0.5">{$i18n.t('settings.inference.versionDesc')}</div>
+      <div class="text-[13px]">{$i18n.t('settings.inference.version')}</div>
+      <div class="text-[11px] mt-0.5">{$i18n.t('settings.inference.versionDesc')}</div>
     </div>
     <input
       type="text"
-      class="bg-black/[0.04] dark:bg-white/[0.06] text-[12px] text-[#1d1d1f] dark:text-[#fafafa] px-3 py-1.5 border-none outline-none rounded-xl opacity-60 w-24 text-right font-mono"
+      class="bg-black/[0.04] dark:bg-white/[0.06] text-[12px] text-black dark:text-white px-3 py-1.5 border-none outline-none rounded-xl w-24 text-right font-mono"
       value={$config?.llamaCpp?.version ?? 'latest'}
       onchange={(e) => updateConfig('version', (e.target as HTMLInputElement).value.trim() || 'latest')}
     />
@@ -450,11 +453,11 @@
   <!-- Variant -->
   <div class="py-4 flex items-center justify-between">
     <div>
-      <div class="text-[13px] opacity-70">{$i18n.t('settings.inference.variant')}</div>
-      <div class="text-[11px] opacity-25 mt-0.5">{$i18n.t('settings.inference.variantDesc')}</div>
+      <div class="text-[13px]">{$i18n.t('settings.inference.variant')}</div>
+      <div class="text-[11px] mt-0.5">{$i18n.t('settings.inference.variantDesc')}</div>
     </div>
     <select
-      class="bg-black/[0.04] dark:bg-white/[0.06] text-[12px] text-[#1d1d1f] dark:text-[#fafafa] px-3 py-1.5 border-none outline-none rounded-xl opacity-60"
+      class="bg-black/[0.04] dark:bg-white/[0.06] text-[12px] text-black dark:text-white px-3 py-1.5 border-none outline-none rounded-xl"
       onchange={(e) => updateConfig('variant', (e.target as HTMLSelectElement).value)}
     >
       {#each variantOptions as opt}
@@ -466,12 +469,12 @@
   <!-- Port -->
   <div class="py-4 flex items-center justify-between">
     <div>
-      <div class="text-[13px] opacity-70">{$i18n.t('settings.inference.port')}</div>
-      <div class="text-[11px] opacity-25 mt-0.5">{$i18n.t('settings.inference.portDesc')}</div>
+      <div class="text-[13px]">{$i18n.t('settings.inference.port')}</div>
+      <div class="text-[11px] mt-0.5">{$i18n.t('settings.inference.portDesc')}</div>
     </div>
     <input
       type="number"
-      class="bg-black/[0.04] dark:bg-white/[0.06] text-[12px] text-[#1d1d1f] dark:text-[#fafafa] px-3 py-1.5 border-none outline-none rounded-xl opacity-60 w-20 text-right"
+      class="bg-black/[0.04] dark:bg-white/[0.06] text-[12px] text-black dark:text-white px-3 py-1.5 border-none outline-none rounded-xl w-20 text-right"
       value={$config?.llamaCpp?.port ?? 18881}
       onchange={(e) => updateConfig('port', parseInt((e.target as HTMLInputElement).value) || 18881)}
     />
@@ -480,12 +483,12 @@
   <!-- Extra Arguments -->
   <div class="py-4 flex items-center justify-between gap-4">
     <div class="shrink-0">
-      <div class="text-[13px] opacity-70">{$i18n.t('settings.inference.extraArguments')}</div>
-      <div class="text-[11px] opacity-25 mt-0.5">{$i18n.t('settings.inference.extraArgumentsDesc')}</div>
+      <div class="text-[13px]">{$i18n.t('settings.inference.extraArguments')}</div>
+      <div class="text-[11px] mt-0.5">{$i18n.t('settings.inference.extraArgumentsDesc')}</div>
     </div>
     <input
       type="text"
-      class="bg-black/[0.04] dark:bg-white/[0.06] text-[12px] text-[#1d1d1f] dark:text-[#fafafa] px-3 py-1.5 border-none outline-none rounded-xl opacity-60 min-w-0 flex-1 max-w-[280px] text-right font-mono"
+      class="bg-black/[0.04] dark:bg-white/[0.06] text-[12px] text-black dark:text-white px-3 py-1.5 border-none outline-none rounded-xl min-w-0 flex-1 max-w-[280px] text-right font-mono"
       placeholder={$i18n.t('settings.inference.extraArgumentsPlaceholder')}
       value={($config?.llamaCpp?.extraArgs ?? []).join(' ')}
       onchange={(e) => {
@@ -499,11 +502,11 @@
   {#if lsInfo?.binaryPath}
   <div class="py-4 flex items-center justify-between">
     <div>
-      <div class="text-[13px] opacity-70">{$i18n.t('settings.inference.uninstall')}</div>
-      <div class="text-[11px] opacity-25 mt-0.5">{$i18n.t('settings.inference.uninstallDesc')}</div>
+      <div class="text-[13px]">{$i18n.t('settings.inference.uninstall')}</div>
+      <div class="text-[11px] mt-0.5">{$i18n.t('settings.inference.uninstallDesc')}</div>
     </div>
     <button
-      class="text-[12px] opacity-40 hover:opacity-70 px-3 py-1.5 bg-black/[0.04] dark:bg-white/[0.06] transition border-none text-[#1d1d1f] dark:text-[#fafafa] rounded-xl flex items-center gap-1.5 {uninstalling ? 'pointer-events-none opacity-20' : ''}"
+      class="text-[12px] px-3 py-1.5 bg-black/[0.04] dark:bg-white/[0.06] transition border-none text-black dark:text-white rounded-xl flex items-center gap-1.5 {uninstalling ? 'pointer-events-none opacity-50' : ''}"
       disabled={uninstalling}
       onclick={async () => {
         if (confirm($i18n.t('settings.inference.uninstallConfirm'))) {

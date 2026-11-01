@@ -233,8 +233,8 @@
 
   const renderMarkdown = (md: string): string => {
     return md
-      .replace(/^### (.+)$/gm, '<div class="text-[11px] opacity-50 font-semibold mt-3 mb-1">$1</div>')
-      .replace(/^- (.+)$/gm, '<div class="text-[11px] opacity-40 pl-2 leading-relaxed">• $1</div>')
+      .replace(/^### (.+)$/gm, '<div class="text-[11px] font-semibold mt-3 mb-1">$1</div>')
+      .replace(/^- (.+)$/gm, '<div class="text-[11px] pl-2 leading-relaxed">• $1</div>')
       .replace(/\*\*(.+?)\*\*/g, '<strong>$1</strong>')
       .replace(/`(.+?)`/g, '<code class="text-[10px] bg-white/[0.06] px-1 py-0.5 rounded">$1</code>')
   }
@@ -242,11 +242,11 @@
 
 <div class="flex flex-col divide-y divide-white/[0.04]">
   <button
-    class="w-full py-4 flex items-center justify-between bg-transparent border-none cursor-default text-[#1d1d1f] dark:text-[#fafafa]"
+    class="w-full py-4 flex items-center justify-between bg-transparent border-none cursor-default text-black dark:text-white"
     onclick={handleVersionClick}
   >
-    <div class="text-[13px] opacity-70">{$i18n.t('settings.about.desktopVersion')}</div>
-    <div class="text-[12px] opacity-30">{$appInfo?.version ?? $i18n.t('common.unknown')}</div>
+    <div class="text-[13px]">{$i18n.t('settings.about.desktopVersion')}</div>
+    <div class="text-[12px]">{$appInfo?.version ?? $i18n.t('common.unknown')}</div>
   </button>
 
   {#if openWebuiVersion}
@@ -254,8 +254,8 @@
       class="w-full py-4 flex items-center justify-between bg-transparent border-none cursor-pointer group"
       onclick={() => openRelease('open-webui/open-webui', openWebuiVersion!)}
     >
-      <div class="text-[13px] opacity-70">{$i18n.t('settings.about.openWebuiVersion')}</div>
-      <div class="text-[12px] opacity-30 group-hover:opacity-50 transition">{openWebuiVersion}</div>
+      <div class="text-[13px]">{$i18n.t('settings.about.openWebuiVersion')}</div>
+      <div class="text-[12px] transition">{openWebuiVersion}</div>
     </button>
   {/if}
 
@@ -264,45 +264,45 @@
       class="w-full py-4 flex items-center justify-between bg-transparent border-none cursor-pointer group"
       onclick={() => openRelease('ggml-org/llama.cpp', llamaCppVersion!, '')}
     >
-      <div class="text-[13px] opacity-70">{$i18n.t('settings.about.llamaCppVersion')}</div>
-      <div class="text-[12px] opacity-30 group-hover:opacity-50 transition">{llamaCppVersion}</div>
+      <div class="text-[13px]">{$i18n.t('settings.about.llamaCppVersion')}</div>
+      <div class="text-[12px] transition">{llamaCppVersion}</div>
     </button>
   {/if}
 
   <div class="py-4 flex items-center justify-between">
-    <div class="text-[13px] opacity-70">{$i18n.t('settings.about.platform')}</div>
-    <div class="text-[12px] opacity-30">{$appInfo?.platform ?? $i18n.t('common.unknown')}</div>
+    <div class="text-[13px]">{$i18n.t('settings.about.platform')}</div>
+    <div class="text-[12px]">{$appInfo?.platform ?? $i18n.t('common.unknown')}</div>
   </div>
 
   <!-- Update section -->
   <div class="py-4">
     <div class="flex items-center justify-between">
       <div>
-        <div class="text-[13px] opacity-70">{$i18n.t('settings.about.softwareUpdate')}</div>
+        <div class="text-[13px]">{$i18n.t('settings.about.softwareUpdate')}</div>
         {#if updateStatus === 'up-to-date'}
-          <div class="text-[11px] opacity-25 mt-0.5">{$i18n.t('settings.about.upToDate')}</div>
+          <div class="text-[11px] mt-0.5">{$i18n.t('settings.about.upToDate')}</div>
         {:else if updateStatus === 'available' && updateVersion}
-          <div class="text-[11px] opacity-40 mt-0.5">{$i18n.t('settings.about.versionAvailable', { version: updateVersion })}</div>
+          <div class="text-[11px] mt-0.5">{$i18n.t('settings.about.versionAvailable', { version: updateVersion })}</div>
         {:else if updateStatus === 'downloading'}
-          <div class="text-[11px] opacity-25 mt-0.5">{$i18n.t('settings.about.downloadingPercent', { percent: downloadPercent })}</div>
+          <div class="text-[11px] mt-0.5">{$i18n.t('settings.about.downloadingPercent', { percent: downloadPercent })}</div>
         {:else if updateStatus === 'downloaded'}
-          <div class="text-[11px] opacity-40 mt-0.5">{$i18n.t('settings.about.updateReady')}</div>
+          <div class="text-[11px] mt-0.5">{$i18n.t('settings.about.updateReady')}</div>
         {:else if updateStatus === 'error'}
-          <div class="text-[11px] text-red-400/60 mt-0.5">{updateError}</div>
+          <div class="text-[11px] text-red-600 dark:text-red-400 mt-0.5">{updateError}</div>
         {/if}
       </div>
 
       <div>
         {#if updateStatus === 'idle' || updateStatus === 'up-to-date' || updateStatus === 'error'}
           <button
-            class="text-[12px] opacity-40 hover:opacity-70 px-3 py-1.5 bg-black/[0.04] dark:bg-white/[0.06] transition border-none text-[#1d1d1f] dark:text-[#fafafa] rounded-xl"
+            class="text-[12px] px-3 py-1.5 bg-black/[0.04] dark:bg-white/[0.06] transition border-none text-black dark:text-white rounded-xl"
             onclick={handleCheck}
           >
             {$i18n.t('settings.about.checkForUpdates')}
           </button>
         {:else if updateStatus === 'checking'}
           <button
-            class="text-[12px] opacity-30 px-3 py-1.5 bg-black/[0.04] dark:bg-white/[0.06] border-none text-[#1d1d1f] dark:text-[#fafafa] rounded-xl pointer-events-none flex items-center gap-1.5"
+            class="text-[12px] px-3 py-1.5 bg-black/[0.04] dark:bg-white/[0.06] border-none text-black dark:text-white rounded-xl pointer-events-none flex items-center gap-1.5"
             disabled
           >
             <svg class="w-3 h-3 animate-spin" viewBox="0 0 24 24" fill="none">
@@ -312,7 +312,7 @@
           </button>
         {:else if updateStatus === 'available'}
           <button
-            class="text-[12px] opacity-50 hover:opacity-80 px-3 py-1.5 bg-black/[0.06] dark:bg-white/[0.08] transition border-none text-[#1d1d1f] dark:text-[#fafafa] rounded-xl"
+            class="text-[12px] px-3 py-1.5 bg-black/[0.06] dark:bg-white/[0.08] transition border-none text-black dark:text-white rounded-xl"
             onclick={handleDownload}
           >
             {$i18n.t('settings.about.downloadUpdate')}
@@ -325,11 +325,11 @@
                 style="width: {downloadPercent}%"
               ></div>
             </div>
-            <span class="text-[11px] opacity-30">{downloadPercent}%</span>
+            <span class="text-[11px]">{downloadPercent}%</span>
           </div>
         {:else if updateStatus === 'downloaded'}
           <button
-            class="text-[12px] opacity-50 hover:opacity-80 px-3 py-1.5 bg-black/[0.06] dark:bg-white/[0.08] transition border-none text-[#1d1d1f] dark:text-[#fafafa] rounded-xl"
+            class="text-[12px] px-3 py-1.5 bg-black/[0.06] dark:bg-white/[0.08] transition border-none text-black dark:text-white rounded-xl"
             onclick={handleInstall}
           >
             {$i18n.t('settings.about.restartToUpdate')}
@@ -342,7 +342,7 @@
   <!-- Changelog section -->
   <div class="py-4">
     <button
-      class="text-[12px] opacity-40 hover:opacity-70 transition bg-transparent border-none text-[#1d1d1f] dark:text-[#fafafa] flex items-center gap-1.5"
+      class="text-[12px] transition bg-transparent border-none text-black dark:text-white flex items-center gap-1.5"
       onclick={toggleChangelog}
     >
       <svg
@@ -357,9 +357,9 @@
     {#if changelogOpen}
       <div class="mt-3 max-h-64 overflow-y-auto pr-1">
         {#if changelogLoading}
-          <div class="text-[11px] opacity-25">{$i18n.t('common.loading')}</div>
+          <div class="text-[11px]">{$i18n.t('common.loading')}</div>
         {:else if changelogEntries.length === 0}
-          <div class="text-[11px] opacity-25">{$i18n.t('settings.about.noChangelog')}</div>
+          <div class="text-[11px]">{$i18n.t('settings.about.noChangelog')}</div>
         {:else}
           {#each changelogEntries as entry, i}
             {#if i > 0}
@@ -367,9 +367,9 @@
             {/if}
             <div>
               <div class="flex items-baseline gap-2">
-                <span class="text-[12px] opacity-60 font-medium">{entry.version}</span>
+                <span class="text-[12px] font-medium">{entry.version}</span>
                 {#if entry.date}
-                  <span class="text-[10px] opacity-20">{entry.date}</span>
+                  <span class="text-[10px]">{entry.date}</span>
                 {/if}
               </div>
               {#if entry.body}
@@ -386,7 +386,7 @@
 
   <div class="py-4">
     <button
-      class="text-[12px] opacity-40 hover:opacity-70 transition bg-transparent border-none text-[#1d1d1f] dark:text-[#fafafa]"
+      class="text-[12px] transition bg-transparent border-none text-black dark:text-white"
       onclick={openGithub}
     >
       {$i18n.t('settings.about.viewOnGithub')}
@@ -394,7 +394,7 @@
   </div>
 </div>
 
-<div class="text-[10px] opacity-15 mt-4 leading-relaxed">{$i18n.t('settings.about.copyright')}<br />{$i18n.t('settings.about.createdBy')}</div>
+<div class="text-[10px] mt-4 leading-relaxed">{$i18n.t('settings.about.copyright')}<br />{$i18n.t('settings.about.createdBy')}</div>
 
 <!-- Easter Egg: Matrix Rain Overlay -->
 {#if easterEggActive}
