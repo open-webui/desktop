@@ -75,8 +75,6 @@ import icon from '../../resources/icon.png?asset'
 import { existsSync, writeFileSync, unlinkSync } from 'fs'
 
 if (process.platform === 'linux') {
-  app.commandLine.appendSwitch('no-sandbox')
-
   // Work around /dev/shm access failures in AppImage and other containerised
   // environments.  AppImage's FUSE mount can restrict child-process access to
   // /dev/shm even when --no-sandbox is set, causing FATAL crashes in the
@@ -104,9 +102,6 @@ if (process.platform === 'linux') {
   app.commandLine.appendSwitch('use-gl', 'angle')
   app.commandLine.appendSwitch('use-angle', 'swiftshader')
 
-  // Disable the GPU sandbox — the sandbox setup triggers shared-memory
-  // allocation failures in /dev/shm.  The browser process is already
-  // un-sandboxed (--no-sandbox above).
   app.commandLine.appendSwitch('disable-gpu-sandbox')
 }
 
@@ -580,6 +575,20 @@ if (!gotTheLock) {
     // Log webview guest renderer crashes for diagnostics — the existing
     // 'crashed' listener in Content.svelte surfaces these to the user.
     app.on('web-contents-created', (_event, contents) => {
+      contents.on('will-attach-webview', (event, preferences, params) => {
+        if (!/^https?:\/\//i.test(params.src)) {
+          event.preventDefault()
+          return
+        }
+        preferences.preload = join(__dirname, '../preload/content-preload.js')
+        preferences.nodeIntegration = false
+        preferences.nodeIntegrationInWorker = false
+        preferences.nodeIntegrationInSubFrames = false
+        preferences.contextIsolation = true
+        preferences.sandbox = true
+        preferences.webSecurity = true
+        preferences.allowRunningInsecureContent = false
+      })
       contents.on('render-process-gone', (_e, details) => {
         if (details.reason !== 'clean-exit') {
           log.error(
@@ -616,7 +625,7 @@ if (!gotTheLock) {
         // Electron <webview> guests don't show a context menu by default,
         // which blocks right-click → Paste / Autofill / password-manager
         // integration on login pages.  Build a native menu with standard
-        // editing actions, spell-check suggestions, and link handling.
+        // editing actions, spell-check suggestions, and link/image handling.
         contents.on('context-menu', (_event, params) => {
           const menuItems: Electron.MenuItemConstructorOptions[] = []
 
@@ -659,6 +668,24 @@ if (!gotTheLock) {
             // Non-editable text selection
             menuItems.push(
               { label: 'Copy', role: 'copy', enabled: params.editFlags.canCopy }
+            )
+          }
+
+          if (params.mediaType === 'image') {
+            if (menuItems.length > 0 && menuItems[menuItems.length - 1].type !== 'separator') {
+              menuItems.push({ type: 'separator' })
+            }
+            menuItems.push(
+              {
+                label: 'Copy Image',
+                enabled: params.hasImageContents,
+                click: () => contents.copyImageAt(params.x, params.y)
+              },
+              {
+                label: 'Save Image As…',
+                enabled: !!params.srcURL,
+                click: () => contents.downloadURL(params.srcURL)
+              }
             )
           }
 

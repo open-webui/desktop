@@ -1,5 +1,6 @@
 [
   { "code": "en-US", "title": "English (US)" },
+  { "code": "bg-BG", "title": "Български" },
   { "code": "de-DE", "title": "Deutsch" },
   { "code": "es-ES", "title": "Español" },
   { "code": "fr-FR", "title": "Français" },

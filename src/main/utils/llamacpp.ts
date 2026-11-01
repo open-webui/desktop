@@ -40,6 +40,7 @@ export const getLlamaCppInfo = () => {
       if (fs.existsSync(cacheBase)) {
         const dirs = fs.readdirSync(cacheBase, { withFileTypes: true })
           .filter((d) => d.isDirectory())
+          .sort((a, b) => b.name.localeCompare(a.name, undefined, { numeric: true }))
         for (const d of dirs) {
           const found = findInstalledBinary(path.join(cacheBase, d.name))
           if (found) {
@@ -246,18 +247,18 @@ const findInstalledBinary = (versionDir: string): string | null => {
 // ─── Setup (Download & Extract) ─────────────────────────
 
 let setupTask: Promise<string> | undefined
-export const setupLlamaCpp = (onStatus?: (status: string) => void, signal?: AbortSignal): Promise<string> => {
-  if (!setupTask) setupTask = prepareLlamaCpp(onStatus, signal).finally(() => { setupTask = undefined })
+export const setupLlamaCpp = (onStatus?: (status: string) => void, signal?: AbortSignal, requestedVersion?: string): Promise<string> => {
+  if (!setupTask) setupTask = prepareLlamaCpp(onStatus, signal, requestedVersion).finally(() => { setupTask = undefined })
   return setupTask
 }
 
 const prepareLlamaCpp = async (
-  onStatus?: (status: string) => void, signal?: AbortSignal
+  onStatus?: (status: string) => void, signal?: AbortSignal, requestedVersion?: string
 ): Promise<string> => {
   signal?.throwIfAborted()
   const config = await getConfig()
   const llamaConfig = config.llamaCpp ?? {}
-  const version = llamaConfig.version || 'latest'
+  const version = requestedVersion || llamaConfig.version || 'latest'
   const assetName = llamaConfig.assetName?.trim() || ''
   const variant = assetName ? '' : resolveVariant(llamaConfig.variant)
   const useAssetCache = !!assetName || variant !== 'cpu'
@@ -274,10 +275,8 @@ const prepareLlamaCpp = async (
     const { pattern } = getAssetPattern(tag, variant, assetName)
     return findBinary(useAssetCache ? getAssetDir(versionDir, pattern) : versionDir)
   }
-  let cachedBinary: string | null = null
-
   // ── Check for existing cached binary before any network request ──
-  // This allows llama.cpp to start offline when previously installed.
+  // Startup reuses installed binaries; only an explicit update resolves a newer release.
   if (version !== 'latest') {
     // Pinned version — check its specific directory
     const pinnedBinary = getCachedBinary(version)
@@ -293,15 +292,15 @@ const prepareLlamaCpp = async (
       const cachedVersions = fs.readdirSync(cacheBase, { withFileTypes: true })
         .filter((d) => d.isDirectory())
         .map((d) => d.name)
+        .sort((a, b) => b.localeCompare(a, undefined, { numeric: true }))
 
       for (const cachedTag of cachedVersions) {
-        cachedBinary = getCachedBinary(cachedTag)
+        const cachedBinary = getCachedBinary(cachedTag)
         if (cachedBinary) {
-          log.info(`Found cached llama-server binary (${cachedTag}): ${cachedBinary}`)
-          // Still try to fetch release info to see if there's a newer version,
-          // but if the network is unavailable, use the cached binary.
+          log.info(`Using cached llama-server binary (${cachedTag}): ${cachedBinary}`)
           binaryPath = cachedBinary
-          break
+          onStatus?.('Ready')
+          return cachedBinary
         }
       }
     } catch {
@@ -327,13 +326,6 @@ const prepareLlamaCpp = async (
     releaseData = await response.json()
   } catch (error) {
     signal?.throwIfAborted()
-    // Network unavailable — fall back to cached binary if we found one
-    if (cachedBinary) {
-      log.info('Network unavailable, using cached llama-server binary:', cachedBinary)
-      binaryPath = cachedBinary
-      onStatus?.('Ready (offline)')
-      return cachedBinary
-    }
     throw new Error(
       `Failed to fetch release info (no internet?) and no cached llama.cpp binary found. ` +
       `Please connect to the internet for the initial llama.cpp installation. ` +
@@ -457,8 +449,7 @@ export const checkLlamaCppUpdate = async (): Promise<{ currentVersion: string | 
 export const updateLlamaCpp = async (
   onStatus?: (status: string) => void
 ): Promise<{ url?: string; status?: string; pid?: number; binaryPath?: string; version?: string | null }> => {
-  // 1. Verify network is available BEFORE destructive operations —
-  //    don't delete the old binary if we can't download a replacement.
+  // Resolve the requested update before stopping the running service.
   onStatus?.('Checking for updates…')
   let releaseTag: string
   try {
@@ -481,31 +472,17 @@ export const updateLlamaCpp = async (
     )
   }
 
-  // 2. Stop if running
+  // Stop if running.
   await stopLlamaCpp()
   await setupTask?.catch(() => {})
   
-  // 3. Clear old cache directory (safe — we verified network above)
-  const currentInfo = getLlamaCppInfo()
-  if (currentInfo.version) {
-    const cacheDir = path.join(getInstallDir(), 'llama.cpp', currentInfo.version)
-    if (fs.existsSync(cacheDir)) {
-      onStatus?.('Removing old version…')
-      try {
-        fs.rmSync(cacheDir, { recursive: true, force: true })
-      } catch (err) {
-        log.error(`Failed to remove old llama.cpp cache at ${cacheDir}:`, err)
-      }
-    }
-  }
-  
-  // 4. Temporarily enforce 'latest' in config so it fetches the newest
+  // Target this release explicitly so setup cannot reuse an older cached version.
+  // Keep installed binaries available if downloading the replacement fails.
+  onStatus?.('Downloading update…')
+  await setupLlamaCpp(onStatus, undefined, releaseTag)
+
   const config = await getConfig()
   await setConfig({ llamaCpp: { ...config.llamaCpp, version: 'latest' } })
-  
-  // 5. Download new release
-  onStatus?.('Downloading update…')
-  await setupLlamaCpp(onStatus)
   
   return getLlamaCppInfo()
 }
