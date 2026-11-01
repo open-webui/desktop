@@ -11,20 +11,13 @@
 
 ## Download
 
-| Platform | Installer |
-|----------|-----------|
-| macOS (Apple Silicon) | [**Download .dmg**](https://github.com/open-webui/desktop/releases/latest/download/open-webui-arm64.dmg) |
-| macOS (Intel) | [**Download .dmg**](https://github.com/open-webui/desktop/releases/latest/download/open-webui-x64.dmg) |
-| Windows x64 | [**Download .exe**](https://github.com/open-webui/desktop/releases/latest/download/open-webui-x64-setup.exe) |
-| Windows ARM64 | [**Download .exe**](https://github.com/open-webui/desktop/releases/latest/download/open-webui-arm64-setup.exe) |
-| Linux x64 (AppImage) | [**Download .AppImage**](https://github.com/open-webui/desktop/releases/latest/download/open-webui_x64.AppImage) |
-| Linux x64 (Debian/Ubuntu) | [**Download .deb**](https://github.com/open-webui/desktop/releases/latest/download/open-webui_amd64.deb) |
-| Linux x64 (Snap) | [**Download .snap**](https://github.com/open-webui/desktop/releases/latest/download/open-webui_amd64.snap) |
-| Linux x64 (Flatpak) | [**Download .flatpak**](https://github.com/open-webui/desktop/releases/latest/download/open-webui.flatpak) |
-| Linux ARM64 (AppImage) | [**Download .AppImage**](https://github.com/open-webui/desktop/releases/latest/download/open-webui_arm64.AppImage) |
-| Linux ARM64 (Debian/Ubuntu) | [**Download .deb**](https://github.com/open-webui/desktop/releases/latest/download/open-webui_arm64.deb) |
+- **macOS:** [Apple Silicon](https://github.com/open-webui/desktop/releases/latest/download/open-webui-arm64.dmg) · [Intel](https://github.com/open-webui/desktop/releases/latest/download/open-webui-x64.dmg)
+- **Windows:** [Intel / AMD (x64)](https://github.com/open-webui/desktop/releases/latest/download/open-webui-x64-setup.exe) · [ARM64](https://github.com/open-webui/desktop/releases/latest/download/open-webui-arm64-setup.exe)
+- **Linux (AppImage):** [Intel / AMD (x64)](https://github.com/open-webui/desktop/releases/latest/download/open-webui_x86_64.AppImage) · [ARM64](https://github.com/open-webui/desktop/releases/latest/download/open-webui_arm64.AppImage)
 
-Internet is required for installation and updates. [All releases →](https://github.com/open-webui/desktop/releases)
+Debian/Ubuntu, Snap, and Flatpak packages are available on the [releases page](https://github.com/open-webui/desktop/releases).
+
+Internet is required for installation and updates.
 
 ## How It Works
 
