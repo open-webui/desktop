@@ -639,7 +639,7 @@ export interface AppConfig {
 const DEFAULT_CONFIG: AppConfig = {
   version: 1,
   runInBackground: true,
-  globalShortcut: 'Alt+CommandOrControl+O',
+  globalShortcut: 'CommandOrControl+Shift+O',
   installDir: '',
   dataDir: '',
   localServer: {

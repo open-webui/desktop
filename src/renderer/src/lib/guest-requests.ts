@@ -1,7 +1,6 @@
 // Embedded pages get these capabilities only, never the desktop process/config API.
 interface GuestAPI {
   getVersion(): Promise<unknown>
-  getAppInfo(): Promise<unknown>
   openInBrowser(url: string): Promise<unknown>
   notification(title: string, body: string): Promise<unknown>
 }
@@ -14,9 +13,9 @@ export async function handleGuestRequest(
       return api.getVersion()
     case 'app:info':
     case 'getAppInfo':
-      return api.getAppInfo()
     case 'app:data':
-      return {}
+      // Keep WebUI in its normal interface, without companion identity or state.
+      return null
     case 'openInBrowser': {
       if (
         typeof request.url !== 'string' ||
