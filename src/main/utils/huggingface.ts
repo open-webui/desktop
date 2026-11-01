@@ -68,7 +68,7 @@ const getHfCacheDir = (): string => {
 }
 
 const repoSlug = (repo: string): string => {
-  if (typeof repo !== 'string' || !/^[\w-]+\/[\w.-]+$/.test(repo) || repo.split('/').includes('..')) {
+  if (typeof repo !== 'string' || !/^[\w-]+\/[\w][\w.-]*$/.test(repo)) {
     throw new Error('Invalid Hugging Face repository')
   }
   return repo.replace('/', '--')
@@ -186,6 +186,7 @@ export const downloadModel = async (
     fs.mkdirSync(path.dirname(destPath), { recursive: true })
     const downloadUrl = `https://huggingface.co/${repo}/resolve/main/${filename.split('/').map(encodeURIComponent).join('/')}`
     await downloadFileWithProgress(downloadUrl, destPath, (percent, downloadedBytes, totalBytes) => {
+      if (!totalBytes && expectedSize) percent = downloadedBytes / expectedSize * 100
       onProgress?.({ percent, downloadedBytes, totalBytes: totalBytes || expectedSize || 0 })
     }, controller.signal, file.sha256, headers)
   } finally {

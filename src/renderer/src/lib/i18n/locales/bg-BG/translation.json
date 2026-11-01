@@ -128,6 +128,9 @@
 
   "settings.general.launchAtLogin": "Стартиране при влизане",
   "settings.general.launchAtLoginDesc": "Отваряне на приложението при влизане в системата",
+  "settings.general.startMinimized": "Стартиране минимизирано в системната област",
+  "settings.general.startMinimizedDesc": "Стартиране със скрит прозорец в системната област",
+  "settings.general.toggleStartMinimized": "Превключване на стартирането минимизирано в системната област",
   "settings.general.runInBackground": "Работа във фонов режим",
   "settings.general.runInBackgroundDesc": "Продължаване на работата в системната област след затваряне",
   "settings.general.globalShortcut": "Глобална клавишна комбинация",

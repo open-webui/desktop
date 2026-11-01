@@ -128,6 +128,9 @@
 
   "settings.general.launchAtLogin": "ログイン時に起動",
   "settings.general.launchAtLoginDesc": "ログイン時にアプリを自動起動",
+  "settings.general.startMinimized": "システムトレイに最小化して起動",
+  "settings.general.startMinimizedDesc": "ウィンドウを表示せずシステムトレイで起動",
+  "settings.general.toggleStartMinimized": "システムトレイに最小化して起動する設定の切り替え",
   "settings.general.runInBackground": "バックグラウンドで実行",
   "settings.general.runInBackgroundDesc": "閉じた後もシステムトレイで実行を継続",
   "settings.general.globalShortcut": "グローバルショートカット",

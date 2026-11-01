@@ -66,6 +66,8 @@ linux:
 deb:
   artifactName: ${name}_${arch}.${ext}
 snap:
+  # Keep native dependencies compatible with the Linux x64 build runner.
+  base: core22
   artifactName: ${name}_${arch}.${ext}
 appImage:
   artifactName: ${name}_${arch}.${ext}

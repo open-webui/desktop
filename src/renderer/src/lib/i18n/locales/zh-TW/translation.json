@@ -128,6 +128,9 @@
 
   "settings.general.launchAtLogin": "登入時啟動",
   "settings.general.launchAtLoginDesc": "登入時自動開啟應用程式",
+  "settings.general.startMinimized": "啟動時最小化至系統匣",
+  "settings.general.startMinimizedDesc": "啟動時隱藏視窗並在系統匣中執行",
+  "settings.general.toggleStartMinimized": "切換啟動時最小化至系統匣",
   "settings.general.runInBackground": "在背景執行",
   "settings.general.runInBackgroundDesc": "關閉視窗後在系統匣中繼續執行",
   "settings.general.globalShortcut": "全域快速鍵",

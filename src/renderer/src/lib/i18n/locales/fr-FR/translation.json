@@ -128,6 +128,9 @@
 
   "settings.general.launchAtLogin": "Lancer à l'ouverture de session",
   "settings.general.launchAtLoginDesc": "Ouvrir l'application à la connexion",
+  "settings.general.startMinimized": "Démarrer réduit dans la zone de notification",
+  "settings.general.startMinimizedDesc": "Démarrer avec la fenêtre masquée dans la zone de notification",
+  "settings.general.toggleStartMinimized": "Activer ou désactiver le démarrage réduit dans la zone de notification",
   "settings.general.runInBackground": "Exécuter en arrière-plan",
   "settings.general.runInBackgroundDesc": "Continuer dans la barre système après fermeture",
   "settings.general.globalShortcut": "Raccourci global",

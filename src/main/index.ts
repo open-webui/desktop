@@ -278,7 +278,8 @@ function createMainWindow(show = true): void {
   mainWindow.setIcon(icon)
 
   if (CONFIG?.windowMaximized) {
-    mainWindow.maximize()
+    // Maximizing also shows the window; wait until it is opened from the tray.
+    mainWindow.once('show', () => mainWindow?.maximize())
   }
 
   if (!app.isPackaged) {
@@ -294,6 +295,10 @@ function createMainWindow(show = true): void {
   mainWindow.webContents.setWindowOpenHandler((details) => {
     openUrl(details.url)
     return { action: 'deny' }
+  })
+  mainWindow.webContents.on('will-navigate', (event, url) => {
+    event.preventDefault()
+    openUrl(url)
   })
 
   if (is.dev && process.env['ELECTRON_RENDERER_URL']) {
@@ -995,7 +1000,7 @@ if (!gotTheLock) {
     // Global shortcut
     registerShortcuts(CONFIG.globalShortcut)
 
-    createMainWindow()
+    createMainWindow(!CONFIG.startMinimized)
     // Show startup logs immediately while the service prepares and becomes ready.
     if (CONFIG?.llamaCpp?.enabled) {
       startLlamaCpp((status) => sendToRenderer('status:llamacpp-setup', status))

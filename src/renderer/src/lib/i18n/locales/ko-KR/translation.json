@@ -128,6 +128,9 @@
 
   "settings.general.launchAtLogin": "로그인 시 실행",
   "settings.general.launchAtLoginDesc": "로그인할 때 앱을 자동 실행",
+  "settings.general.startMinimized": "시스템 트레이로 최소화하여 시작",
+  "settings.general.startMinimizedDesc": "창을 숨기고 시스템 트레이에서 시작",
+  "settings.general.toggleStartMinimized": "시스템 트레이로 최소화하여 시작 전환",
   "settings.general.runInBackground": "백그라운드에서 실행",
   "settings.general.runInBackgroundDesc": "닫을 때 시스템 트레이에서 계속 실행",
   "settings.general.globalShortcut": "글로벌 단축키",

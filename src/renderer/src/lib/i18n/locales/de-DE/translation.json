@@ -128,6 +128,9 @@
 
   "settings.general.launchAtLogin": "Bei Anmeldung starten",
   "settings.general.launchAtLoginDesc": "App bei der Anmeldung automatisch öffnen",
+  "settings.general.startMinimized": "Minimiert im System-Tray starten",
+  "settings.general.startMinimizedDesc": "Mit ausgeblendetem Fenster im System-Tray starten",
+  "settings.general.toggleStartMinimized": "Minimierten Start im System-Tray umschalten",
   "settings.general.runInBackground": "Im Hintergrund ausführen",
   "settings.general.runInBackgroundDesc": "Im System-Tray weiterlaufen, wenn geschlossen",
   "settings.general.globalShortcut": "Globale Tastenkombination",

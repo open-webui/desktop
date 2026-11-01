@@ -227,7 +227,7 @@ export const downloadFileWithProgress = async (
         hash.update(chunk)
         downloadedSize += chunk.length
         try {
-          if (onProgress && totalSize) onProgress(downloadedSize / totalSize * 100, downloadedSize, totalSize)
+          onProgress?.(totalSize ? downloadedSize / totalSize * 100 : 0, downloadedSize, totalSize || 0)
           callback(null, chunk)
         } catch (error) {
           callback(error)
@@ -660,6 +660,7 @@ export const startServer = (onStatus?: (status: string) => void) => webuiService
 export interface AppConfig {
   version: number
   runInBackground: boolean
+  startMinimized: boolean
   globalShortcut: string
   installDir: string
   dataDir: string
@@ -684,6 +685,7 @@ export interface AppConfig {
 const DEFAULT_CONFIG: AppConfig = {
   version: 1,
   runInBackground: true,
+  startMinimized: false,
   globalShortcut: 'CommandOrControl+Shift+O',
   installDir: '',
   dataDir: '',

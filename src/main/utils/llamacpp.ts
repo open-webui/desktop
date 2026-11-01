@@ -249,6 +249,55 @@ const findInstalledBinary = (versionDir: string): string | null => {
 
 // ─── Setup (Download & Extract) ─────────────────────────
 
+const installReleaseAsset = async (
+  asset: ReleaseAsset, destination: string, onStatus?: (status: string) => void, signal?: AbortSignal
+): Promise<void> => {
+  signal?.throwIfAborted()
+  log.info(`Downloading asset: ${asset.name}`)
+  onStatus?.(`Downloading ${asset.name}…`)
+
+  fs.mkdirSync(destination, { recursive: true })
+  const downloadPath = path.join(destination, asset.name)
+  const checksum = asset.digest?.startsWith('sha256:') ? asset.digest.slice(7) : ''
+  if (fs.existsSync(downloadPath)) {
+    try {
+      await verifyFileChecksum(downloadPath, checksum)
+    } catch {
+      fs.unlinkSync(downloadPath)
+    }
+  }
+  if (!fs.existsSync(downloadPath)) {
+    await downloadFileWithProgress(asset.browser_download_url, downloadPath, (progress) => {
+      onStatus?.(`Downloading… ${progress.toFixed(0)}%`)
+    }, signal, checksum)
+  }
+
+  signal?.throwIfAborted()
+  onStatus?.('Extracting…')
+  log.info(`Extracting ${downloadPath} to ${destination}`)
+
+  if (asset.name.endsWith('.zip')) {
+    try {
+      if (process.platform === 'win32') {
+        execFileSync('powershell', [
+          '-Command',
+          `Expand-Archive -LiteralPath '${downloadPath.replaceAll("'", "''")}' -DestinationPath '${destination.replaceAll("'", "''")}' -Force`
+        ])
+      } else {
+        execFileSync('unzip', ['-o', downloadPath, '-d', destination])
+      }
+    } catch (error) {
+      throw new Error(`Failed to extract zip: ${error?.message ?? error}`)
+    }
+  } else {
+    await tar.x({ cwd: destination, file: downloadPath })
+  }
+
+  try {
+    fs.unlinkSync(downloadPath)
+  } catch {}
+}
+
 let setupTask: Promise<string> | undefined
 export const setupLlamaCpp = (onStatus?: (status: string) => void, signal?: AbortSignal, requestedVersion?: string): Promise<string> => {
   if (!setupTask) setupTask = prepareLlamaCpp(onStatus, signal, requestedVersion).finally(() => { setupTask = undefined })
@@ -261,13 +310,20 @@ const prepareLlamaCpp = async (
   signal?.throwIfAborted()
   const config = await getConfig()
   const llamaConfig = config.llamaCpp ?? {}
-  const version = requestedVersion || llamaConfig.version || 'latest'
+  let version = requestedVersion || llamaConfig.version || 'latest'
   if (!/^[a-zA-Z0-9][a-zA-Z0-9._+-]*$/.test(version)) throw new Error('Invalid llama.cpp version')
   const assetName = llamaConfig.assetName?.trim() || ''
   const variant = assetName ? '' : resolveVariant(llamaConfig.variant)
   const useAssetCache = !!assetName || variant !== 'cpu'
   // Validate before consulting the cache, including offline starts.
-  getAssetPattern(version, variant, assetName)
+  const { pattern: selectedAsset } = getAssetPattern(version, variant, assetName)
+  const cuda = process.platform === 'win32'
+    ? selectedAsset.match(/-bin-win-(cuda-(\d+)\.\d+-(?:x64|arm64))\.zip$/)
+    : null
+  const runtimeName = cuda ? `cudart-llama-bin-win-${cuda[1]}.zip` : ''
+  const runtimeDlls = cuda ? [`cudart64_${cuda[2]}.dll`, `cublas64_${cuda[2]}.dll`, `cublasLt64_${cuda[2]}.dll`] : []
+  const hasRuntime = (binary: string): boolean =>
+    runtimeDlls.every((name) => fs.existsSync(path.join(path.dirname(binary), name)))
 
   const cacheBase = path.join(getInstallDir(), 'llama.cpp')
   if (!fs.existsSync(cacheBase)) {
@@ -284,7 +340,7 @@ const prepareLlamaCpp = async (
   if (version !== 'latest') {
     // Pinned version — check its specific directory
     const pinnedBinary = getCachedBinary(version)
-    if (pinnedBinary) {
+    if (pinnedBinary && hasRuntime(pinnedBinary)) {
       log.info(`Using cached llama-server binary (pinned ${version}): ${pinnedBinary}`)
       binaryPath = pinnedBinary
       onStatus?.('Ready')
@@ -301,6 +357,11 @@ const prepareLlamaCpp = async (
       for (const cachedTag of cachedVersions) {
         const cachedBinary = getCachedBinary(cachedTag)
         if (cachedBinary) {
+          if (!hasRuntime(cachedBinary)) {
+            // Repair this installation without implicitly updating to a newer release.
+            version = cachedTag
+            break
+          }
           log.info(`Using cached llama-server binary (${cachedTag}): ${cachedBinary}`)
           binaryPath = cachedBinary
           onStatus?.('Ready')
@@ -331,8 +392,8 @@ const prepareLlamaCpp = async (
   } catch (error) {
     signal?.throwIfAborted()
     throw new Error(
-      `Failed to fetch release info (no internet?) and no cached llama.cpp binary found. ` +
-      `Please connect to the internet for the initial llama.cpp installation. ` +
+      `Failed to fetch release info (no internet?) and no complete cached llama.cpp installation found. ` +
+      `Please connect to the internet to install or repair llama.cpp. ` +
       `Original error: ${error?.message ?? error}`
     )
   }
@@ -341,67 +402,25 @@ const prepareLlamaCpp = async (
   if (typeof tag !== 'string' || !/^[a-zA-Z0-9][a-zA-Z0-9._+-]*$/.test(tag)) throw new Error('Invalid llama.cpp release tag')
   log.info(`llama.cpp release tag: ${tag}`)
 
-  const { pattern, isZip } = getAssetPattern(tag, variant, assetName)
+  const { pattern } = getAssetPattern(tag, variant, assetName)
   const releaseDir = path.join(cacheBase, tag)
   const versionDir = useAssetCache ? getAssetDir(releaseDir, pattern) : releaseDir
   const existingBinary = findBinary(versionDir)
-  if (existingBinary) {
+  if (existingBinary && hasRuntime(existingBinary)) {
     log.info(`llama-server binary already exists: ${existingBinary}`)
     binaryPath = existingBinary
     return existingBinary
   }
 
   const asset = (releaseData.assets as ReleaseAsset[]).find((a) => a.name === pattern)
-  if (!asset) {
+  if (!asset && !existingBinary) {
     const available = (releaseData.assets as ReleaseAsset[]).map((a) => a.name).join(', ')
     throw new Error(
       `No matching asset found for pattern "${pattern}". Available: ${available}`
     )
   }
 
-  log.info(`Downloading asset: ${asset.name}`)
-  onStatus?.(`Downloading ${asset.name}…`)
-
-  fs.mkdirSync(versionDir, { recursive: true })
-  const downloadPath = path.join(versionDir, asset.name)
-  const checksum = asset.digest?.startsWith('sha256:') ? asset.digest.slice(7) : ''
-  if (fs.existsSync(downloadPath)) {
-    try {
-      await verifyFileChecksum(downloadPath, checksum)
-    } catch {
-      fs.unlinkSync(downloadPath)
-    }
-  }
-  if (!fs.existsSync(downloadPath)) {
-    await downloadFileWithProgress(asset.browser_download_url, downloadPath, (progress) => {
-      onStatus?.(`Downloading… ${progress.toFixed(0)}%`)
-    }, signal, checksum)
-  }
-
-  signal?.throwIfAborted()
-  onStatus?.('Extracting…')
-  log.info(`Extracting ${downloadPath} to ${versionDir}`)
-
-  if (isZip) {
-    try {
-      if (process.platform === 'win32') {
-        execFileSync('powershell', [
-          '-Command',
-          `Expand-Archive -LiteralPath '${downloadPath.replaceAll("'", "''")}' -DestinationPath '${versionDir.replaceAll("'", "''")}' -Force`
-        ])
-      } else {
-        execFileSync('unzip', ['-o', downloadPath, '-d', versionDir])
-      }
-    } catch (error) {
-      throw new Error(`Failed to extract zip: ${error?.message ?? error}`)
-    }
-  } else {
-    await tar.x({ cwd: versionDir, file: downloadPath })
-  }
-
-  try {
-    fs.unlinkSync(downloadPath)
-  } catch {}
+  if (!existingBinary) await installReleaseAsset(asset, versionDir, onStatus, signal)
 
   if (process.platform !== 'win32') {
     const binary = findBinary(versionDir)
@@ -415,6 +434,13 @@ const prepareLlamaCpp = async (
   const resultBinary = findBinary(versionDir)
   if (!resultBinary) {
     throw new Error(`llama-server binary not found after extraction in ${versionDir}`)
+  }
+
+  if (!hasRuntime(resultBinary)) {
+    const runtime = (releaseData.assets as ReleaseAsset[]).find((a) => a.name === runtimeName)
+    if (!runtime) throw new Error(`CUDA runtime asset "${runtimeName}" not found in release ${tag}`)
+    await installReleaseAsset(runtime, path.dirname(resultBinary), onStatus, signal)
+    if (!hasRuntime(resultBinary)) throw new Error(`CUDA runtime DLLs missing after extracting ${runtimeName}`)
   }
 
   log.info(`llama-server binary ready: ${resultBinary}`)

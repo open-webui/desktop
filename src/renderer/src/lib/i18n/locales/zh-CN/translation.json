@@ -128,6 +128,9 @@
 
   "settings.general.launchAtLogin": "登录时启动",
   "settings.general.launchAtLoginDesc": "登录时自动打开应用",
+  "settings.general.startMinimized": "启动时最小化到系统托盘",
+  "settings.general.startMinimizedDesc": "启动时隐藏窗口并在系统托盘中运行",
+  "settings.general.toggleStartMinimized": "切换启动时最小化到系统托盘",
   "settings.general.runInBackground": "后台运行",
   "settings.general.runInBackgroundDesc": "关闭窗口后在系统托盘中继续运行",
   "settings.general.globalShortcut": "全局快捷键",

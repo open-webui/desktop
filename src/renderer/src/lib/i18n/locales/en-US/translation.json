@@ -128,6 +128,9 @@
 
   "settings.general.launchAtLogin": "Launch at login",
   "settings.general.launchAtLoginDesc": "Open app when you log in",
+  "settings.general.startMinimized": "Start minimized to tray",
+  "settings.general.startMinimizedDesc": "Start with the window hidden in the system tray",
+  "settings.general.toggleStartMinimized": "Toggle start minimized to tray",
   "settings.general.runInBackground": "Run in background",
   "settings.general.runInBackgroundDesc": "Keep running in the system tray when closed",
   "settings.general.globalShortcut": "Global shortcut",

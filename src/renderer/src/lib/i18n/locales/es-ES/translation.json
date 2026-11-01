@@ -128,6 +128,9 @@
 
   "settings.general.launchAtLogin": "Iniciar al iniciar sesión",
   "settings.general.launchAtLoginDesc": "Abrir la aplicación al iniciar sesión",
+  "settings.general.startMinimized": "Iniciar minimizado en la bandeja del sistema",
+  "settings.general.startMinimizedDesc": "Iniciar con la ventana oculta en la bandeja del sistema",
+  "settings.general.toggleStartMinimized": "Activar o desactivar el inicio minimizado en la bandeja del sistema",
   "settings.general.runInBackground": "Ejecutar en segundo plano",
   "settings.general.runInBackgroundDesc": "Seguir ejecutándose en la bandeja del sistema al cerrar",
   "settings.general.globalShortcut": "Atajo global",

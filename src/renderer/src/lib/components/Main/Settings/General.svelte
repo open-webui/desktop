@@ -9,6 +9,7 @@
   import Switch from '../../common/Switch.svelte'
 
   let launchAtLogin = $state(false)
+  let startMinimized = $state(false)
   let runInBackground = $state(true)
   let resetting = $state(false)
   let theme = $state<string>('system')
@@ -26,6 +27,7 @@
   onMount(async () => {
     launchAtLogin = await window.electronAPI.getLaunchAtLogin()
     const cfg = await window.electronAPI.getConfig()
+    startMinimized = cfg?.startMinimized ?? false
     runInBackground = cfg?.runInBackground ?? true
     const vars = cfg?.envVars ?? {}
     envEntries = Object.entries(vars).map(([key, value]) => ({ key, value: value as string }))
@@ -270,6 +272,28 @@
       onchange={async (value) => {
         launchAtLogin = value
         await window.electronAPI.setLaunchAtLogin(launchAtLogin)
+      }}
+    />
+  </div>
+
+  <div
+    class="flex min-w-0 items-center justify-between gap-[16px] py-[7px] max-sm:gap-[12px] [&>:first-child]:min-w-0 [&>:last-child]:shrink-0 max-sm:[&>:last-child:not([role=switch])]:max-w-[65%]"
+  >
+    <div>
+      <div class="text-[12px] leading-[16px] font-normal text-[#171717] dark:text-white">
+        {$i18n.t('settings.general.startMinimized')}
+      </div>
+      <div class="text-[11px] leading-[16px] text-[oklch(0.51_0_0)] dark:text-[oklch(0.77_0_0)] mt-0.5">
+        {$i18n.t('settings.general.startMinimizedDesc')}
+      </div>
+    </div>
+    <Switch
+      checked={startMinimized}
+      label={$i18n.t('settings.general.toggleStartMinimized')}
+      onchange={async (value) => {
+        startMinimized = value
+        await window.electronAPI.setConfig({ startMinimized })
+        config.set(await window.electronAPI.getConfig())
       }}
     />
   </div>
