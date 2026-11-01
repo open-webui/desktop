@@ -19,7 +19,7 @@ Debian/Ubuntu, Snap, and Flatpak packages are available on the [releases page](h
 
 Internet is required for installation and updates.
 
-In **Settings → About**, enable **Automatic desktop updates** to download updates in the background and install them when you quit. This option is off by default; you can also check, download, and restart to update manually. Desktop checks at launch and every six hours. Snap and Flatpak installations use their package manager or a newer package from the releases page.
+Enable **Automatic desktop updates** in **Settings → About** to update on quit.
 
 ## How It Works
 
