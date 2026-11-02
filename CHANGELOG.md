@@ -5,6 +5,22 @@ All notable changes to this project will be documented in this file.
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/),
 and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
+## [0.1.4] - 2026-11-02
+
+### Fixed
+
+- **llama.cpp installation with Latest selected.** Fixed installation and updates failing with “No matching asset found” after llama.cpp changed how it publishes releases. Desktop now finds the download belonging to the selected release (#334).
+- **AMD llama.cpp downloads on Windows and Linux.** Fixed downloads failing because Desktop requested outdated filenames. The ROCm option now recognizes the renamed downloads and still opens previously installed versions without an internet connection (#334).
+- **llama.cpp offering an older version as an update.** If you already have a newer numbered build installed, checking for updates no longer offers an older build from the latest release.
+- **llama.cpp stopping when an update has no matching download.** Desktop now checks that the selected download exists before stopping llama.cpp. If it is missing, the running model server stays running.
+- **macOS installer creation.** Fixed the signing password error that prevented macOS installers from being created. Apple signing and security checks are still required before publishing.
+
+### Changed
+
+- **Model folder display.** In Settings → Models, the folder path now has its own full-width button below the description. Long paths shorten to fit the window; hover to see the full path or click to open the folder.
+- **Get Started button.** Its arrow now moves slightly to the right on hover. The animation respects your system's reduced-motion setting.
+- **Windows releases when signing fails.** Desktop still attempts to sign Windows installers, but a signing failure no longer blocks publishing. An unsigned installer may show an unknown-publisher or Windows SmartScreen warning.
+
 ## [0.1.3] - 2026-11-01
 
 ### Fixed

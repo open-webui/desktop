@@ -76,6 +76,38 @@ interface ReleaseAsset {
   digest?: string
 }
 
+interface LlamaRelease {
+  tag_name: string
+  assets: ReleaseAsset[]
+}
+
+const fetchLlamaRelease = async (version = 'latest', signal?: AbortSignal): Promise<LlamaRelease> => {
+  const requestSignal = signal ? AbortSignal.any([signal, AbortSignal.timeout(10000)]) : AbortSignal.timeout(10000)
+  const request = async (url: string) => {
+    const response = await fetch(url, {
+      headers: { Accept: 'application/vnd.github.v3+json' }, signal: requestSignal
+    })
+    if (!response.ok) throw new Error(`GitHub returned ${response.status}: ${response.statusText}`)
+    return response
+  }
+  const getRelease = async (tag: string): Promise<LlamaRelease> => {
+    if (!/^[a-zA-Z0-9][a-zA-Z0-9._+-]*$/.test(tag)) throw new Error('Invalid llama.cpp release tag')
+    const endpoint = tag === 'latest' ? 'latest' : `tags/${tag}`
+    const data = await (await request(`https://api.github.com/repos/ggml-org/llama.cpp/releases/${endpoint}`)).json()
+    if (typeof data.tag_name !== 'string' || !/^[a-zA-Z0-9][a-zA-Z0-9._+-]*$/.test(data.tag_name) || !Array.isArray(data.assets)) {
+      throw new Error('Invalid llama.cpp release metadata')
+    }
+    return data
+  }
+  const release = await getRelease(version)
+  const nightly = release.assets.find((asset) => asset.name === 'nightly-tag.txt')
+  if (!nightly) return release
+  // Semantic releases point to the nightly build containing their binaries.
+  const tag = (await (await request(nightly.browser_download_url)).text()).trim()
+  if (!/^b\d+$/.test(tag)) throw new Error('Invalid llama.cpp nightly tag')
+  return getRelease(tag)
+}
+
 /**
  * Detect the best GPU variant for the current platform.
  * Returns the variant string (e.g. 'cuda-12.4', 'vulkan', 'rocm', 'cpu').
@@ -172,7 +204,7 @@ const getAssetPattern = (
     const variantMap: Record<string, string> = {
       cpu: `llama-${tag}-bin-ubuntu-x64.tar.gz`,
       vulkan: `llama-${tag}-bin-ubuntu-vulkan-x64.tar.gz`,
-      rocm: `llama-${tag}-bin-ubuntu-rocm-7.2-x64.tar.gz`
+      rocm: `llama-${tag}-bin-ubuntu-rocm-10.0-x64.tar.gz`
     }
     const name = variantMap[variant] ?? variantMap.cpu
     return { pattern: name, isZip: false }
@@ -187,7 +219,7 @@ const getAssetPattern = (
       'cuda-13.3': `llama-${tag}-bin-win-cuda-13.3-x64.zip`,
       'cuda-13.4': `llama-${tag}-bin-win-cuda-13.4-x64.zip`,
       vulkan: `llama-${tag}-bin-win-vulkan-x64.zip`,
-      rocm: `llama-${tag}-bin-win-hip-radeon-x64.zip`
+      rocm: `llama-${tag}-bin-win-rocm-10.0-x64.zip`
     }
     const name = variantMap[variant] ?? variantMap.cpu
     return { pattern: name, isZip: true }
@@ -198,6 +230,17 @@ const getAssetPattern = (
 
 export const getLlamaCppAssetName = (variant?: string): string =>
   getAssetPattern('${tag}', resolveVariant(variant)).pattern
+
+const findReleaseAsset = (release: LlamaRelease, variant: string, assetName?: string): ReleaseAsset | undefined => {
+  const { pattern } = getAssetPattern(release.tag_name, variant, assetName)
+  const exact = release.assets.find((asset) => asset.name === pattern)
+  if (exact || assetName?.trim() || variant !== 'rocm') return exact
+  const prefix = `llama-${release.tag_name}-bin-`
+  const suffix = process.platform === 'win32'
+    ? /^win-(?:rocm-[\d.]+|hip-radeon)-x64\.zip$/
+    : process.platform === 'linux' ? /^ubuntu-rocm-[\d.]+-x64\.tar\.gz$/ : null
+  return release.assets.find((asset) => asset.name.startsWith(prefix) && suffix?.test(asset.name.slice(prefix.length)))
+}
 
 /**
  * Find the llama-server binary inside the extracted directory.
@@ -333,7 +376,11 @@ const prepareLlamaCpp = async (
   const getCachedBinary = (tag: string): string | null => {
     const versionDir = path.join(cacheBase, tag)
     const { pattern } = getAssetPattern(tag, variant, assetName)
-    return findBinary(useAssetCache ? getAssetDir(versionDir, pattern) : versionDir)
+    const binary = findBinary(useAssetCache ? getAssetDir(versionDir, pattern) : versionDir)
+    if (binary || assetName || variant !== 'rocm') return binary
+    // Preserve offline access to installations cached under the previous defaults.
+    const legacyPattern = pattern.replace('-win-rocm-10.0-', '-win-hip-radeon-').replace('-ubuntu-rocm-10.0-', '-ubuntu-rocm-7.2-')
+    return findBinary(getAssetDir(versionDir, legacyPattern))
   }
   // ── Check for existing cached binary before any network request ──
   // Startup reuses installed binaries; only an explicit update resolves a newer release.
@@ -374,21 +421,9 @@ const prepareLlamaCpp = async (
   }
 
   onStatus?.('Fetching release info…')
-  const apiUrl =
-    version === 'latest'
-      ? 'https://api.github.com/repos/ggml-org/llama.cpp/releases/latest'
-      : `https://api.github.com/repos/ggml-org/llama.cpp/releases/tags/${version}`
-
-  let releaseData: any
+  let releaseData: LlamaRelease
   try {
-    const response = await fetch(apiUrl, {
-      headers: { Accept: 'application/vnd.github.v3+json' },
-      signal: signal ? AbortSignal.any([signal, AbortSignal.timeout(10000)]) : AbortSignal.timeout(10000)
-    })
-    if (!response.ok) {
-      throw new Error(`GitHub API returned ${response.status}: ${response.statusText}`)
-    }
-    releaseData = await response.json()
+    releaseData = await fetchLlamaRelease(version, signal)
   } catch (error) {
     signal?.throwIfAborted()
     throw new Error(
@@ -399,7 +434,6 @@ const prepareLlamaCpp = async (
   }
 
   const tag = releaseData.tag_name
-  if (typeof tag !== 'string' || !/^[a-zA-Z0-9][a-zA-Z0-9._+-]*$/.test(tag)) throw new Error('Invalid llama.cpp release tag')
   log.info(`llama.cpp release tag: ${tag}`)
 
   const { pattern } = getAssetPattern(tag, variant, assetName)
@@ -412,7 +446,7 @@ const prepareLlamaCpp = async (
     return existingBinary
   }
 
-  const asset = (releaseData.assets as ReleaseAsset[]).find((a) => a.name === pattern)
+  const asset = findReleaseAsset(releaseData, variant, assetName)
   if (!asset && !existingBinary) {
     const available = (releaseData.assets as ReleaseAsset[]).map((a) => a.name).join(', ')
     throw new Error(
@@ -453,16 +487,7 @@ export const checkLlamaCppUpdate = async (): Promise<{ currentVersion: string | 
   const currentInfo = getLlamaCppInfo()
 
   try {
-    const response = await fetch('https://api.github.com/repos/ggml-org/llama.cpp/releases/latest', {
-      headers: { Accept: 'application/vnd.github.v3+json' },
-      signal: AbortSignal.timeout(5000)
-    })
-    
-    if (!response.ok) {
-      throw new Error(`GitHub API returned ${response.status}: ${response.statusText}`)
-    }
-    
-    const releaseData = await response.json()
+    const releaseData = await fetchLlamaRelease('latest', AbortSignal.timeout(5000))
     const latestVersion = releaseData.tag_name
     const currentVersion = currentInfo.version
     
@@ -473,7 +498,9 @@ export const checkLlamaCppUpdate = async (): Promise<{ currentVersion: string | 
     return { 
       currentVersion, 
       latestVersion, 
-      updateAvailable: currentVersion !== latestVersion 
+      updateAvailable: /^b\d+$/.test(currentVersion) && /^b\d+$/.test(latestVersion)
+        ? Number(currentVersion.slice(1)) < Number(latestVersion.slice(1))
+        : currentVersion !== latestVersion
     }
   } catch (error) {
     log.error('Failed to check for llama.cpp updates:', error)
@@ -490,25 +517,20 @@ export const updateLlamaCpp = async (
 ): Promise<{ url?: string; status?: string; pid?: number; binaryPath?: string; version?: string | null }> => {
   // Resolve the requested update before stopping the running service.
   onStatus?.('Checking for updates…')
-  let releaseTag: string
+  let release: LlamaRelease
   try {
-    const response = await fetch(
-      'https://api.github.com/repos/ggml-org/llama.cpp/releases/latest',
-      {
-        headers: { Accept: 'application/vnd.github.v3+json' },
-        signal: AbortSignal.timeout(10000)
-      }
-    )
-    if (!response.ok) {
-      throw new Error(`GitHub API returned ${response.status}: ${response.statusText}`)
-    }
-    const data = await response.json()
-    releaseTag = data.tag_name
+    release = await fetchLlamaRelease()
   } catch (error) {
     throw new Error(
       `Cannot update llama.cpp: unable to reach GitHub. ` +
       `Please check your internet connection. (${error?.message ?? error})`
     )
+  }
+
+  const { llamaCpp = {} } = await getConfig()
+  const variant = llamaCpp.assetName?.trim() ? '' : resolveVariant(llamaCpp.variant)
+  if (!findReleaseAsset(release, variant, llamaCpp.assetName)) {
+    throw new Error(`No matching llama.cpp archive found in release ${release.tag_name}`)
   }
 
   // Stop if running.
@@ -518,7 +540,7 @@ export const updateLlamaCpp = async (
   // Target this release explicitly so setup cannot reuse an older cached version.
   // Keep installed binaries available if downloading the replacement fails.
   onStatus?.('Downloading update…')
-  await setupLlamaCpp(onStatus, undefined, releaseTag)
+  await setupLlamaCpp(onStatus, undefined, release.tag_name)
 
   const config = await getConfig()
   await setConfig({ llamaCpp: { ...config.llamaCpp, version: 'latest' } })
