@@ -1,5 +1,6 @@
 <script lang="ts">
   import { onMount, onDestroy } from 'svelte'
+  import type { ServiceInfo } from '../../../../../shared/terminal'
   import { config, serverInfo } from '../../stores'
   import i18n from '../../i18n'
   import Content from './Connections/Content.svelte'
@@ -29,6 +30,8 @@
     error?: string
   } | null>(null)
   let llamaCppSetupStatus = $state('')
+  let ollamaInfo = $state<(ServiceInfo & { binaryPath: string | null }) | null>(null)
+  let ollamaSetupStatus = $state('')
 
   const openWebUI = async (restart = false): Promise<boolean> => {
     if (connecting) return false
@@ -59,6 +62,7 @@
 
   const startInstall = async (options?: {
     installLlamaCpp?: boolean
+    installOllama?: boolean
     installDir?: string
   }): Promise<void> => {
     if (installPhase === 'working') return
@@ -88,6 +92,7 @@
         throw new Error($i18n.t('error.installFailedGeneric'))
       localInstalled = true
       if (options?.installLlamaCpp) await window.electronAPI.startLlamaCpp()
+      if (options?.installOllama) await window.electronAPI.startOllama()
       installStatus = $i18n.t('main.install.startingServer')
       if (!(await openWebUI()) && launchError) throw new Error(launchError)
       installPhase = 'idle'
@@ -109,6 +114,8 @@
         serverUrl = event.data.url
       if (event.type === 'server:info' && ['stopped', 'failed'].includes(event.data?.status))
         serverUrl = ''
+      if (event.type === 'ollama:info') ollamaInfo = event.data
+      if (event.type === 'status:ollama-setup') ollamaSetupStatus = event.data ?? ''
       if (event.type === 'llamacpp:info') {
         llamaCppInfo = event.data
         llamaCppStatus = event.data.status
@@ -130,6 +137,7 @@
       config.set(cfg)
       if (localInstalled && $config?.localServer?.enabled !== false) void openWebUI()
     })
+    window.electronAPI.getOllamaInfo().then((info) => { if (!disposed) ollamaInfo = info })
     window.electronAPI.getLlamaCppInfo().then((info) => {
       if (disposed) return
       llamaCppInfo = info
@@ -202,6 +210,18 @@
               onRunningAction: () => window.electronAPI.stopLlamaCpp()
             }
           ]
+        : []),
+      ...(ollamaInfo?.binaryPath || (ollamaInfo?.status && ollamaInfo.status !== 'stopped')
+        ? [{
+            id: 'ollama' as const,
+            label: 'Ollama',
+            status: ollamaInfo.status,
+            pid: ollamaInfo.pid,
+            detail: ollamaInfo.error || (ollamaInfo.status === 'starting' ? ollamaSetupStatus : ''),
+            onStart: () => window.electronAPI.startOllama(),
+            runningAction: 'stop' as const,
+            onRunningAction: () => window.electronAPI.stopOllama()
+          }]
         : [])
     ]}
   />

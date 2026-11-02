@@ -1,4 +1,5 @@
 <script lang="ts">
+  import NavArrowDownIcon from 'iconoir/icons/nav-arrow-down.svg?raw'
   import NavArrowLeftIcon from 'iconoir/icons/nav-arrow-left.svg?raw'
   import SearchIcon from 'iconoir/icons/search.svg?raw'
   import InfoCircleIcon from 'iconoir/icons/info-circle.svg?raw'
@@ -12,12 +13,18 @@
   import General from './Settings/General.svelte'
   import OpenWebUI from './Settings/OpenWebUI.svelte'
   import InferenceRuntime from './Settings/InferenceRuntime.svelte'
+  import Ollama from './Settings/Ollama.svelte'
   import Models from './Settings/Models.svelte'
   import About from './Settings/About.svelte'
 
   let { onClose, settingsTab = $bindable('general') }: { onClose: () => void; settingsTab?: string } = $props()
   let search = $state('')
   let showSearch = $state(false)
+  let runtime = $state('llamacpp')
+  const runtimes = [
+    { id: 'llamacpp', label: 'llama.cpp' },
+    { id: 'ollama', label: 'Ollama' }
+  ]
 
   const tabs = [
     { id: 'general', icon: SettingsIcon, group: 'basics' },
@@ -34,8 +41,9 @@
     return tabs.filter((tab) =>
       [
         $i18n.t(`settings.tabs.${tab.id}`),
+        ...(tab.id === 'inference' ? runtimes.map((runtime) => runtime.label) : []),
         ...Object.entries(translations)
-          .filter(([key]) => key.startsWith(`settings.${tab.id}.`))
+          .filter(([key]) => key.startsWith(`settings.${tab.id}.`) || (tab.id === 'inference' && key.startsWith('settings.ollama.')))
           .map(([, value]) => String(value))
       ].some((text) => text.toLocaleLowerCase().includes(query))
     )
@@ -133,12 +141,32 @@
   </nav>
 
   <div class="flex min-h-0 min-w-0 flex-1 flex-col p-[16px] md:px-[20px]">
-    <h2
-      id="settings-heading"
-      class="mb-[16px] shrink-0 text-[14px] leading-[20px] font-medium text-gray-900 dark:text-white"
-    >
-      {$i18n.t(`settings.tabs.${settingsTab}`)}
-    </h2>
+    <div class="mb-[16px] flex shrink-0 flex-wrap items-center justify-between gap-x-[12px] gap-y-[8px]">
+      <h2
+        id="settings-heading"
+        class="text-[14px] leading-[20px] font-medium text-gray-900 dark:text-white"
+      >
+        {$i18n.t(`settings.tabs.${settingsTab}`)}
+      </h2>
+      {#if settingsTab === 'inference'}
+        <div class="relative inline-flex max-w-full shrink-0">
+          <select
+            id="inference-runtime"
+            aria-label={$i18n.t('settings.tabs.inference')}
+            aria-controls="inference-runtime-content"
+            bind:value={runtime}
+            class="h-[28px] max-w-full appearance-none truncate rounded-[8px] border border-gray-100/50 bg-gray-50/40 ps-[10px] pe-[32px] text-[12px] leading-[16px] font-normal text-gray-700 outline-hidden [field-sizing:content] transition-colors focus:border-blue-400 dark:border-white/[0.04] dark:bg-white/[0.03] dark:text-gray-300 dark:focus:border-blue-500"
+          >
+            {#each runtimes as item}
+              <option value={item.id}>{item.label}</option>
+            {/each}
+          </select>
+          <span aria-hidden="true" class="pointer-events-none absolute right-[8px] top-1/2 inline-flex size-[14px] -translate-y-1/2 text-gray-400 dark:text-gray-500 [&>svg]:size-full">
+            {@html NavArrowDownIcon}
+          </span>
+        </div>
+      {/if}
+    </div>
     {#key settingsTab}
       <section aria-labelledby="settings-heading" class="min-h-0 flex-1 overflow-y-auto pr-[6px]">
         {#if settingsTab === 'general'}
@@ -146,7 +174,13 @@
         {:else if settingsTab === 'openwebui'}
           <OpenWebUI />
         {:else if settingsTab === 'inference'}
-          <InferenceRuntime />
+          <div id="inference-runtime-content">
+            {#if runtime === 'llamacpp'}
+              <InferenceRuntime />
+            {:else}
+              <Ollama />
+            {/if}
+          </div>
         {:else if settingsTab === 'models'}
           <Models />
         {:else if settingsTab === 'about'}

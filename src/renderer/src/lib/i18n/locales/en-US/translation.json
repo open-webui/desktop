@@ -260,5 +260,12 @@
   "settings.about.wakeUp": "Wake up, {{username}}...",
   "settings.about.matrixHasYou": "The Matrix has you...",
   "settings.about.followWhiteRabbit": "Follow the white rabbit.",
-  "settings.about.knockKnock": "Knock, knock, {{username}}."
+  "settings.about.knockKnock": "Knock, knock, {{username}}.",
+  "settings.ollama.notInstalled": "Ollama is not installed",
+  "settings.ollama.notInstalledDesc": "Download and set up Ollama for local model inference",
+  "settings.ollama.description": "Run models locally with Ollama",
+  "settings.ollama.startOnLaunchDesc": "Automatically start Ollama when the app opens",
+  "settings.ollama.versionDesc": "Release tag (latest or v0.0.0). Applies on next start.",
+  "settings.ollama.portDesc": "Preferred local port. Applies on next start.",
+  "settings.ollama.uninstallDesc": "Remove downloaded Ollama binaries. Your Ollama models are kept."
 }

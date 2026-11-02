@@ -7,12 +7,13 @@
   import Switch from '../../common/Switch.svelte'
 
   interface Props {
-    onContinue: (options: { installLlamaCpp: boolean; installDir: string }) => void
+    onContinue: (options: { installLlamaCpp: boolean; installOllama: boolean; installDir: string }) => void
     onCancel: () => void
   }
 
   let { onContinue, onCancel }: Props = $props()
 
+  let installOllama = $state(false)
   let installLlamaCpp = $state(false)
   let installDir = $state('')
   let defaultInstallDir = $state('')
@@ -80,6 +81,13 @@
           onchange={(v) => { installLlamaCpp = v }}
         />
       </div>
+      <div class="py-3.5 flex items-center justify-between gap-4">
+        <div>
+          <div class="text-[13px] font-medium text-gray-700 dark:text-gray-300">Ollama</div>
+          <div class="text-[11px] text-gray-400 dark:text-gray-500 mt-0.5">{$i18n.t('settings.ollama.description')}</div>
+        </div>
+        <Switch label="Ollama" checked={installOllama} onchange={(value) => { installOllama = value }} />
+      </div>
     </div>
 
     <!-- Advanced (collapsed) -->
@@ -118,7 +126,7 @@
     <div class="px-5 pb-5 pt-1 flex flex-col gap-2">
       <button
         class="w-full rounded-xl bg-gray-900 dark:bg-white px-4 py-2.5 text-sm font-medium text-white dark:text-gray-900 transition-all duration-200 hover:bg-gray-800 dark:hover:bg-gray-100 active:scale-[0.98] border-none cursor-pointer"
-        onclick={() => onContinue({ installLlamaCpp, installDir })}
+        onclick={() => onContinue({ installLlamaCpp, installOllama, installDir })}
       >
         {$i18n.t('main.getStarted.continue')}
       </button>

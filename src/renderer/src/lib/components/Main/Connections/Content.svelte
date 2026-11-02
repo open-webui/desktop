@@ -36,7 +36,7 @@
     installError: string
     installStatus: string
     toastVisible: boolean
-    onStartInstall: (options?: { installLlamaCpp?: boolean; installDir?: string }) => void
+    onStartInstall: (options?: { installLlamaCpp?: boolean; installOllama?: boolean; installDir?: string }) => void
     onOpenWebUI: () => void
     onOpenTerminal: () => void
   } = $props()
@@ -145,16 +145,19 @@
     })
     listen('ipc-message', async (event: IpcMessageEvent) => {
       if (event.channel === 'webview:ready') {
-        const info = await window.electronAPI.getLlamaCppInfo()
-        if (!disposed && info?.reachable && info.url) {
-          send({
-            type: 'connections:openai',
-            data: {
-              action: 'add',
-              url: `${info.url}/v1`,
-              config: { provider: 'llama.cpp', connection_type: 'local' }
-            }
-          })
+        const runtimes = await Promise.all([
+          window.electronAPI.getLlamaCppInfo(), window.electronAPI.getOllamaInfo()
+        ])
+        for (const [index, info] of runtimes.entries()) {
+          if (!disposed && info?.reachable && info.url) {
+            send({
+              type: 'connections:openai',
+              data: {
+                action: 'add', url: `${info.url}/v1`,
+                config: { provider: index === 0 ? 'llama.cpp' : 'ollama', connection_type: 'local' }
+              }
+            })
+          }
         }
       } else if (event.channel === 'webview:send') {
         const request = event.args?.[0]

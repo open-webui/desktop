@@ -703,6 +703,7 @@ export interface AppConfig {
     assetName?: string
     extraArgs: string[]
   }
+  ollama: { enabled: boolean; port: number; version: string }
   envVars: Record<string, string>
   windowBounds: { x: number; y: number; width: number; height: number } | null
   windowMaximized: boolean
@@ -728,6 +729,7 @@ const DEFAULT_CONFIG: AppConfig = {
     variant: 'cpu',
     extraArgs: []
   },
+  ollama: { enabled: false, port: 11434, version: 'latest' },
   envVars: {},
   windowBounds: null,
   windowMaximized: false

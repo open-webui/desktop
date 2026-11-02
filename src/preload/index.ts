@@ -81,6 +81,16 @@ const api = {
     return () => terminals.disconnect(id)
   },
 
+  // Ollama
+  setupOllama: () => ipcRenderer.invoke('ollama:setup'),
+  startOllama: () => ipcRenderer.invoke('ollama:start'),
+  stopOllama: () => ipcRenderer.invoke('ollama:stop'),
+  getOllamaInfo: () => ipcRenderer.invoke('ollama:info'),
+  getOllamaLogs: () => ipcRenderer.invoke('ollama:logs'),
+  checkOllamaUpdate: () => ipcRenderer.invoke('ollama:check-update'),
+  updateOllama: () => ipcRenderer.invoke('ollama:update'),
+  uninstallOllama: () => ipcRenderer.invoke('ollama:uninstall'),
+
   // llama.cpp
   setupLlamaCpp: () => ipcRenderer.invoke('llamacpp:setup'),
   startLlamaCpp: () => ipcRenderer.invoke('llamacpp:start'),
