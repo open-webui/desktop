@@ -6,6 +6,7 @@
   { "code": "fr-FR", "title": "Français" },
   { "code": "ja-JP", "title": "日本語" },
   { "code": "ko-KR", "title": "한국어" },
+  { "code": "ru-RU", "title": "Русский" },
   { "code": "zh-CN", "title": "简体中文" },
   { "code": "zh-TW", "title": "繁體中文" }
 ]
