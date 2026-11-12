@@ -4,7 +4,11 @@ export class OutputBuffer {
   private bytes = 0
   private truncated = false
 
-  constructor(private readonly limit = 256 * 1024) {}
+  private readonly limit: number
+
+  constructor(limit = 256 * 1024) {
+    this.limit = limit
+  }
 
   append(data: string): void {
     if (!data) return
