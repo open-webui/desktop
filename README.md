@@ -51,6 +51,10 @@ Desktop does not collect usage data. If you connect Open WebUI to an external AI
 ## Contributing
 
 ```bash
+# Clone This Repository
+git clone https://github.com/open-webui/desktop.git
+
+# run dev server
 npm install
 npm run dev
 ```
